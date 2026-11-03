@@ -270,3 +270,11 @@
 .bay.dragging{opacity:.4}
 .bay.over{outline:2px solid var(--accent);outline-offset:2px}
 .bay.gap{cursor:default}
+
+/* the real dimensions, on the card — you should not have to add a part to
+   find out it needs 70" of a 84" bay */
+.palette{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+.palette button i{padding:8px 8px 2px;font-weight:500;font-size:.73rem}
+.palette button em{font-style:normal;display:block;padding:0 8px 9px;
+  font-size:.62rem;line-height:1.35;color:var(--muted);text-align:center;
+  font-variant-numeric:tabular-nums}

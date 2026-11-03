@@ -459,7 +459,8 @@ function paintStack(){
         title="${tip}">
         <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
              width="420" height="315">
-        <i>${d.label}</i>${chk.ok?'':'<u>Full</u>'}</button>`}).join('')}</div>`;
+        <i>${d.label}</i>
+        <em>${(d.spec||'').replace(/"/g,'&quot;')}</em>${chk.ok?'':'<u>Full</u>'}</button>`}).join('')}</div>`;
 }
 
 /* ───────── finishes + hardware ───────── */

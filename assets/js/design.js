@@ -101,6 +101,7 @@ export function canAdd(stack, id, usableH){
 export const MODULES = {
   LONG_HANG: {
     label:'Long hang', hint:'Coats and dresses. One rod with full clearance below.',
+    spec:'Rod at 66\" · needs 62\" min',
     icon:'M2 4h20M6 8h12M7 8v18M11 8v20M15 8v17M19 8v19',
     defH:70, minH:62, maxH:84, fill:true,
     build(c){
@@ -112,6 +113,7 @@ export const MODULES = {
   },
   DOUBLE_HANG: {
     label:'Double hang', hint:'Shirts and folded trousers. Two rods, twice the capacity.',
+    spec:'Rods at 80\" and 40\" · needs 70\" min',
     icon:'M2 3h20M6 7h12M7 7v5M11 7v6M15 7v5M19 7v6M2 15h20M6 19h12M7 19v5M11 19v6M15 19v5M19 19v6',
     defH:78, minH:70, maxH:84, fill:true,
     build(c){
@@ -128,6 +130,7 @@ export const MODULES = {
   },
   SHELVES: {
     label:'Adjustable shelves', hint:'Folded knits, bags, boxes. Moves on 32mm centres.',
+    spec:'Adjustable on 32mm centres · 12\"–84\"',
     icon:'M2 4h20M2 11h20M2 18h20M2 25h20',
     defH:42, minH:12, maxH:84, fill:true, opt:{key:'n',label:'Shelves',min:1,max:10,def:4},
     build(c){
@@ -139,6 +142,7 @@ export const MODULES = {
   },
   DRAWERS: {
     label:'Drawers', hint:'Soft-close undermount glides. Nine box sizes.',
+    spec:'Boxes 7½\"–25\" tall · bank 10\"–48\"',
     icon:'M2 3h20v6H2zM2 12h20v6H2zM2 21h20v6H2z',
     defH:34, minH:10, maxH:48, opt:{key:'n',label:'Drawers',min:1,max:8,def:4},
     build(c){
@@ -168,6 +172,7 @@ export const MODULES = {
   },
   SHOES: {
     label:'Shoe shelving', hint:'Flat shelves at 8" spacing.',
+    spec:'Shelves at 8\" spacing · 16\"–84\"',
     icon:'M2 3h20M2 8h20M2 13h20M2 18h20M2 23h20M2 28h20',
     defH:40, minH:16, maxH:84, fill:true,
     build(c){
@@ -179,6 +184,7 @@ export const MODULES = {
   },
   SHOE_SLANT: {
     label:'Slanted shoe', hint:'Angled shelf with a fence. Shows the whole shoe.',
+    spec:'Angled shelves at 8\" spacing · 16\"–84\"',
     icon:'M2 7l20-4M2 14l20-4M2 21l20-4M2 28l20-4',
     defH:40, minH:16, maxH:84, fill:true,
     build(c){
@@ -193,6 +199,7 @@ export const MODULES = {
   },
   HAMPER: {
     label:'Tilt-out hamper', hint:'Chrome basket on a flap stay. Laundry off the floor.',
+    spec:'26\"–32\" tall · 18\" basket',
     icon:'M2 3h20M4 9h16l-2 18H6z',
     defH:28, minH:26, maxH:32,
     build(c){
@@ -206,6 +213,7 @@ export const MODULES = {
   },
   BASKETS: {
     label:'Pull-out baskets', hint:'Chrome wire on full-extension glides.',
+    spec:'Chrome wire on full extension · 10\"–48\"',
     icon:'M3 5h18v5H3zM3 13h18v5H3zM3 21h18v5H3zM7 7h10M7 15h10M7 23h10',
     defH:30, minH:10, maxH:48, opt:{key:'n',label:'Baskets',min:1,max:6,def:3},
     build(c){
@@ -217,6 +225,7 @@ export const MODULES = {
   },
   CUBBIES: {
     label:'Cubbies', hint:'A grid of small openings. Bags, hats, folded knits.',
+    spec:'Grid of openings · 12\"–60\"',
     icon:'M2 3h9v9H2zM13 3h9v9h-9zM2 15h9v9H2zM13 15h9v9h-9z',
     defH:36, minH:12, maxH:60, opt:{key:'n',label:'Rows',min:1,max:5,def:3},
     build(c){
@@ -229,6 +238,7 @@ export const MODULES = {
   },
   COUNTER: {
     label:'Counter top', hint:'A work surface. Folding, packing, a laundry bench.',
+    spec:'Work surface at 36\" · 1¼\"–3\" thick',
     icon:'M1 10h22v4H1zM4 16h16v12H4z',
     defH:2, minH:1.25, maxH:3,
     build(c){
@@ -239,6 +249,7 @@ export const MODULES = {
   },
   DOOR: {
     label:'Closed door', hint:'A slab door over the whole bay.',
+    spec:'Slab front · 12\"–84\" tall',
     icon:'M3 2h18v28H3zM18 15h2',
     defH:48, minH:12, maxH:84, fill:true,
     build(c){
@@ -251,6 +262,7 @@ export const MODULES = {
   },
   GLASS_DOOR: {
     label:'Glass door', hint:'Framed glass front. The frame ships without the glass — glass is sourced locally.',
+    spec:'Framed glass front · 12\"–84\" tall',
     icon:'M3 2h18v28H3zM6 5h12v22H6zM18 15h2',
     defH:48, minH:12, maxH:84, fill:true,
     build(c){
@@ -269,6 +281,7 @@ export const MODULES = {
   },
   OPEN: {
     label:'Leave open', hint:'Empty space. Long coats, a laundry basket, a step stool.',
+    spec:'Empty space · 6\"–84\" tall',
     icon:'M3 2h18v28H3z',
     defH:30, minH:6, maxH:84, fill:true,
     build(){}
