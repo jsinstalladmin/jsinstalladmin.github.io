@@ -45,10 +45,22 @@ function wallLength(wall){
   if(wall==='back') return S.room.w - (S.runs.left?SPEC.hangDepth:0) - (S.runs.right?SPEC.hangDepth:0);
   return S.room.d - SPEC.hangDepth;
 }
-function seedBays(wall){
-  const len = wallLength(wall);
-  const n = Math.max(1, Math.round(len/30));
-  return Array.from({length:n}, ()=> makeBay(+(len/n).toFixed(1), []));   // empty: they fill it
+/* A new run starts with NOTHING in it. The previous version dropped two
+   bays and a carcass into the room before the customer had chosen anything,
+   which is the same mistake as pre-filling the stack: they were handed a
+   closet and asked to adjust it. They get an empty room and build it. */
+function seedBays(){ return []; }
+
+/* widths the run can actually be divided into. Anything over 36" needs a
+   partition because a 3/4" shelf sags past that span, so those are the only
+   widths offered — and a custom entry is clamped into the same range. */
+const BAY_PRESETS = [24, 28, 30, 32, 36];
+function clampBay(v){
+  return Math.min(SPEC.bayMax, Math.max(SPEC.bayMin, Math.round(v * 2) / 2));
+}
+function freeSpace(wall){
+  const r = S.runs[wall]; if(!r) return 0;
+  return wallLength(wall) - r.bays.reduce((a,b)=>a+b.w, 0);
 }
 /* keep a run's bays summing to the wall. Called whenever a bay is added or
    removed, so the drawing can never run past the wall it sits on. */
@@ -346,25 +358,37 @@ function paintBays(){
   const host=$('#bays'); host.innerHTML='';
   for(const wall of ['back','left','right']){
     const r=S.runs[wall]; if(!r||!r.on) continue;
-    const len=wallLength(wall);
-    const used=r.bays.reduce((a,b)=>a+b.w,0);
+    const len  = wallLength(wall);
+    const used = r.bays.reduce((a,b)=>a+b.w,0);
+    const left = len - used;
     const d=document.createElement('div'); d.className='runblk';
-    d.innerHTML=`<div class="runhd"><b>${wall[0].toUpperCase()+wall.slice(1)} wall</b>
-      <span class="${Math.abs(used-len)>1?'over':''}">${used.toFixed(0)}" of ${len.toFixed(0)}"</span></div>
-      <div class="baystrip">${r.bays.map((b,i)=>`
-        <button class="bay ${S.sel?.wall===wall&&S.sel?.i===i?'on':''} ${b.w<SPEC.bayMin||b.w>SPEC.bayMax?'bad':''}"
-          data-wall="${wall}" data-i="${i}" style="flex:${b.w}">
-          <span class="bstack">${miniStack(b)}</span>
-          <span class="bw">${b.w.toFixed(0)}"</span></button>`).join('')}
-      </div>
+
+    /* which preset widths still fit in what is left of this wall */
+    const fits = BAY_PRESETS.filter(w => w <= left + 0.01);
+
+    const strip = r.bays.length
+      ? `<div class="baystrip">${r.bays.map((b,i)=>`
+          <button class="bay ${S.sel?.wall===wall&&S.sel?.i===i?'on':''}"
+            data-wall="${wall}" data-i="${i}" style="flex:${b.w}"
+            title="${b.stack.length?b.stack.length+' item'+(b.stack.length===1?'':'s'):'empty — click to fill it'}">
+            <span class="bstack">${miniStack(b)}</span>
+            <span class="bw">${b.w.toFixed(0)}"</span></button>`).join('')}
+          ${left > 2 ? `<span class="bay gap" style="flex:${left}" aria-hidden="true">${left.toFixed(0)}" free</span>` : ''}
+        </div>`
+      : `<p class="note emptyrun">Nothing on this wall yet. Add your first section below.</p>`;
+
+    d.innerHTML = `<div class="runhd"><b>${wall[0].toUpperCase()+wall.slice(1)} wall</b>
+      <span class="${left < -0.5 ? 'over' : ''}">${used.toFixed(0)}" of ${len.toFixed(0)}" used${left>0.5?` · ${left.toFixed(0)}" free`:''}</span></div>
+      ${strip}
       <div class="bayacts">
-        <button class="mini" data-bay="add" data-wall="${wall}">+ Add bay</button>
-        <button class="mini" data-bay="del" data-wall="${wall}" ${r.bays.length<2?'disabled':''}>− Remove</button>
-        <button class="mini" data-bay="even" data-wall="${wall}">Even them up</button>
+        ${fits.map(w=>`<button class="mini addw" data-bay="addw" data-wall="${wall}" data-w="${w}">+ ${w}"</button>`).join('')}
+        ${left >= SPEC.bayMin ? `<button class="mini" data-bay="addfill" data-wall="${wall}">+ Fill the rest (${clampBay(left).toFixed(0)}")</button>` : ''}
+        ${r.bays.length ? `<button class="mini" data-bay="del" data-wall="${wall}">− Remove last</button>
+        <button class="mini" data-bay="even" data-wall="${wall}">Even them up</button>` : ''}
       </div>`;
     host.appendChild(d);
   }
-  $('#bayNote').textContent=`Bays run ${SPEC.bayMin}"–${SPEC.bayMax}". Past ${SPEC.bayMax}" a ¾" shelf sags, so we put a partition in.`;
+  $('#bayNote').textContent = `Sections run ${SPEC.bayMin}"–${SPEC.bayMax}" wide. Past ${SPEC.bayMax}" a ¾" shelf sags, so a partition goes in — that is why those are the only widths offered.`;
 }
 
 /* ───────── step 3: the selected bay's stack ───────── */
@@ -447,18 +471,35 @@ $('#mount').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.mounti
 $('#dims').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   const k=b.dataset.k,s=+b.dataset.s;
   S.room[k]=Math.max(+b.dataset.mn,Math.min(+b.dataset.mx,S.room[k]+s));
-  for(const w of Object.keys(S.runs)) if(S.runs[w]?.on) S.runs[w].bays=seedBays(w);
+  /* trim anything that no longer fits rather than discarding the whole run */
+  for(const w of Object.keys(S.runs)){
+    const r=S.runs[w]; if(!r?.on) continue;
+    let room = wallLength(w);
+    r.bays = r.bays.filter(b => (room -= b.w) >= -0.01);
+  }
   rebuild(true)};
 $('#walls').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   if(!b.dataset.shape || b.dataset.shape===S.shape) return;
   applyShape(b.dataset.shape); rebuild(true)};
 $('#bays').onclick=e=>{
   const bay=e.target.closest('[data-bay]');
-  if(bay){ const r=S.runs[bay.dataset.wall], len=wallLength(bay.dataset.wall);
-    if(bay.dataset.bay==='add'){ r.bays.push(makeBay(28, [])); fitRun(bay.dataset.wall); }
-    if(bay.dataset.bay==='del'&&r.bays.length>1){ r.bays.pop(); fitRun(bay.dataset.wall);
-      if(S.sel?.wall===bay.dataset.wall && S.sel.i>=r.bays.length) S.sel.i=r.bays.length-1; }
-    if(bay.dataset.bay==='even') fitRun(bay.dataset.wall);
+  if(bay){
+    const wall = bay.dataset.wall, r = S.runs[wall], act = bay.dataset.bay;
+    if(act==='addw' || act==='addfill'){
+      const want = act==='addw' ? +bay.dataset.w : clampBay(freeSpace(wall));
+      /* never let a section run past the wall it sits on */
+      const w = Math.min(want, freeSpace(wall));
+      if(w >= SPEC.bayMin - 0.01){
+        r.bays.push(makeBay(+w.toFixed(1), []));
+        S.sel = { wall, i: r.bays.length - 1 };      // select it so they can fill it
+      }
+    }
+    if(act==='del' && r.bays.length){
+      r.bays.pop();
+      if(S.sel?.wall===wall && S.sel.i >= r.bays.length) S.sel.i = r.bays.length - 1;
+      if(!r.bays.length) S.sel = null;
+    }
+    if(act==='even') fitRun(wall);
     rebuild(true); return; }
   const b=e.target.closest('.bay');
   if(b){ S.sel={wall:b.dataset.wall,i:+b.dataset.i}; rebuild(false); }
@@ -468,7 +509,10 @@ $('#stack').onclick=e=>{
   const t=e.target.closest('button'); if(!t) return;
   if(t.dataset.bw){
     const d=+t.dataset.bw, r=S.runs[S.sel.wall];
-    const next = Math.max(SPEC.bayMin-6, Math.min(SPEC.bayMax+6, bay.w + d));
+    /* the ±6" slack let a section be pushed to 18" or 42" — neither of which
+       he can build. 18" is under the narrowest drawer box he stocks, and a
+       3/4" shelf bows past 36". Clamp to what the shop can actually cut. */
+    const next = clampBay(bay.w + d);
     const delta = next - bay.w;
     const others = r.bays.filter(b=>b!==bay);
     if(others.length){                       // take it from (or give it to) the neighbours

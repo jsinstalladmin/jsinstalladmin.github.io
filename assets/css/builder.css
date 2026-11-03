@@ -237,3 +237,16 @@
   background:#F0ECE5}
 .palette button i{font-style:normal;font-size:.7rem;line-height:1.25;padding:7px 6px 8px;
   text-align:center;color:var(--ink);letter-spacing:-.005em}
+
+/* ---------- building the run ----------
+   The strip now shows what is actually on the wall plus the space still
+   free, so adding a section reads as consuming real wall rather than
+   reshuffling a fixed set of boxes. */
+.bay.gap{flex:0 0 auto;display:grid;place-items:center;border:1px dashed var(--line);
+  border-radius:10px;background:repeating-linear-gradient(135deg,
+    transparent 0 6px, rgba(26,18,10,.035) 6px 12px);
+  color:var(--muted);font-size:.66rem;letter-spacing:.06em;min-height:62px}
+.emptyrun{margin:4px 0 10px;padding:14px 16px;border:1px dashed var(--line);
+  border-radius:12px;color:var(--muted);font-size:.86rem;background:rgba(26,18,10,.02)}
+.bayacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.bayacts .addw{font-variant-numeric:tabular-nums;font-weight:500}
