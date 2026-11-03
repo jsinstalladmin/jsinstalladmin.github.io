@@ -406,3 +406,14 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
 .gmeta{font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
 .gcard h3{font-size:clamp(1.08rem,1.5vw,1.3rem);line-height:1.25;color:var(--ink)}
 .gcard p{font-size:.93rem;color:var(--muted);margin:0;line-height:1.56}
+
+/* ---------- finishes grid ----------------------------------------------
+   .fgrid had no layout at all, and finishes.js was emitting class="chip"
+   while the swatch styles below are written for .chip2 — and .chip is an
+   absolutely-positioned badge used on cards. Every one of the 78 swatches
+   was being stacked at left:14px bottom:14px on top of the others. */
+.fgrid{display:grid;gap:clamp(14px,1.8vw,24px);
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,132px),1fr))}
+.fsw .chip2{display:block;width:100%;aspect-ratio:1;border-radius:var(--r-sm);
+  background-repeat:no-repeat;box-shadow:inset 0 0 0 1px var(--line);
+  transition:box-shadow .3s var(--ease)}

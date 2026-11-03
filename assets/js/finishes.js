@@ -11,7 +11,7 @@ function chipStyle(f){
 function draw(){
   const list=cat.finishes.filter(f=>(lv==='all'||String(f.lv)===lv)&&(!term||f.n.toLowerCase().includes(term)));
   grid.innerHTML=list.map(f=>`<button class="fsw" data-n="${f.n.replace(/"/g,'&quot;')}" aria-pressed="false">
-    <span class="chip" style="${chipStyle(f)}">${f.x<0?'<span style="font-size:.6rem;color:var(--muted);letter-spacing:.1em">NO PHOTO</span>':''}</span>
+    <span class="chip2" style="${chipStyle(f)}">${f.x<0?'<span style="font-size:.6rem;color:var(--muted);letter-spacing:.1em">NO PHOTO</span>':''}</span>
     <span class="nm">${f.n}</span><span class="lv">Level ${f.lv} · ${f.lead} wks</span></button>`).join('');
   const photo=list.filter(f=>f.x>=0).length;
   const noPhoto=list.length-photo;

@@ -92,12 +92,26 @@ if (video && cap && hero) {
                  'Serve the site through _server/serve.py, which answers Range requests.');
   }
 
-  /* a video that errors out, or still has no finite duration after 3.5s,
-     is never going to scrub */
   video.addEventListener('error', () => fallback('video-error'));
-  setTimeout(() => {
-    if (!scrubWorks) fallback(Number.isFinite(video.duration) ? 'no-seek' : 'no-duration');
-  }, 3500);
+
+  /* Decide on CAPABILITY, not on whether a seek has happened yet.
+     A video reporting a finite duration AND a non-empty seekable range can be
+     scrubbed, full stop. The earlier test -- "did currentTime move?" -- was
+     wrong: at the top of the page the seek target IS 0, so no seek is ever
+     requested, and a perfectly working hero collapsed itself before the
+     visitor had scrolled a pixel. Verified live: duration 20.17, seekable
+     20.17, no error, and it still fell back. */
+  const capable = () =>
+    Number.isFinite(video.duration) && video.duration > 0 && video.seekable.length > 0;
+
+  let probes = 0;
+  const probe = setInterval(() => {
+    if (capable()) { scrubWorks = true; clearInterval(probe); return; }
+    if (++probes >= 12) {                       // 6s, then give up for real
+      clearInterval(probe);
+      fallback(Number.isFinite(video.duration) ? 'not-seekable' : 'no-duration');
+    }
+  }, 500);
 
   /* ---- the engine ---- */
   const start = () => {
@@ -116,11 +130,7 @@ if (video && cap && hero) {
         const target = vp.t * (dur - 0.05);
         const cur = video.currentTime;
         const diff = target - cur;
-        if (Math.abs(diff) > 0.008) {
-          video.currentTime = cur + diff * 0.18;
-          /* proof of life: currentTime actually moved off the first frame */
-          if (!scrubWorks && cur > 0.0001) scrubWorks = true;
-        }
+        if (Math.abs(diff) > 0.008) video.currentTime = cur + diff * 0.18;
       }
       if (dbg) dbg.textContent =
         'readyState  ' + video.readyState +

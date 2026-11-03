@@ -20,8 +20,15 @@ const TYPES = {
   'laundry' :{label:'Laundry',   walls:['back'],                  w:96, d:24, h:96}
 };
 
+/* ───────── room shape: which walls the run goes on ───────── */
+const SHAPES = {
+  straight:{label:'Straight wall', walls:['back'],                  art:'M3 17h18'},
+  l       :{label:'L-shape',       walls:['back','left'],           art:'M3 17h18M3 17V5'},
+  u       :{label:'U-shape',       walls:['back','left','right'],   art:'M3 5v12h18V5'}
+};
+
 const S = {
-  type:'reach-in', room:{w:72,d:24,h:96}, mounting:'floor',
+  type:'reach-in', shape:'straight', room:{w:72,d:24,h:96}, mounting:'floor',
   finish: cat.finishes.find(f=>f.x>=0)?.n || cat.finishes[0].n,
   frontFinish:null, pull:'bar4', pullFinish:'nickel',
   runs:{}, sel:null, spin:false, evening:false
@@ -41,7 +48,7 @@ function wallLength(wall){
 function seedBays(wall){
   const len = wallLength(wall);
   const n = Math.max(1, Math.round(len/30));
-  return Array.from({length:n}, ()=> makeBay(+(len/n).toFixed(1), structuredClone(defaultStackFor(S.type))));
+  return Array.from({length:n}, ()=> makeBay(+(len/n).toFixed(1), []));   // empty: they fill it
 }
 /* keep a run's bays summing to the wall. Called whenever a bay is added or
    removed, so the drawing can never run past the wall it sits on. */
@@ -50,11 +57,20 @@ function fitRun(wall){
   const len=wallLength(wall), each=+(len/r.bays.length).toFixed(1);
   r.bays.forEach(b=>b.w=each);
 }
+function applyShape(s){
+  S.shape = SHAPES[s] ? s : 'straight';
+  const walls = SHAPES[S.shape].walls;
+  S.runs = {};
+  /* two passes: every run has to exist before wallLength() can subtract the
+     side runs' depth from the back wall */
+  for(const w of walls) S.runs[w] = { on:true, depth:SPEC.hangDepth, bays:[] };
+  for(const w of walls) S.runs[w].bays = seedBays(w);
+  S.sel = {wall:'back', i:0};
+}
 function applyType(t){
   S.type=t; const T=TYPES[t];
   S.room={w:T.w,d:T.d,h:T.h};
-  S.runs={}; S.runs.back = { on:true, bays:seedBays('back'), depth:T.d>24?SPEC.hangDepth:T.d };
-  S.sel = {wall:'back', i:0};
+  applyShape(S.shape);
 }
 applyType(S.type);
 
@@ -205,12 +221,12 @@ function paintSteps(){
       <button data-k="${k}" data-s="${st}" data-mn="${mn}" data-mx="${mx}">+</button></div>`).join('');
   $('#mount').innerHTML=[['floor','On the floor'],['wall','Wall-hung']].map(([k,l])=>
     `<button data-m="${k}" aria-pressed="${k===S.mounting}">${l}</button>`).join('');
-  const T=TYPES[S.type];
-  $('#walls').hidden = T.walls.length<2;
-  if(T.walls.length>1){
-    $('#walls').innerHTML=`<h4 class="subh">Which walls</h4><div class="pills">`+
-      T.walls.map(w=>`<button data-w="${w}" aria-pressed="${!!S.runs[w]?.on}">${w[0].toUpperCase()+w.slice(1)} wall</button>`).join('')+`</div>`;
-  }
+  $('#walls').hidden = false;
+  $('#walls').innerHTML = `<h4 class="subh">Shape of the run</h4><div class="pills shapes">`+
+    Object.entries(SHAPES).map(([k,s])=>
+      `<button data-shape="${k}" aria-pressed="${k===S.shape}">
+         <svg viewBox="0 0 24 22" aria-hidden="true"><path d="${s.art}"/></svg>
+         <i>${s.label}</i></button>`).join('')+`</div>`;
 }
 
 /* ───────── step 2: bays ───────── */
@@ -328,15 +344,12 @@ $('#dims').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   for(const w of Object.keys(S.runs)) if(S.runs[w]?.on) S.runs[w].bays=seedBays(w);
   rebuild(true)};
 $('#walls').onclick=e=>{const b=e.target.closest('button');if(!b)return;
-  const w=b.dataset.w;
-  if(S.runs[w]?.on){ if(Object.values(S.runs).filter(r=>r?.on).length<2) return; S.runs[w].on=false; }
-  else S.runs[w]={on:true,depth:SPEC.hangDepth,bays:seedBays(w)};
-  for(const k of Object.keys(S.runs)) if(S.runs[k]?.on) S.runs[k].bays=seedBays(k);
-  S.sel={wall:'back',i:0}; rebuild(true)};
+  if(!b.dataset.shape || b.dataset.shape===S.shape) return;
+  applyShape(b.dataset.shape); rebuild(true)};
 $('#bays').onclick=e=>{
   const bay=e.target.closest('[data-bay]');
   if(bay){ const r=S.runs[bay.dataset.wall], len=wallLength(bay.dataset.wall);
-    if(bay.dataset.bay==='add'){ r.bays.push(makeBay(28,structuredClone(defaultStackFor(S.type)))); fitRun(bay.dataset.wall); }
+    if(bay.dataset.bay==='add'){ r.bays.push(makeBay(28, [])); fitRun(bay.dataset.wall); }
     if(bay.dataset.bay==='del'&&r.bays.length>1){ r.bays.pop(); fitRun(bay.dataset.wall);
       if(S.sel?.wall===bay.dataset.wall && S.sel.i>=r.bays.length) S.sel.i=r.bays.length-1; }
     if(bay.dataset.bay==='even') fitRun(bay.dataset.wall);
