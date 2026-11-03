@@ -329,11 +329,9 @@ canvas.addEventListener('pointerup',e=>{
   if(hit){
     S.sel={wall:hit.object.userData.wall,i:hit.object.userData.i};
     rebuild(false);
-    /* clicking a section in the drawing should take you to its controls,
-       otherwise the selection happens somewhere you are not looking */
-    const step = document.getElementById('stack')?.closest('details, .acc, section');
-    if(step && step.tagName === 'DETAILS') step.open = true;
-    document.getElementById('stack')?.scrollIntoView({behavior:'smooth', block:'center'});
+    /* clicking a section in the drawing jumps to its controls, otherwise the
+       selection happens on a tab you are not looking at */
+    if(typeof window.gotoStep === 'function') window.gotoStep('3');
   }
 });
 
@@ -533,6 +531,9 @@ $('#bays').onclick=e=>{
       if(w >= SPEC.bayMin - 0.01){
         r.bays.push(makeBay(+w.toFixed(1), []));
         S.sel = { wall, i: r.bays.length - 1 };      // select it so they can fill it
+        /* adding an empty section and leaving you on the "divide" tab means the
+           next thing you want is one tab away and not obvious. Go there. */
+        if(typeof window.gotoStep === 'function') setTimeout(()=>window.gotoStep('3'), 60);
       }
     }
     if(act==='del' && r.bays.length){

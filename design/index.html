@@ -62,9 +62,10 @@
   </div>
 
   <aside class="bpanel">
+    <nav class="steptabs" role="tablist" aria-label="Design steps"><button role="tab" id="tb1" aria-controls="tp1" aria-selected="true" data-tab="1"><em>1</em><span>Your space</span></button><button role="tab" id="tb2" aria-controls="tp2" aria-selected="false" data-tab="2"><em>2</em><span>Divide it into bays</span></button><button role="tab" id="tb3" aria-controls="tp3" aria-selected="false" data-tab="3"><em>3</em><span>Fill the bay</span></button><button role="tab" id="tb4" aria-controls="tp4" aria-selected="false" data-tab="4"><em>4</em><span>Finish</span></button><button role="tab" id="tb5" aria-controls="tp5" aria-selected="false" data-tab="5"><em>5</em><span>Handles</span></button><button role="tab" id="tb6" aria-controls="tp6" aria-selected="false" data-tab="6"><em>6</em><span>Your order</span></button></nav>
     <div class="pscroll">
 
-      <details class="acc" open><summary><span><em>1</em>Your space</span><i></i></summary>
+      <section class="tabpanel" id="tp1" role="tabpanel" aria-labelledby="tb1">
         <div class="accb">
           <div id="types" class="pills"></div>
           <div id="dims" class="steps"></div>
@@ -72,46 +73,40 @@
           <div id="mount" class="pills"></div>
           <div id="walls" hidden></div>
         </div>
-      </details>
-
-      <details class="acc" open><summary><span><em>2</em>Divide it into bays</span><i></i></summary>
+      </section>
+<section class="tabpanel" id="tp2" role="tabpanel" aria-labelledby="tb2" hidden>
         <div class="accb">
           <div id="bays"></div>
           <p class="note" id="bayNote"></p>
         </div>
-      </details>
-
-      <details class="acc" open><summary><span><em>3</em>Fill the bay</span><i></i></summary>
+      </section>
+<section class="tabpanel" id="tp3" role="tabpanel" aria-labelledby="tb3" hidden>
         <div class="accb" id="stack"></div>
-      </details>
-
-      <details class="acc"><summary><span><em>4</em>Finish</span><i></i></summary>
+      </section>
+<section class="tabpanel" id="tp4" role="tabpanel" aria-labelledby="tb4" hidden>
         <div class="accb">
           <div class="srch"><svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.6"/><path d="M13.2 13.2 17 17"/></svg>
             <input id="fq" type="search" placeholder="Search 78 finishes…" aria-label="Search finishes"></div>
           <h4 class="subh">Carcass</h4><div id="fin1" class="fins"></div><p class="finnote" id="finNote1"></p>
           <h4 class="subh">Drawer &amp; door fronts</h4><div id="fin2" class="fins"></div><p class="finnote" id="finNote2"></p>
         </div>
-      </details>
-
-      <details class="acc"><summary><span><em>5</em>Handles</span><i></i></summary>
+      </section>
+<section class="tabpanel" id="tp5" role="tabpanel" aria-labelledby="tb5" hidden>
         <div class="accb">
           <div id="pulls" class="pullgrid"></div>
           <p class="finnote" id="pullNote"></p>
           <h4 class="subh">Metal finish</h4>
           <div id="pullfin" class="pills metalrow"></div>
         </div>
-      </details>
-
-      <details class="acc"><summary><span><em>6</em>Your order</span><i></i></summary>
+      </section>
+<section class="tabpanel" id="tp6" role="tabpanel" aria-labelledby="tb6" hidden>
         <div class="accb">
           <p class="note">Every piece your design needs. This travels with your enquiry, so we are most of the way to a quote before anyone visits.</p>
           <div class="orderhd"><span id="orderCount"></span><button class="btn btn-ghost btn-sm" id="dlOrder">Download CSV</button></div>
           <div id="order" class="ordertab"></div>
         </div>
-      </details>
-
-    </div>
+      </section>
+</div>
 
     <div class="pfoot">
       <div id="warn" class="warnbox" hidden></div>
@@ -131,7 +126,7 @@
 
 <section class="sec"><div class="shell"><div class="ed">
   <h2 data-rv="up">About this estimate</h2>
-  <div class="faq"><details open><summary>Is this the real price?</summary><div class="ans">It is built from the same parts list and the same per-square-foot finish costs we order from, so it is far closer than a range on a brochure. What it cannot know is your walls — baseboard, out-of-square corners, an air return in the way. The measure settles those and the figure moves a little either way.</div></details><details><summary>Does it include installation?</summary><div class="ans">Yes. The figure shown is delivered and installed.</div></details><details><summary>Why can't a bay be wider than 36 inches?</summary><div class="ans">Because three-quarter-inch melamine sags past that under load. The builder will warn you rather than draw something we would not fit.</div></details><details><summary>What is the order list for?</summary><div class="ans">It is every panel, shelf, rod, drawer box, glide, basket and pull your design needs, with sizes and counts. Send it with your enquiry and we are already most of the way to a quote.</div></details><details><summary>My room isn't a rectangle.</summary><div class="ans">Build the closest rectangle to get the number, then tell us in the notes. Angled ceilings, bulkheads and returns are normal and there are parts for all of them.</div></details></div>
+  <div class="faq"><details open><summary>Is this the real price?</summary><div class="ans">It is built from the same parts list and the same per-square-foot finish costs we order from, so it is far closer than a range on a brochure. What it cannot know is your walls — baseboard, out-of-square corners, an air return in the way. The measure settles those and the figure moves a little either way.</div></details><details><summary>Does it include installation?</summary><div class="ans">No. The figure is the cabinetry itself. Installation is quoted after we measure, because it depends on access, the shelving that has to come out and whether the baseboard has to come off.</div></details><details><summary>Why can't a bay be wider than 36 inches?</summary><div class="ans">Because three-quarter-inch melamine sags past that under load. The builder will warn you rather than draw something we would not fit.</div></details><details><summary>What is the order list for?</summary><div class="ans">It is every panel, shelf, rod, drawer box, glide, basket and pull your design needs, with sizes and counts. Send it with your enquiry and we are already most of the way to a quote.</div></details><details><summary>My room isn't a rectangle.</summary><div class="ans">Build the closest rectangle to get the number, then tell us in the notes. Angled ceilings, bulkheads and returns are normal and there are parts for all of them.</div></details></div>
 </div></div></section>
 </main><footer class="ftr"><div class="shell">
   <div class="ftr-grid">
@@ -167,4 +162,37 @@
 </div></footer>
 <script src="../assets/js/site.js" type="module"></script>
 <script src="../assets/js/builder.js" type="module"></script>
+
+<script>
+/* Step tabs. Deliberately inline and dependency-free: if three.js or the
+   builder module fails to load, the panel must still be navigable. */
+(function(){
+  var nav = document.querySelector('.steptabs');
+  if(!nav) return;
+  var tabs = [].slice.call(nav.querySelectorAll('[data-tab]'));
+  function show(n){
+    tabs.forEach(function(t){
+      var on = t.dataset.tab === n;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      var panel = document.getElementById('tp' + t.dataset.tab);
+      if(panel) panel.hidden = !on;
+    });
+    var sc = document.querySelector('.pscroll');
+    if(sc) sc.scrollTop = 0;
+  }
+  nav.addEventListener('click', function(e){
+    var t = e.target.closest('[data-tab]');
+    if(t) show(t.dataset.tab);
+  });
+  nav.addEventListener('keydown', function(e){
+    var i = tabs.indexOf(document.activeElement);
+    if(i < 0) return;
+    var j = e.key === 'ArrowRight' ? i+1 : e.key === 'ArrowLeft' ? i-1 : -1;
+    if(j < 0 || j >= tabs.length) return;
+    e.preventDefault(); tabs[j].focus(); show(tabs[j].dataset.tab);
+  });
+  /* clicking a section in the 3D jumps to "Fill the bay" */
+  window.gotoStep = show;
+})();
+</script>
 </body></html>
