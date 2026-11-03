@@ -120,20 +120,121 @@ new IntersectionObserver(es=>{for(const e of es) visible=e.isIntersecting;},{thr
   if(composer) composer.render(); else renderer.render(scene,cam); })();
 
 /* ───────── room + closet ───────── */
+/* ---- procedural room textures --------------------------------------------
+   Built on a canvas rather than shipped as files: a 2048px plank texture is
+   ~1.5MB of JPEG, and this costs nothing to download and tiles perfectly. */
+let ROOM_TEX = null;
+function roomTextures(){
+  if(ROOM_TEX) return ROOM_TEX;
+
+  // --- oak plank floor ---
+  const fc = document.createElement('canvas'); fc.width = fc.height = 1024;
+  const f = fc.getContext('2d');
+  const PLANKS = 8, ph = fc.height / PLANKS;
+  for(let i = 0; i < PLANKS; i++){
+    const tone = 158 + Math.round(Math.sin(i * 2.7) * 10) + (i % 3) * 4;
+    f.fillStyle = `rgb(${tone + 12},${tone - 2},${Math.round(tone * 0.84)})`;
+    f.fillRect(0, i * ph, fc.width, ph);
+    // grain
+    for(let g = 0; g < 26; g++){
+      const y = i * ph + Math.random() * ph;
+      f.strokeStyle = `rgba(${90 + Math.random() * 40},${64 + Math.random() * 30},38,${0.05 + Math.random() * 0.09})`;
+      f.lineWidth = 0.6 + Math.random() * 1.5;
+      f.beginPath(); f.moveTo(0, y);
+      for(let x = 0; x <= fc.width; x += 64)
+        f.lineTo(x, y + Math.sin((x + i * 90) / 150) * 2.2);
+      f.stroke();
+    }
+    // the seam between boards, and a stagger so it does not read as stripes
+    f.strokeStyle = 'rgba(48,34,20,.42)'; f.lineWidth = 2;
+    f.beginPath(); f.moveTo(0, i * ph); f.lineTo(fc.width, i * ph); f.stroke();
+    const cut = ((i * 317) % fc.width);
+    f.beginPath(); f.moveTo(cut, i * ph); f.lineTo(cut, (i + 1) * ph); f.stroke();
+  }
+  const floor = new THREE.CanvasTexture(fc);
+  floor.wrapS = floor.wrapT = THREE.RepeatWrapping;
+  floor.colorSpace = THREE.SRGBColorSpace;
+  floor.anisotropy = 8;
+
+  // --- painted wall: very fine tooth, almost flat ---
+  const wc = document.createElement('canvas'); wc.width = wc.height = 512;
+  const w = wc.getContext('2d');
+  w.fillStyle = '#DCD8D1'; w.fillRect(0, 0, 512, 512);
+  const img = w.getImageData(0, 0, 512, 512), px = img.data;
+  for(let i = 0; i < px.length; i += 4){
+    const n = (Math.random() - 0.5) * 7;
+    px[i] += n; px[i+1] += n; px[i+2] += n;
+  }
+  w.putImageData(img, 0, 0);
+  const wall = new THREE.CanvasTexture(wc);
+  wall.wrapS = wall.wrapT = THREE.RepeatWrapping;
+  wall.colorSpace = THREE.SRGBColorSpace;
+
+  ROOM_TEX = { floor, wall };
+  return ROOM_TEX;
+}
+
+/* How much bedroom to show around the cabinetry. Without this the shell was
+   exactly the size of the closet, so the camera sat inside the box and you
+   never saw a floor, a wall or a baseboard — it read as a carcass in beige.
+   The closet stays at x:0..W, z:0..D; the room extends past it. */
+const PAD_X = 46, PAD_Z = 88;
+
 function drawRoom(){
   shell.clear();
-  const {w:W,d:D,h:H}=S.room;
-  const mk=(w,h,px,py,pz,rx,ry,col)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),
-      new THREE.MeshStandardMaterial({color:col||0xD9D6D0,roughness:.97,metalness:0,side:THREE.DoubleSide}));
-    m.position.set(px,py,pz); m.rotation.set(rx,ry,0); m.receiveShadow=true; shell.add(m); };
-  mk(W,H, W/2,H/2,0, 0,0);
-  mk(D,H, 0,H/2,D/2, 0,Math.PI/2);
-  mk(D,H, W,H/2,D/2, 0,-Math.PI/2);
-  mk(W,D, W/2,H,D/2, Math.PI/2,0, 0xE9E6E1);
-  const fl=new THREE.Mesh(new THREE.PlaneGeometry(W,D),
-    new THREE.MeshStandardMaterial({color:0x7E6950,roughness:.66,metalness:0}));
-  fl.rotation.x=-Math.PI/2; fl.position.set(W/2,0,D/2); fl.receiveShadow=true; shell.add(fl);
+  const {w:CW, d:CD, h:H} = S.room;
+  const W = CW + PAD_X * 2, D = CD + PAD_Z;
+  const T = roomTextures();
+  const BASE_H = 4.5, BASE_T = 0.6;          // real baseboard, 4½" tall
+
+  const wallMat = () => new THREE.MeshStandardMaterial({
+    map: T.wall, color: 0xDFDDD9, roughness: .97, metalness: 0,
+    envMapIntensity: .45, side: THREE.DoubleSide });
+
+  const plane = (w, h, px, py, pz, rx, ry, mat) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+    m.position.set(px, py, pz); m.rotation.set(rx, ry, 0);
+    m.receiveShadow = true; shell.add(m); return m;
+  };
+
+  // walls — the tooth texture repeats on a real-world scale, not per-wall
+  const mkWall = (w, h, px, py, pz, rx, ry) => {
+    const mat = wallMat();
+    mat.map = T.wall.clone(); mat.map.needsUpdate = true;
+    mat.map.repeat.set(w / 40, h / 40);
+    plane(w, h, px, py, pz, rx, ry, mat);
+  };
+  const X0 = -PAD_X;                       // room's left wall, in closet coords
+  mkWall(W, H, X0 + W/2, H/2, 0, 0, 0);
+  mkWall(D, H, X0,       H/2, D/2, 0,  Math.PI/2);
+  mkWall(D, H, X0 + W,   H/2, D/2, 0, -Math.PI/2);
+
+  // ceiling, lifted slightly off white so it does not blow out
+  plane(W, D, X0 + W/2, H, D/2, Math.PI/2, 0,
+    new THREE.MeshStandardMaterial({ color: 0xEFEEEC, roughness: .99, metalness: 0,
+      envMapIntensity: .4, side: THREE.DoubleSide }));
+
+  // plank floor — one plank run every 7 inches
+  const fmat = new THREE.MeshStandardMaterial({ map: T.floor, roughness: .58, metalness: 0,
+    envMapIntensity: .6 });
+  fmat.map = T.floor.clone(); fmat.map.needsUpdate = true;
+  fmat.map.repeat.set(W / 96, D / 56);
+  const fl = plane(W, D, X0 + W/2, 0, D/2, -Math.PI/2, 0, fmat);
+  fl.receiveShadow = true;
+
+  // baseboard — the single detail that stops this reading as a grey box
+  const bmat = new THREE.MeshStandardMaterial({ color: 0xF6F5F3, roughness: .74, metalness: 0,
+    envMapIntensity: .45 });
+  const baseboard = (w, px, pz, ry) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, BASE_H, BASE_T), bmat);
+    b.position.set(px, BASE_H/2, pz); b.rotation.y = ry;
+    b.castShadow = false; b.receiveShadow = true; shell.add(b);
+  };
+  baseboard(W, X0 + W/2,          BASE_T/2, 0);
+  baseboard(D, X0 + BASE_T/2,     D/2,      Math.PI/2);
+  baseboard(D, X0 + W - BASE_T/2, D/2,      Math.PI/2);
 }
+
 function drawCloset(res){
   root.clear(); picks.clear();
   const baseC=finishMaterial(res.finish,shared,'carcass');
@@ -194,9 +295,11 @@ canvas.addEventListener('pointerup',e=>{
 function frame(){
   const {w:W,d:D,h:H}=S.room;
   const vf=cam.fov*Math.PI/180, asp=Math.max(.6,cam.aspect||1.3);
-  const dist=Math.max((H*1.08/2)/Math.tan(vf/2),(W*1.08/2)/(Math.tan(vf/2)*asp))*1.14;
-  ctl.target.set(W/2,H*0.45,D*0.44);
-  cam.position.set(W/2+W*0.08,H*0.56,D*0.44+dist);
+  /* frame the cabinetry PLUS a margin of room, so floor and baseboard read */
+  const fitH = H * 1.34, fitW = (W + PAD_X) * 1.18;
+  const dist = Math.max(fitH/2/Math.tan(vf/2), fitW/2/(Math.tan(vf/2)*asp)) * 1.05;
+  ctl.target.set(W/2, H*0.42, D*0.30);
+  cam.position.set(W/2 + W*0.10, H*0.52, D*0.30 + dist);
   ctl.update();
 }
 

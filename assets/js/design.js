@@ -46,6 +46,20 @@ export const PULL_FINISHES = [
    ============================================================ */
 const P = (code,qty,sqft,edge,note) => ({code,qty,sqft,edge,note});
 
+/* Real drawer hardware from his ClosetPro catalogue — 129 box SKUs and 10
+   glide lengths. This matters because a drawer FRONT is melamine cut to any
+   size, but the BOX behind it is an ordered part that only exists in these
+   sizes. If no box fits behind the front the bank cannot actually be built,
+   which is the kind of thing you want to find out on the website and not on
+   installation day. */
+export const DRAWER_BOX = {
+  w: [18.75, 24.75, 30.75, 36, 36.75],
+  h: [7.5, 8.75, 10, 15, 18.75, 25],
+  d: [16, 20, 24, 30, 31]
+};
+const GLIDES = [10, 12, 14, 16, 18, 20, 22, 24, 30];
+const fit = (list, max) => { const ok = list.filter(v => v <= max); return ok.length ? Math.max(...ok) : null; };
+
 export const MODULES = {
   LONG_HANG: {
     label:'Long hang', hint:'Coats and dresses. One rod with full clearance below.',
@@ -85,20 +99,6 @@ export const MODULES = {
       for(let i=1;i<=n;i++) G.push({k:'shelf', p:[0, y + (h/(n+1))*i, 0], s:[w, SPEC.panel, d], m:'carcass'});
     }
   },
-/* Real drawer hardware from his ClosetPro catalogue — 129 box SKUs and 10
-   glide lengths. This matters because a drawer FRONT is melamine cut to any
-   size, but the BOX behind it is an ordered part that only exists in these
-   sizes. If no box fits behind the front the bank cannot actually be built,
-   which is the kind of thing you want to find out on the website and not on
-   installation day. */
-export const DRAWER_BOX = {
-  w: [18.75, 24.75, 30.75, 36, 36.75],
-  h: [7.5, 8.75, 10, 15, 18.75, 25],
-  d: [16, 20, 24, 30, 31]
-};
-const GLIDES = [10, 12, 14, 16, 18, 20, 22, 24, 30];
-const fit = (list, max) => { const ok = list.filter(v => v <= max); return ok.length ? Math.max(...ok) : null; };
-
   DRAWERS: {
     label:'Drawers', hint:'Soft-close undermount glides. Nine box sizes.',
     icon:'M2 3h20v6H2zM2 12h20v6H2zM2 21h20v6H2z',
