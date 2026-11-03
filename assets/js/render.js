@@ -28,7 +28,9 @@ export function makeRenderer(canvas){
     /* render-on-demand idles the loop, so the drawing buffer MUST persist or the
        canvas blanks the moment the compositor needs a frame we did not draw. */
     preserveDrawingBuffer:true});
-  r.setPixelRatio(Math.min(devicePixelRatio,2));
+  /* 2x on a retina Mac is FOUR times the pixels to shade every frame, for a
+     difference you cannot see on bevels this small. 1.5 is the honest cap. */
+  r.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   r.outputColorSpace = THREE.SRGBColorSpace;
   /* The single highest-value line here. three.js defaults to NoToneMapping, which
      hard-clips every specular highlight to flat white — most of the cartoon look.

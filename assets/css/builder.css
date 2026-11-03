@@ -280,35 +280,64 @@
   font-variant-numeric:tabular-nums}
 
 /* ---------- STEP TABS ----------------------------------------------------
-   The panel used to be six stacked accordions, so choosing a finish meant
-   scrolling past the whole bay editor and the price moved off screen. The
-   steps are now tabs: one panel at a time, the tab bar pinned at the top and
-   the price pinned at the bottom, so both are always in view. */
-.steptabs{display:flex;gap:4px;padding:9px 10px;overflow-x:auto;scrollbar-width:none;
-  border-bottom:1px solid var(--line);background:var(--paper);
-  position:sticky;top:0;z-index:6}
-.steptabs::-webkit-scrollbar{display:none}
-.steptabs button{display:flex;align-items:center;gap:7px;flex:0 0 auto;cursor:pointer;
-  border:1px solid transparent;background:transparent;color:var(--muted);
-  padding:.46em .82em;border-radius:999px;font:inherit;font-size:.78rem;
-  letter-spacing:-.004em;transition:.24s var(--ease);white-space:nowrap}
-.steptabs button em{font-style:normal;display:grid;place-items:center;
-  width:19px;height:19px;border-radius:999px;background:var(--paper-3);
-  color:var(--ink);font-size:.64rem;font-weight:600;flex:0 0 auto;
-  transition:.24s var(--ease)}
-.steptabs button:hover{color:var(--ink);background:var(--paper-2)}
-.steptabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);
-  border-color:var(--ink)}
-.steptabs button[aria-selected="true"] em{background:var(--accent);color:var(--ink)}
+   Six rounded cards, each an icon over a label, with the step number in the
+   corner. The previous pills wrapped onto two lines at panel width and gave
+   no sense of progress. These sit on one row, the current one filled, the
+   ones you have been through marked done. */
+.steptabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;
+  padding:10px 10px 11px;border-bottom:1px solid var(--line);
+  background:var(--paper);position:sticky;top:0;z-index:6}
+.steptabs button{position:relative;display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-start;gap:5px;cursor:pointer;min-width:0;
+  border:1px solid var(--line);background:var(--paper-2);color:var(--muted);
+  padding:9px 5px 7px;border-radius:13px;font:inherit;
+  transition:background .22s var(--ease),color .22s var(--ease),
+             border-color .22s var(--ease),transform .22s var(--ease)}
+.steptabs button svg{width:19px;height:19px;flex:0 0 auto;fill:none;stroke:currentColor;
+  stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.steptabs button span{font-size:.6rem;line-height:1.2;text-align:center;
+  letter-spacing:-.002em;display:block;width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.steptabs button b{position:absolute;top:4px;right:5px;font-size:.52rem;font-weight:600;
+  width:13px;height:13px;border-radius:999px;display:grid;place-items:center;
+  background:var(--paper-3);color:var(--muted);transition:.22s var(--ease)}
+.steptabs button:hover{color:var(--ink);background:var(--paper);
+  border-color:var(--line2,var(--line));transform:translateY(-1px)}
+/* "done" first: a tab can be BOTH done and selected, and these have equal
+   specificity, so whichever is written last wins. Selected must win — when
+   done came second it repainted the current tab's text to --ink on an --ink
+   background and the label vanished. */
+.steptabs button[data-done="1"]{border-color:var(--accent);color:var(--ink)}
+.steptabs button[data-done="1"] b{background:var(--accent);color:var(--ink)}
+.steptabs button[aria-selected="true"],
+.steptabs button[aria-selected="true"][data-done="1"]{background:var(--ink);
+  color:var(--paper);border-color:var(--ink)}
+.steptabs button[aria-selected="true"] b,
+.steptabs button[aria-selected="true"][data-done="1"] b{background:var(--accent);color:var(--ink)}
 .steptabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-.tabpanel{padding:18px clamp(14px,1.6vw,20px) 22px}
+.tabpanel{padding:17px clamp(14px,1.6vw,20px) 22px}
 .tabpanel[hidden]{display:none}
-.bpanel{display:flex;flex-direction:column;border-radius:0}
+.bpanel{display:flex;flex-direction:column}
 .pscroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 
-@media(max-width:620px){
+@media(max-width:1180px){
   .steptabs button span{display:none}
-  .steptabs button{padding:.5em .62em}
-  .steptabs button em{width:22px;height:22px;font-size:.7rem}
+  .steptabs button{padding:10px 4px;gap:0}
+  .steptabs button b{position:static;margin-top:4px;background:transparent;font-size:.58rem}
 }
+
+/* Safari will not start a drag on a <button> from draggable="true" alone —
+   it needs the webkit property as well. Without this the reorder silently
+   did nothing in Safari, which is the browser being used. */
+.bay[draggable="true"]{-webkit-user-drag:element;user-select:none;-webkit-user-select:none}
+
+/* move a section left or right along the wall */
+.selhd{display:flex;flex-wrap:wrap;gap:9px;align-items:center;justify-content:space-between}
+.selacts{display:flex;gap:7px;align-items:center}
+.movw{display:flex;gap:3px}
+.movw button{border:1px solid var(--line);background:var(--paper);border-radius:9px;
+  width:28px;height:26px;display:grid;place-items:center;cursor:pointer;
+  font-size:.56rem;color:var(--ink);transition:.2s var(--ease)}
+.movw button:hover:not(:disabled){border-color:var(--accent);background:var(--paper-2)}
+.movw button:disabled{opacity:.3;cursor:not-allowed}

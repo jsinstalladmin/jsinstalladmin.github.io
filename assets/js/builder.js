@@ -354,7 +354,18 @@ function rebuild(reframe){
   if(reframe){ resize(); frame(); }
   paintAll();
 }
-function paintAll(){ paintSteps(); paintBays(); paintStack(); paintPrice(); paintOrder(); }
+function paintAll(){ paintSteps(); paintBays(); paintStack(); paintPrice(); paintOrder(); markSteps(); }
+
+/* tick the steps that have been satisfied, so the bar reads as progress
+   rather than six identical buttons */
+function markSteps(){
+  const anyBay   = Object.values(S.runs).some(r => r?.on && r.bays.length);
+  const anyFill  = Object.values(S.runs).some(r => r?.on && r.bays.some(b => b.stack.length));
+  const done = { '1':true, '2':anyBay, '3':anyFill, '4':!!S.finish, '5':!!S.pull, '6':anyFill };
+  document.querySelectorAll('.steptabs [data-tab]').forEach(t=>{
+    if(done[t.dataset.tab]) t.dataset.done='1'; else delete t.dataset.done;
+  });
+}
 
 /* ───────── step 1: space ───────── */
 function paintSteps(){
@@ -431,8 +442,14 @@ function paintStack(){
   const floorY = S.mounting==='wall' ? SPEC.wallHungBase : SPEC.toeKick;
   const usable = Math.min(SPEC.topShelf, S.room.h - 6) - floorY;
   box.innerHTML=`
-    <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · bay ${S.sel.i+1}</b>
-      <span class="wadj"><button data-bw="-2">−</button><i>${bay.w.toFixed(0)}" wide</i><button data-bw="2">+</button></span></div>
+    <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · section ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
+      <span class="selacts">
+        <span class="wadj"><button data-bw="-2" title="Narrower">−</button><i>${bay.w.toFixed(0)}" wide</i><button data-bw="2" title="Wider">+</button></span>
+        <span class="movw">
+          <button data-move="-1" ${S.sel.i===0?'disabled':''} title="Move left along the wall">&#9664;</button>
+          <button data-move="1" ${S.sel.i>=S.runs[S.sel.wall].bays.length-1?'disabled':''} title="Move right along the wall">&#9654;</button>
+        </span>
+      </span></div>
     <div class="stacklist">${bay.stack.slice().reverse().map((s,ri)=>{
       const i=bay.stack.length-1-ri, d=MODULES[s.m];
       return `<div class="srow ${s.h==null?'flex':''}">
@@ -585,6 +602,11 @@ $('#bays').addEventListener('drop', e=>{
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;
+  if(t.dataset.move){
+    const d=+t.dataset.move, bays=S.runs[S.sel.wall].bays, i=S.sel.i, j=i+d;
+    if(j>=0 && j<bays.length){ const [m]=bays.splice(i,1); bays.splice(j,0,m); S.sel.i=j; rebuild(true); }
+    return;
+  }
   if(t.dataset.bw){
     const d=+t.dataset.bw, r=S.runs[S.sel.wall];
     /* the ±6" slack let a section be pushed to 18" or 42" — neither of which
