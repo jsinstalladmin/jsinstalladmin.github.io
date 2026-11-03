@@ -85,15 +85,41 @@ export const MODULES = {
       for(let i=1;i<=n;i++) G.push({k:'shelf', p:[0, y + (h/(n+1))*i, 0], s:[w, SPEC.panel, d], m:'carcass'});
     }
   },
+/* Real drawer hardware from his ClosetPro catalogue — 129 box SKUs and 10
+   glide lengths. This matters because a drawer FRONT is melamine cut to any
+   size, but the BOX behind it is an ordered part that only exists in these
+   sizes. If no box fits behind the front the bank cannot actually be built,
+   which is the kind of thing you want to find out on the website and not on
+   installation day. */
+export const DRAWER_BOX = {
+  w: [18.75, 24.75, 30.75, 36, 36.75],
+  h: [7.5, 8.75, 10, 15, 18.75, 25],
+  d: [16, 20, 24, 30, 31]
+};
+const GLIDES = [10, 12, 14, 16, 18, 20, 22, 24, 30];
+const fit = (list, max) => { const ok = list.filter(v => v <= max); return ok.length ? Math.max(...ok) : null; };
+
   DRAWERS: {
     label:'Drawers', hint:'Soft-close undermount glides. Nine box sizes.',
     icon:'M2 3h20v6H2zM2 12h20v6H2zM2 21h20v6H2z',
     defH:34, minH:10, maxH:48, opt:{key:'n',label:'Drawers',min:1,max:8,def:4},
     build(c){
-      const {w,d,y,h,G,parts,o,pull} = c;
+      const {w,d,y,h,G,parts,o,pull,warn} = c;
       const n = clamp(o.n ?? Math.max(2,Math.round(h/8.5)), 1, 8);
       const fh = h/n;
-      parts.push({code:'DRAWER',qty:n,w,h:fh,d:Math.min(d-2,20),note:`${n} drawers, ${fh.toFixed(1)}" fronts`});
+
+      /* the front is cut to fh; the box behind it has to be a real SKU */
+      const boxW = fit(DRAWER_BOX.w, w - 1.0);        // 1/2" glide each side
+      const boxD = fit(DRAWER_BOX.d, d - 2.0);
+      const boxH = fit(DRAWER_BOX.h, fh - 1.0);       // front overlays the box
+      const glide = fit(GLIDES, boxD || 0);
+
+      if(!boxW) warn && warn(`A ${w.toFixed(0)}" bay is too narrow for a drawer box — the smallest he stocks is ${DRAWER_BOX.w[0]}" and needs a ${(DRAWER_BOX.w[0]+1).toFixed(0)}" opening.`);
+      if(!boxH) warn && warn(`${n} drawers across ${h.toFixed(0)}" gives ${fh.toFixed(1)}" fronts — too short for the ${DRAWER_BOX.h[0]}" box, the shallowest he stocks. Use fewer drawers.`);
+
+      parts.push({code:'DRAWER',qty:n,w,h:fh,d:Math.min(d-2,20),
+        note:`${n} drawers, ${fh.toFixed(1)}" fronts` +
+             (boxW&&boxH&&boxD ? ` · ${boxW}"×${boxH}"×${boxD}" boxes, ${glide}" glides` : ' · NO STOCK BOX FITS')});
       for(let i=0;i<n;i++){
         const cy = y + fh*i + fh/2;
         G.push({k:'front', p:[0, cy, d/2-0.4], s:[w-0.2, fh-0.18, 0.8], m:'front'});
@@ -241,7 +267,10 @@ function addPull(G, pull, cx, cy, faceZ, w, h, vertical){
    BUILD — runs → bays → stacks → geometry + order list
    ============================================================ */
 export function makeBay(width, stack){
-  return { w: width, stack: stack || [{m:'DOUBLE_HANG', h:null, o:{}}] };
+  /* A new bay is EMPTY on purpose. The old default dropped a double-hang into
+     every bay, which meant the customer was handed a finished closet and asked
+     to nudge it. They are supposed to build it. */
+  return { w: width, stack: stack || [] };
 }
 export function defaultStackFor(type){
   return ({
@@ -309,7 +338,8 @@ export function buildDesign(cfg, cat){
       let y = floorY;
       for(const s of mods){
         const sub = [];
-        MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull });
+        MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull,
+                              warn: m => warnings.push(m) });
         for(const g of sub) local.push({...g, p:[cx + g.p[0], y + g.p[1], g.p[2]]});
         y += s.H;
       }
