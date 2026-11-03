@@ -281,19 +281,44 @@ function drawCloset(res){
     g.userData={wall:b.wall,i:b.bay};
     picks.add(g);
   });
-  // highlight the selected bay
+  /* Highlight the selected section.
+
+     This used to be a MeshBasicMaterial with wireframe:true, which draws every
+     TRIANGLE edge — including the diagonal across each face. That diagonal was
+     the stray line running across the closet in the viewport, and it is most of
+     why the drawing read as a sketch. EdgesGeometry draws only the real box
+     edges, so the selection reads as a crisp outline on cabinetry. */
   if(S.sel){
     const hit=picks.children.find(o=>o.userData.wall===S.sel.wall&&o.userData.i===S.sel.i);
     if(hit){
-      const e=new THREE.Mesh(hit.geometry.clone(),
-        new THREE.MeshBasicMaterial({color:0xCDA96E,wireframe:true,transparent:true,opacity:.75}));
-      e.position.copy(hit.position); e.scale.set(1.02,1.01,1.02); root.add(e);
+      const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(hit.geometry, 1),
+        new THREE.LineBasicMaterial({ color:0xCDA96E, transparent:true, opacity:.95, depthTest:false }));
+      outline.position.copy(hit.position);
+      outline.scale.set(1.012, 1.004, 1.012);
+      outline.renderOrder = 999;
+      root.add(outline);
+
+      /* a very faint wash so the chosen section separates from its neighbours */
+      const wash = new THREE.Mesh(hit.geometry.clone(),
+        new THREE.MeshBasicMaterial({ color:0xCDA96E, transparent:true, opacity:.07, depthWrite:false }));
+      wash.position.copy(hit.position); wash.scale.set(1.004,1.0,1.004);
+      root.add(wash);
     }
   }
   fitShadowCamera(key,root); renderer.shadowMap.needsUpdate=true;
   if(ao?.setSceneClipBox){ const bb=new THREE.Box3().setFromObject(root); if(!bb.isEmpty()) ao.setSceneClipBox(bb); }
 }
 const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+const ndcFrom=(e)=>{ const r=canvas.getBoundingClientRect();
+  ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); return ndc; };
+
+/* nothing told you a section could be clicked. Cursor changes over one. */
+canvas.addEventListener('pointermove', e=>{
+  if(e.buttons) return;                               // orbiting, not hovering
+  ray.setFromCamera(ndcFrom(e), cam);
+  canvas.style.cursor = ray.intersectObjects(picks.children,false).length ? 'pointer' : 'grab';
+});
 canvas.addEventListener('pointerdown',e=>{ canvas._dx=e.clientX; canvas._dy=e.clientY; });
 canvas.addEventListener('pointerup',e=>{
   if(Math.hypot(e.clientX-canvas._dx, e.clientY-canvas._dy)>5) return;   // that was a drag
@@ -301,7 +326,15 @@ canvas.addEventListener('pointerup',e=>{
   ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
   ray.setFromCamera(ndc,cam);
   const hit=ray.intersectObjects(picks.children,false)[0];
-  if(hit){ S.sel={wall:hit.object.userData.wall,i:hit.object.userData.i}; rebuild(false); }
+  if(hit){
+    S.sel={wall:hit.object.userData.wall,i:hit.object.userData.i};
+    rebuild(false);
+    /* clicking a section in the drawing should take you to its controls,
+       otherwise the selection happens somewhere you are not looking */
+    const step = document.getElementById('stack')?.closest('details, .acc, section');
+    if(step && step.tagName === 'DETAILS') step.open = true;
+    document.getElementById('stack')?.scrollIntoView({behavior:'smooth', block:'center'});
+  }
 });
 
 function frame(){
@@ -369,8 +402,8 @@ function paintBays(){
     const strip = r.bays.length
       ? `<div class="baystrip">${r.bays.map((b,i)=>`
           <button class="bay ${S.sel?.wall===wall&&S.sel?.i===i?'on':''}"
-            data-wall="${wall}" data-i="${i}" style="flex:${b.w}"
-            title="${b.stack.length?b.stack.length+' item'+(b.stack.length===1?'':'s'):'empty — click to fill it'}">
+            draggable="true" data-wall="${wall}" data-i="${i}" style="flex:${b.w}"
+            title="${b.stack.length?b.stack.length+' item'+(b.stack.length===1?'':'s')+' — drag to move it along the wall':'empty — click to fill it, drag to move it'}">
             <span class="bstack">${miniStack(b)}</span>
             <span class="bw">${b.w.toFixed(0)}"</span></button>`).join('')}
           ${left > 2 ? `<span class="bay gap" style="flex:${left}" aria-hidden="true">${left.toFixed(0)}" free</span>` : ''}
@@ -511,6 +544,42 @@ $('#bays').onclick=e=>{
   const b=e.target.closest('.bay');
   if(b){ S.sel={wall:b.dataset.wall,i:+b.dataset.i}; rebuild(false); }
 };
+/* ---- reorder sections along the wall -------------------------------------
+   A run is an ordered list, so moving a section is a splice. Dropping onto a
+   bay puts the dragged one in front of it; dropping past the end appends. */
+let DRAG = null;
+$('#bays').addEventListener('dragstart', e=>{
+  const b = e.target.closest('.bay[data-wall]'); if(!b) return;
+  DRAG = { wall:b.dataset.wall, i:+b.dataset.i };
+  b.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  try{ e.dataTransfer.setData('text/plain', b.dataset.i); }catch(_){}
+});
+$('#bays').addEventListener('dragend', ()=>{
+  DRAG = null;
+  document.querySelectorAll('.bay.dragging,.bay.over').forEach(x=>x.classList.remove('dragging','over'));
+});
+$('#bays').addEventListener('dragover', e=>{
+  const b = e.target.closest('.bay[data-wall]');
+  if(!b || !DRAG || b.dataset.wall !== DRAG.wall) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.bay.over').forEach(x=>x.classList.remove('over'));
+  b.classList.add('over');
+});
+$('#bays').addEventListener('drop', e=>{
+  const b = e.target.closest('.bay[data-wall]');
+  if(!b || !DRAG || b.dataset.wall !== DRAG.wall) return;
+  e.preventDefault();
+  const from = DRAG.i, to = +b.dataset.i;
+  if(from === to) return;
+  const bays = S.runs[DRAG.wall].bays;
+  const [moved] = bays.splice(from, 1);
+  bays.splice(to, 0, moved);
+  S.sel = { wall: DRAG.wall, i: to };
+  DRAG = null;
+  rebuild(true);
+});
+
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;

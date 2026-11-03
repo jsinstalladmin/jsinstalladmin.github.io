@@ -14,7 +14,11 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-export const EDGE_R = 0.06;      // 1.5 mm edge-banding radius
+export const EDGE_R = 0.10;      /* 2.5 mm. Real edgebanding is ~1.5 mm, but at
+   render scale a 1.5 mm radius is under a pixel on most edges, so every panel
+   terminated in a razor line and the whole thing read as CAD. A slightly
+   generous radius gives each edge a highlight to catch, which is most of what
+   separates a render from a drawing. */
 export const TEX_TILE_IN = 72.05;// oak_veneer_01 is 1830 mm square
 export const SWATCH_TILE_IN = 32;// melamine decor repeats ~800 mm
 
@@ -31,7 +35,7 @@ export function makeRenderer(canvas){
      Neutral (Khronos PBR Neutral) is built for commerce viewers: it leaves
      mid-tones alone so a named finish still reads as that finish. */
   r.toneMapping = THREE.NeutralToneMapping;
-  r.toneMappingExposure = 1.0;
+  r.toneMappingExposure = 1.06;
   r.shadowMap.enabled = true;
   /* PCFShadowMap, NOT PCFSoftShadowMap: PCFSoft ignores shadow.radius entirely,
      so softness becomes unadjustable. */
@@ -47,20 +51,33 @@ export function setupLighting(scene, renderer){
   pmrem.compileEquirectangularShader();
   // instant, zero-download
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 1.0;
+  scene.environmentIntensity = 1.12;
 
   /* Without a background the composer clears to black and the room floats in a void. */
   scene.background = new THREE.Color(0xE9E6E1);
 
-  const key = new THREE.DirectionalLight(0xfffaf3, 1.35);
+  /* Three-point, not one. A single key gave every vertical panel the same flat
+     value, which is why the cabinetry looked drawn rather than lit. */
+  const key = new THREE.DirectionalLight(0xfffaf3, 1.55);
   key.position.set(110, 200, 190);
   key.castShadow = true;
-  key.shadow.mapSize.set(2048,2048);
-  key.shadow.radius = 4;
-  key.shadow.intensity = 0.62;   // with real IBL a full-strength shadow double-darkens
-  key.shadow.bias = -0.0004;
+  key.shadow.mapSize.set(2560, 2560);   // 2048 stair-stepped on the toe kick; 3072 is needlessly heavy
+  key.shadow.radius = 5;
+  key.shadow.intensity = 0.58;   // with real IBL a full-strength shadow double-darkens
+  key.shadow.bias = -0.0003;
   key.shadow.normalBias = 0.16;  // 4 mm — under the 0.375" half-panel leak threshold
   scene.add(key);
+
+  /* cool bounce from the opposite side, so shadowed faces separate from each
+     other instead of going to one dead tone */
+  const fill = new THREE.DirectionalLight(0xdfe8f2, 0.34);
+  fill.position.set(-170, 90, 120);
+  scene.add(fill);
+
+  /* a low warm rim that grazes the front edges and lights the bevels */
+  const rim = new THREE.DirectionalLight(0xffeedd, 0.30);
+  rim.position.set(-40, 50, -150);
+  scene.add(rim);
 
   // upgrade to the real room HDRI in the background
   // upgrade to the real room HDRI in the background
@@ -102,7 +119,7 @@ export function panelGeo(w,h,d){
   let g = geoCache.get(k);
   if(!g){
     const r = Math.min(EDGE_R, W/2.05, H/2.05, D/2.05);
-    g = new RoundedBoxGeometry(W,H,D,1,r);                // segments:1 — 1.5mm needs no more
+    g = new RoundedBoxGeometry(W,H,D,2,r);                // 2 segments so the edge has a gradient, not a facet
     geoCache.set(k,g);
     if(geoCache.size > 400){                              // evict oldest
       const first = geoCache.keys().next().value;

@@ -263,3 +263,10 @@
    promised a number we cannot stand behind before measuring */
 .pnote{margin:.7em 0 0;font-size:.72rem;line-height:1.5;color:rgba(248,245,240,.56);
   max-width:40ch}
+
+/* ---------- reordering sections along the wall ---------- */
+.bay{cursor:grab}
+.bay:active{cursor:grabbing}
+.bay.dragging{opacity:.4}
+.bay.over{outline:2px solid var(--accent);outline-offset:2px}
+.bay.gap{cursor:default}
