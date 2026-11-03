@@ -391,13 +391,16 @@ function paintStack(){
     }).join('')}</div>
     <h4 class="subh">Add to this bay</h4>
     <div class="palette">${MODULE_IDS.map(id=>{const d=MODULES[id];
+      const img = id.toLowerCase().replace(/_/g,'-');
       return `<button data-add="${id}" title="${d.hint}">
-        <svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg><i>${d.label}</i></button>`}).join('')}</div>`;
+        <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
+             width="420" height="315">
+        <i>${d.label}</i></button>`}).join('')}</div>`;
 }
 
 /* ───────── finishes + hardware ───────── */
 const swStyle=f=> f.x<0 ? 'background:linear-gradient(135deg,#E3D9CC,#EFE8DF)'
-  : `background-image:url(/img/finishes/sprite.jpg);background-size:${cat.meta.cols*100}% ${cat.meta.rows*100}%;background-position:${(f.x/(cat.meta.cols-1))*100}% ${(f.y/(cat.meta.rows-1))*100}%`;
+  : `background-image:url(${(window.BASE||'')}img/finishes/sprite.jpg);background-size:${cat.meta.cols*100}% ${cat.meta.rows*100}%;background-position:${(f.x/(cat.meta.cols-1))*100}% ${(f.y/(cat.meta.rows-1))*100}%`;
 const FAMS=[{lv:2,n:'Everyday'},{lv:3,n:'Textured'},{lv:4,n:'Specialty'},{lv:5,n:'High gloss'}];
 function paintFin(which){
   const box=$(which==='carcass'?'#fin1':'#fin2');

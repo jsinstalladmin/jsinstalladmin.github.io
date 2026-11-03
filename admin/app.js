@@ -58,10 +58,23 @@ V.today = () => {
     <tbody>${next.map(j=>row(j,true)).join('')}</tbody></table>`:'<div class="empty">Nothing booked. Enjoy it.</div>'}</div>
 
   <div class="panel"><header><h3>Pipeline</h3></header><div class="bd">
-    ${STAGES.filter(s=>s!=='lost').map(s=>{const it=jobs.filter(j=>j.stage===s);
-      return `<div class="pipe"><span class="pill p-${s}">${STAGE_LABEL[s]}</span>
-        <div class="bar"><div style="width:${Math.min(100,(it.length/Math.max(1,jobs.length))*280)}%"></div></div>
-        <span class="pn">${it.length} · ${money(it.reduce((a,x)=>a+x.value,0))}</span></div>`}).join('')}
+    ${(() => {
+      /* Bar by VALUE, not by count. The old version sized the bar on how many
+         jobs were in a stage and then printed the money next to it, so a lead
+         worth nothing drew a longer bar than an ordered job worth $5,240.
+         Scale against the biggest stage so the chart has a real axis. */
+      const rows = STAGES.filter(s => s !== 'lost').map(s => {
+        const it = jobs.filter(j => j.stage === s);
+        return { s, n: it.length, v: it.reduce((a,x) => a + x.value, 0) };
+      });
+      const peak = Math.max(1, ...rows.map(r => r.v));
+      return rows.map(r => {
+        const pct = r.v ? Math.max(4, (r.v / peak) * 100) : 0;
+        return `<div class="pipe"><span class="pill p-${r.s}">${STAGE_LABEL[r.s]}</span>
+        <div class="bar"${r.v ? '' : ' data-empty="1"'}><div style="width:${pct.toFixed(1)}%"></div></div>
+        <span class="pn">${r.n} job${r.n===1?'':'s'} · ${money(r.v)}</span></div>`;
+      }).join('');
+    })()}
   </div></div>`;
 };
 

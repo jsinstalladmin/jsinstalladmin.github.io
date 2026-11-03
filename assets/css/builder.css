@@ -34,7 +34,7 @@
 .pscroll{overflow-y:auto;flex:1;padding:4px 0}
 .acc{border-bottom:1px solid var(--line)}
 .acc > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
-  padding:1.05em clamp(16px,2vw,24px);font-family:'Instrument Serif',serif;font-size:1.3rem;
+  padding:1.05em clamp(16px,2vw,24px);font-family:'Fraunces',serif;font-size:1.3rem;
   letter-spacing:-.015em;color:var(--ink)}
 .acc > summary::-webkit-details-marker{display:none}
 .acc > summary i{width:9px;height:9px;border-right:1.4px solid var(--muted);border-bottom:1.4px solid var(--muted);
@@ -43,7 +43,7 @@
 .accb{padding:0 clamp(16px,2vw,24px) 1.5em}
 .note{font-size:.78rem;color:var(--muted);margin:.9em 0 0;line-height:1.5}
 .accentnote{color:var(--accent-ink);border-left:2px solid var(--accent);padding-left:.8em;margin-top:1.1em}
-.subh{font-family:'Hanken Grotesk',sans-serif;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;
+.subh{font-family:'Archivo',sans-serif;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--muted);font-weight:500;margin:1.5em 0 .7em}
 
 .pills{display:flex;flex-wrap:wrap;gap:5px}
@@ -107,7 +107,7 @@
 .pfoot{border-top:1px solid var(--line);background:var(--ink);color:var(--paper);
   padding:clamp(14px,1.8vw,20px) clamp(16px,2vw,24px)}
 .plabel{font-size:.66rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(248,245,240,.5)}
-#price{font-family:'Instrument Serif',serif;font-size:2.5rem;line-height:1.02;letter-spacing:-.03em;color:var(--paper)}
+#price{font-family:'Fraunces',serif;font-size:2.5rem;line-height:1.02;letter-spacing:-.03em;color:var(--paper)}
 #priceSub{display:block;font-size:.75rem;color:rgba(248,245,240,.58);margin-top:.3em}
 .pacts{display:flex;gap:.5em;margin-top:1em;flex-wrap:wrap}
 .pfoot .btn-ghost{border-color:rgba(248,245,240,.28);color:var(--paper)}
@@ -122,7 +122,7 @@
 /* ════════ v2: bay / stack builder ════════ */
 .acc > summary span{display:flex;align-items:center;gap:.6em}
 .acc > summary em{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;
-  background:var(--ink);color:var(--paper);font-family:'Hanken Grotesk',sans-serif;
+  background:var(--ink);color:var(--paper);font-family:'Archivo',sans-serif;
   font-size:.7rem;font-style:normal;font-weight:500;flex:0 0 auto}
 .steps{display:grid;gap:7px;margin-top:1em}
 
@@ -223,3 +223,17 @@
   stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
 .pills.shapes i{font-style:normal;font-size:.76rem;letter-spacing:.01em}
 .pills.shapes button[aria-pressed="true"] svg{opacity:1}
+
+/* ---------- component picker: real renders instead of line icons --------
+   Each image is the module drawn by this same engine, so the card shows
+   exactly the geometry that lands in the bay. */
+.palette{display:grid;gap:9px;grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+.palette button{display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden;
+  border:1px solid var(--line);border-radius:12px;background:var(--paper);cursor:pointer;
+  transition:border-color .25s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease)}
+.palette button:hover{border-color:var(--accent);transform:translateY(-2px);
+  box-shadow:0 8px 22px rgba(26,18,10,.10)}
+.palette button img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;
+  background:#F0ECE5}
+.palette button i{font-style:normal;font-size:.7rem;line-height:1.25;padding:7px 6px 8px;
+  text-align:center;color:var(--ink);letter-spacing:-.005em}

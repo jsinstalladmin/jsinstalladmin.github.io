@@ -4,7 +4,7 @@
    One weight per family. Negative tracking on display, positive
    only on small uppercase labels. Warm greys, never pure black.
    ========================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Archivo:ital,wdth,wght@0,80..125,300..700;1,80..125,300..700&display=swap');
 
 :root{
   --ink:#16120D;
@@ -31,12 +31,12 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 body{
   margin:0;background:var(--paper);color:var(--body);
-  font-family:'Hanken Grotesk',system-ui,sans-serif;font-weight:400;
+  font-family:'Archivo',system-ui,sans-serif;font-weight:400;
   font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;
 }
 img,video,canvas,svg{display:block;max-width:100%}
 a{color:inherit}
-h1,h2,h3,h4{font-family:'Instrument Serif',Georgia,serif;font-weight:400;color:var(--ink);margin:0}
+h1,h2,h3,h4{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--ink);margin:0}
 h1{font-size:clamp(3rem,7.6vw,6.6rem);line-height:.93;letter-spacing:-.035em}
 h2{font-size:clamp(2rem,4.4vw,3.6rem);line-height:1.0;letter-spacing:-.028em}
 h3{font-size:clamp(1.25rem,2vw,1.7rem);line-height:1.1;letter-spacing:-.015em}
@@ -75,7 +75,7 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .drawer{position:fixed;inset:0;z-index:80;background:var(--ink);color:var(--paper);
   padding:84px var(--shell-pad,22px) 40px;display:none;overflow-y:auto}
 .drawer.open{display:block}
-.drawer a{display:block;text-decoration:none;font-family:'Instrument Serif',serif;
+.drawer a{display:block;text-decoration:none;font-family:'Fraunces',serif;
   font-size:2rem;letter-spacing:-.02em;padding:.34em 0;border-bottom:1px solid var(--line-dk)}
 .drawer .x{position:absolute;top:22px;right:22px;background:transparent;border:1px solid var(--line-dk);
   color:inherit;border-radius:var(--r-pill);padding:.5em 1em;font:inherit;cursor:pointer}
@@ -85,7 +85,7 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .lk:hover{background:var(--line-2)}
 .lk-mark{width:37px;height:37px;flex:0 0 auto}
 .lk-txt{display:flex;flex-direction:column;line-height:1}
-.lk-txt b{font-family:'Instrument Serif',serif;font-weight:400;font-size:1.16rem}
+.lk-txt b{font-family:'Fraunces',serif;font-weight:400;font-size:1.16rem}
 .lk-txt span{font-size:.54rem;letter-spacing:.3em;text-transform:uppercase;opacity:.58;margin-top:3px}
 
 /* ---------- buttons ---------- */
@@ -197,7 +197,7 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
 .vbox .acts{display:flex;gap:.65em;flex-wrap:wrap;margin-top:1.9em}
 .vbox-facts{display:flex;flex-wrap:wrap;gap:1.4em;margin-top:2em;padding-top:1.5em;
   border-top:1px solid rgba(248,245,240,.16)}
-.vbox-facts div b{display:block;font-family:'Instrument Serif',serif;font-size:1.6rem;color:var(--paper)}
+.vbox-facts div b{display:block;font-family:'Fraunces',serif;font-size:1.6rem;color:var(--paper)}
 .vbox-facts div span{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:rgba(248,245,240,.56)}
 
 /* ---------- cards: hover = scrim + caption, never a zoom ---------- */
@@ -212,7 +212,7 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
 .dcard .scrim{position:absolute;inset:0;display:grid;place-items:center;opacity:0;
   background:rgba(12,9,6,.46);transition:opacity .34s ease-in-out}
 .dcard:hover .scrim,.dcard:focus-visible .scrim{opacity:1}
-.dcard .scrim span{color:#fff;font-family:'Instrument Serif',serif;font-size:1.22rem;
+.dcard .scrim span{color:#fff;font-family:'Fraunces',serif;font-size:1.22rem;
   letter-spacing:-.01em;display:flex;align-items:center;gap:.5em}
 .dcard .scrim svg{width:30px;height:30px;stroke:#fff;fill:none;stroke-width:1.2}
 .dcard .scrim circle{stroke-dasharray:95;stroke-dashoffset:95;transition:stroke-dashoffset .42s var(--ease-out) .06s}
@@ -285,7 +285,7 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
 .ftr-grid{display:grid;gap:clamp(24px,4vw,56px);grid-template-columns:1.7fr repeat(3,1fr)}
 @media(max-width:880px){.ftr-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.ftr-grid{grid-template-columns:1fr}}
-.ftr h4{font-family:'Hanken Grotesk',sans-serif;font-size:.69rem;letter-spacing:.17em;font-weight:500;
+.ftr h4{font-family:'Archivo',sans-serif;font-size:.69rem;letter-spacing:.17em;font-weight:500;
   text-transform:uppercase;color:rgba(248,245,240,.42);margin:0 0 1.05em}
 .ftr ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.6em}
 .ftr-btm{margin-top:clamp(32px,5vw,62px);padding-top:22px;border-top:1px solid var(--line-dk);
@@ -311,7 +311,7 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
   letter-spacing:.09em;line-height:2.5;text-align:justify;color:var(--muted)}
 .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
   gap:clamp(14px,2vw,28px);border-top:1px solid var(--line);padding-top:clamp(20px,2.6vw,34px)}
-.statrow div b{display:block;font-family:'Instrument Serif',serif;font-size:clamp(1.9rem,3.2vw,2.7rem);
+.statrow div b{display:block;font-family:'Fraunces',serif;font-size:clamp(1.9rem,3.2vw,2.7rem);
   line-height:1;color:var(--ink);letter-spacing:-.025em}
 .statrow div span{display:block;font-size:.73rem;letter-spacing:.13em;text-transform:uppercase;
   color:var(--muted);margin-top:.55em}
@@ -328,7 +328,7 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
   stroke:var(--accent);stroke-width:1.1;stroke-linejoin:round;
   transition:fill .34s var(--ease),stroke .34s var(--ease)}
 .usmap .srv path.hot{fill:var(--accent);stroke:#F0E4CE}
-.usmap .lab text{fill:rgba(248,245,240,.9);font-family:'Hanken Grotesk',sans-serif;
+.usmap .lab text{fill:rgba(248,245,240,.9);font-family:'Archivo',sans-serif;
   font-size:15px;font-weight:600;letter-spacing:.09em;text-anchor:middle;
   pointer-events:none;paint-order:stroke;stroke:rgba(10,8,6,.62);stroke-width:3.5px;
   transition:fill .3s}
@@ -340,7 +340,7 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
 .rg:hover,.rg:focus-visible,.rg.on{background:rgba(248,245,240,.05);padding-left:.8em;outline:0}
 .rg:hover .rghd b,.rg.on .rghd b{color:var(--accent)}
 .rghd{display:flex;align-items:baseline;justify-content:space-between;gap:1em}
-.rghd b{font-family:'Instrument Serif',serif;font-weight:400;font-size:1.3rem;
+.rghd b{font-family:'Fraunces',serif;font-weight:400;font-size:1.3rem;
   letter-spacing:-.018em;color:var(--paper)}
 .rghd span{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(248,245,240,.4)}
 .rgbase{margin:.15em 0 .35em;font-size:.78rem;letter-spacing:.11em;text-transform:uppercase;color:var(--accent)}
@@ -394,7 +394,7 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
 .article p{margin:0 0 1.1em;font-size:1.045rem;line-height:1.72}
 .article .artlist{margin:0 0 1.5em;padding-left:1.25em;display:grid;gap:.6em}
 .article .artlist li{line-height:1.6;padding-left:.15em}
-.article ol.artlist li::marker{font-family:'Instrument Serif',serif;font-size:1.12em;color:var(--accent)}
+.article ol.artlist li::marker{font-family:'Fraunces',serif;font-size:1.12em;color:var(--accent)}
 .article .artcta{margin:2.4em 0 0;padding-top:1.8em;border-top:1px solid var(--line)}
 .gcard{display:flex;flex-direction:column;text-decoration:none;background:var(--paper-2);
   border-radius:var(--r-md);overflow:hidden;border:1px solid transparent;
@@ -445,3 +445,22 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
   .sec{padding:clamp(44px,8vw,64px) 0}
   .sec-wide{padding:clamp(48px,9vw,72px) 0}
 }
+
+/* ---------- TYPE SYSTEM -------------------------------------------------
+   Fraunces for display, Archivo for text.
+
+   Fraunces is a variable face with optical-size, SOFT and WONK axes. Set
+   opsz high on the big headings so the contrast opens up the way a display
+   cut should, and keep a little WONK — the single-storey g and the canted
+   leaf terminals are what stop this reading as a default serif. Archivo
+   carries the body because its figures are the clearest at the small sizes
+   this site is full of (84", 32mm, 24–36"). */
+h1,h2,h3,h4{
+  font-variation-settings:'opsz' 120,'SOFT' 28,'WONK' 1;
+  font-weight:380;letter-spacing:-.016em;line-height:1.05}
+h1{font-variation-settings:'opsz' 144,'SOFT' 34,'WONK' 1;letter-spacing:-.024em}
+h3,h4{font-variation-settings:'opsz' 42,'SOFT' 20,'WONK' 0;letter-spacing:-.008em}
+body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
+/* numerals: tabular everywhere a dimension or a price is shown */
+.statrow div b,.vbox-facts div b,.pricebig,.step b,.bw,.phero-facts span,
+.article .artlist li,td,th{font-variant-numeric:tabular-nums}

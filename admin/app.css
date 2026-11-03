@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Hanken+Grotesk:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Archivo:ital,wdth,wght@0,80..125,300..700;1,80..125,300..700&display=swap');
 :root{
   --bg:#0C0A08; --surf:#15110D; --surf2:#1D1812; --surf3:#2A231B; --surf4:#372E23;
   --fg:#F5F0E8; --muted:#9B8E7E; --brass:#CDA96E; --brass2:#A8824C;
@@ -8,9 +8,9 @@
   --rail:236px; --top:62px;
 }
 *,*::before,*::after{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:'Hanken Grotesk',system-ui,sans-serif;
+body{margin:0;background:var(--bg);color:var(--fg);font-family:'Archivo',system-ui,sans-serif;
   font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow:hidden}
-h1,h2,h3{font-family:'Instrument Serif',serif;font-weight:400;margin:0;line-height:1.08;letter-spacing:-.018em}
+h1,h2,h3{font-family:'Fraunces',serif;font-weight:400;margin:0;line-height:1.08;letter-spacing:-.018em}
 a{color:inherit}button,input,select,textarea{font:inherit}
 .app{display:grid;grid-template-columns:var(--rail) minmax(0,1fr) auto;grid-template-rows:var(--top) minmax(0,1fr);height:100svh}
 
@@ -19,7 +19,7 @@ a{color:inherit}button,input,select,textarea{font:inherit}
   display:flex;flex-direction:column;padding:16px 12px;gap:3px;overflow-y:auto}
 .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 20px;text-decoration:none}
 .brand svg{width:30px;height:30px;fill:var(--brass);flex:0 0 auto}
-.brand b{font-family:'Instrument Serif',serif;font-weight:400;font-size:1.06rem;display:block}
+.brand b{font-family:'Fraunces',serif;font-weight:400;font-size:1.06rem;display:block}
 .brand span span{display:block;font-size:.54rem;letter-spacing:.26em;text-transform:uppercase;color:var(--muted);margin-top:2px}
 .nvi{display:flex;align-items:center;gap:11px;padding:.64em .85em;border-radius:10px;cursor:pointer;
   color:var(--muted);border:0;background:transparent;width:100%;text-align:left;font-size:.89rem;transition:.2s var(--ease)}
@@ -75,7 +75,7 @@ a{color:inherit}button,input,select,textarea{font:inherit}
 .cards{display:grid;gap:13px;grid-template-columns:repeat(auto-fit,minmax(min(100%,192px),1fr));margin-bottom:24px}
 .card{background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);padding:17px}
 .card .k{font-size:.66rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
-.card .v{font-family:'Instrument Serif',serif;font-size:2.05rem;line-height:1.08;margin:.16em 0;letter-spacing:-.025em}
+.card .v{font-family:'Fraunces',serif;font-size:2.05rem;line-height:1.08;margin:.16em 0;letter-spacing:-.025em}
 .card .d{font-size:.76rem;color:var(--muted)}
 
 .panel{background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;margin-bottom:20px}
@@ -143,7 +143,7 @@ tbody tr:last-child td{border-bottom:0}
 .note.warn{border-color:rgba(224,169,74,.3);background:rgba(224,169,74,.08);color:var(--warn)}
 .note.warn b{color:var(--warn)}
 .note.calc{border-color:var(--brass2);margin:1em 0 0}
-.note .big{font-family:'Instrument Serif',serif;font-size:1.55rem;color:var(--fg);letter-spacing:-.02em}
+.note .big{font-family:'Fraunces',serif;font-size:1.55rem;color:var(--fg);letter-spacing:-.02em}
 .inline-msg{margin-left:.8em;font-size:.81rem;color:var(--ok)}
 dialog{background:var(--surf);color:var(--fg);border:1px solid var(--line);border-radius:var(--r-lg);
   padding:24px;max-width:min(540px,94vw);width:100%}
@@ -210,3 +210,23 @@ body:has(.agent.open) #agentToggle{opacity:0;pointer-events:none;transform:scale
   .agent.open{width:100vw;position:fixed;inset:0;z-index:90}
   .main{padding-bottom:88px}
 }
+
+/* ---------- dashboard polish ----------
+   The stat cards were running tall with a lot of dead air under the number,
+   and an empty pipeline stage drew no track at all so the chart lost its
+   baseline. */
+.cards{gap:12px}
+.card{padding:16px 18px 15px;display:grid;gap:2px;align-content:start}
+.card .k{font-size:.63rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.card .v{font-family:'Fraunces',serif;font-variation-settings:'opsz' 72,'SOFT' 26;
+  font-size:clamp(1.65rem,2.3vw,2.1rem);line-height:1.08;margin:.18em 0 .1em;
+  font-variant-numeric:tabular-nums}
+.card .d{font-size:.76rem;color:var(--muted)}
+.pipe{display:grid;grid-template-columns:104px minmax(0,1fr) auto;align-items:center;
+  gap:14px;padding:5px 0}
+.pipe .bar{height:9px;border-radius:999px;background:var(--surf3);overflow:hidden}
+.pipe .bar[data-empty]{background:var(--surf2);box-shadow:inset 0 0 0 1px var(--line2)}
+.pipe .bar > div{height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--brass2),var(--brass));
+  transition:width .5s var(--ease)}
+.pipe .pn{font-size:.76rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
