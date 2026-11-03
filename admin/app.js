@@ -1,0 +1,300 @@
+import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS } from './store.js';
+import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
+
+const cat = await (await fetch((window.BASE||"")+'assets/data/catalog.json')).json();
+const $ = s => document.querySelector(s);
+const money = n => '$'+Math.round(n||0).toLocaleString();
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today = () => new Date().toISOString().slice(0,10);
+const fmtD = iso => new Date(iso+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+const fmtFull = iso => new Date(iso+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+export const refresh = () => render();
+
+/* ═══════════════ REGION SWITCHER ═══════════════ */
+function paintRegions(){
+  const cur = DB.region();
+  $('#regions').innerHTML = REGIONS.map(r=>{
+    const n = DB.jobs(r.id).filter(j=>j.stage!=='done'&&j.stage!=='lost').length;
+    return `<button data-r="${r.id}" aria-pressed="${r.id===cur}">
+      <b>${r.short}</b><span>${r.name}</span>${n?`<i>${n}</i>`:''}</button>`;
+  }).join('') + `<button data-r="all" aria-pressed="${cur==='all'}" class="allbtn">
+      <b>ALL</b><span>Every region</span></button>`;
+}
+$('#regions').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  DB.setRegion(b.dataset.r); paintRegions(); render();
+});
+
+/* ═══════════════ VIEWS ═══════════════ */
+const V = {};
+
+V.today = () => {
+  const jobs = DB.jobs(), rm = DB.regionMeta();
+  const live = jobs.filter(j=>!['done','lost'].includes(j.stage));
+  const td = jobs.filter(j=>j.date===today());
+  const next = [...live].filter(j=>j.date>=today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,7);
+  const month = jobs.filter(j=>j.stage==='done' && j.date.slice(0,7)===today().slice(0,7));
+  const pipe = jobs.filter(j=>['quoted','won','ordered','scheduled'].includes(j.stage));
+  const needQuote = jobs.filter(j=>j.stage==='lead');
+  return `
+  <div class="hd"><div><h1>${DB.region()==='all'?'All regions':rm.name}</h1>
+    <p>${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}${DB.region()==='all'?'':' · '+rm.base}</p></div>
+    <div class="hdacts"><button class="btn" data-act="newclient">+ Client</button>
+      <button class="btn btn-p" data-act="newjob">+ Job</button></div></div>
+
+  ${td.length?`<div class="panel accent"><header><h3>On today</h3><span>${td.length} visit${td.length>1?'s':''}</span></header>
+    <table><tbody>${td.map(j=>row(j)).join('')}</tbody></table></div>`:''}
+
+  <div class="cards">
+    <div class="card"><span class="k">Pipeline</span><div class="v">${money(pipe.reduce((a,x)=>a+x.value,0))}</div><span class="d">${pipe.length} live jobs</span></div>
+    <div class="card"><span class="k">Installed this month</span><div class="v">${money(month.reduce((a,x)=>a+x.value,0))}</div><span class="d">${month.length} completed</span></div>
+    <div class="card"><span class="k">Waiting on a quote</span><div class="v">${needQuote.length}</div><span class="d">${needQuote.length?'Oldest '+fmtD([...needQuote].sort((a,b)=>a.date.localeCompare(b.date))[0].date):'All clear'}</span></div>
+    <div class="card"><span class="k">Clients</span><div class="v">${DB.clients().length}</div><span class="d">${DB.region()==='all'?'across every region':'in '+rm.short}</span></div>
+  </div>
+
+  <div class="panel"><header><h3>Next up</h3><button class="btn btn-sm" data-nav="schedule">Full schedule →</button></header>
+  ${next.length?`<table><thead><tr><th>Date</th><th>Client</th><th>Job</th><th>Visit</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Stage</th><th class="mono">Value</th></tr></thead>
+    <tbody>${next.map(j=>row(j,true)).join('')}</tbody></table>`:'<div class="empty">Nothing booked. Enjoy it.</div>'}</div>
+
+  <div class="panel"><header><h3>Pipeline</h3></header><div class="bd">
+    ${STAGES.filter(s=>s!=='lost').map(s=>{const it=jobs.filter(j=>j.stage===s);
+      return `<div class="pipe"><span class="pill p-${s}">${STAGE_LABEL[s]}</span>
+        <div class="bar"><div style="width:${Math.min(100,(it.length/Math.max(1,jobs.length))*280)}%"></div></div>
+        <span class="pn">${it.length} · ${money(it.reduce((a,x)=>a+x.value,0))}</span></div>`}).join('')}
+  </div></div>`;
+};
+
+const row = (j,withHead) => `<tr data-job="${j.id}">
+  <td class="mono">${fmtD(j.date)}</td><td>${esc(DB.clientName(j.client))}</td>
+  <td><b>${esc(j.title)}</b></td><td class="cap">${esc(j.kind)}</td>
+  ${DB.region()==='all'?`<td><span class="rtag">${DB.regionMeta(j.region).short}</span></td>`:''}
+  <td><span class="pill p-${j.stage}">${STAGE_LABEL[j.stage]}</span></td>
+  <td class="mono">${j.value?money(j.value):'—'}</td></tr>`;
+
+V.schedule = () => {
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  const first=new Date(y,m,1), start=new Date(first); start.setDate(1-first.getDay());
+  const jobs=DB.jobs();
+  let cells='';
+  for(let i=0;i<42;i++){
+    const dt=new Date(start); dt.setDate(start.getDate()+i);
+    const iso=dt.toISOString().slice(0,10);
+    const ev=jobs.filter(j=>j.date===iso);
+    cells+=`<div class="day ${dt.getMonth()!==m?'out':''} ${iso===today()?'today':''}" data-date="${iso}">
+      <span class="dnum">${dt.getDate()}</span>
+      ${ev.map(e=>`<span class="ev ${e.kind}" data-job="${e.id}" title="${esc(DB.clientName(e.client))} — ${esc(e.title)}">${esc(DB.clientName(e.client).split(' ')[0])} · ${esc(e.title)}</span>`).join('')}
+    </div>`;
+  }
+  const mo=jobs.filter(j=>j.date.slice(0,7)===today().slice(0,7));
+  return `<div class="hd"><div><h1>${now.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</h1>
+    <p>${mo.length} booked${DB.region()==='all'?' across every region':' in '+DB.regionMeta().name} · ${money(mo.reduce((a,x)=>a+x.value,0))}</p></div>
+    <button class="btn btn-p" data-act="newjob">+ Book a visit</button></div>
+  <div class="panel"><div class="bd">
+    <div class="legend">${KINDS.map(k=>`<span><i class="k-${k}"></i>${k[0].toUpperCase()+k.slice(1)}</span>`).join('')}
+      <span style="margin-left:auto;color:var(--muted)">Click any day to book · click a visit to edit</span></div>
+    <div class="cal">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div class="dow">${x}</div>`).join('')}${cells}</div>
+  </div></div>`;
+};
+
+V.clients = () => {
+  const c=DB.clients();
+  return `<div class="hd"><div><h1>Clients</h1><p>${c.length}${DB.region()==='all'?' across every region':' in '+DB.regionMeta().name}</p></div>
+    <button class="btn btn-p" data-act="newclient">+ Add client</button></div>
+  <div class="panel">${c.length?`<table><thead><tr><th>Name</th><th>Phone</th><th>Address</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Source</th><th>Jobs</th><th class="mono">Lifetime</th></tr></thead><tbody>
+  ${c.map(x=>{const js=DB.jobs('all').filter(j=>j.client===x.id);
+    return `<tr data-client="${x.id}"><td><b>${esc(x.name)}</b><br><span class="sub">${esc(x.email)}</span></td>
+    <td class="mono">${esc(x.phone)}</td><td class="sub">${esc(x.addr)}</td>
+    ${DB.region()==='all'?`<td><span class="rtag">${DB.regionMeta(x.region).short}</span></td>`:''}
+    <td><span class="pill" style="color:var(--muted)">${esc(x.source)}</span></td><td>${js.length}</td>
+    <td class="mono">${money(js.filter(j=>j.stage==='done').reduce((a,j)=>a+j.value,0))}</td></tr>`}).join('')}
+  </tbody></table>`:'<div class="empty">No clients in this region yet.</div>'}</div>`;
+};
+
+V.jobs = () => {
+  const j=[...DB.jobs()].sort((a,b)=>b.date.localeCompare(a.date));
+  return `<div class="hd"><div><h1>Jobs</h1><p>${j.length} total · ${money(j.filter(x=>x.stage!=='lost').reduce((a,x)=>a+x.value,0))} booked</p></div>
+    <button class="btn btn-p" data-act="newjob">+ New job</button></div>
+  <div class="panel">${j.length?`<table><thead><tr><th>Date</th><th>Client</th><th>Job</th><th>Finish</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Crew</th><th>Stage</th><th class="mono">Value</th></tr></thead><tbody>
+  ${j.map(x=>`<tr data-job="${x.id}"><td class="mono">${fmtD(x.date)}</td><td>${esc(DB.clientName(x.client))}</td>
+    <td><b>${esc(x.title)}</b>${x.notes?`<br><span class="sub">${esc(x.notes.slice(0,70))}${x.notes.length>70?'…':''}</span>`:''}</td>
+    <td class="sub">${esc(x.finish)}</td>
+    ${DB.region()==='all'?`<td><span class="rtag">${DB.regionMeta(x.region).short}</span></td>`:''}
+    <td class="sub">${esc(x.crew||'—')}</td>
+    <td><span class="pill p-${x.stage}">${STAGE_LABEL[x.stage]}</span></td><td class="mono">${x.value?money(x.value):'—'}</td></tr>`).join('')}
+  </tbody></table>`:'<div class="empty">No jobs in this region yet.</div>'}</div>`;
+};
+
+V.quotes = () => {
+  const q=DB.quotes();
+  return `<div class="hd"><div><h1>Quotes</h1><p>${q.length} on file · ${money(q.filter(x=>x.status==='sent').reduce((a,x)=>a+x.total,0))} awaiting a reply</p></div></div>
+  <div class="panel">${q.length?`<table><thead><tr><th>Date</th><th>Client</th><th>Quote</th><th>Status</th><th class="mono">Total</th></tr></thead><tbody>
+  ${q.map(x=>`<tr data-quote="${x.id}"><td class="mono">${fmtD(x.created)}</td><td>${esc(DB.clientName(x.client))}</td>
+    <td><b>${esc(x.title)}</b><br><span class="sub">${esc(x.summary)}</span></td>
+    <td><span class="pill ${x.status==='accepted'?'p-won':x.status==='sent'?'p-quoted':'p-lead'} cap">${x.status}</span></td>
+    <td class="mono">${money(x.total)}</td></tr>`).join('')}
+  </tbody></table>`:'<div class="empty">No quotes in this region yet.</div>'}</div>
+
+  <div class="panel"><header><h3>Price a closet</h3><span>Same engine as the website builder</span></header>
+  <div class="bd"><div class="f3">
+    <div class="f"><label>Wall width (in)</label><input id="pw" type="number" value="120"></div>
+    <div class="f"><label>Depth (in)</label><input id="pd" type="number" value="24"></div>
+    <div class="f"><label>What's in it</label><select id="pl">${MODULE_IDS.map(k=>`<option value="${k}">${MODULES[k].label}</option>`).join('')}</select></div>
+  </div>
+  <div class="f"><label>Finish</label><select id="pf">${cat.finishes.map(f=>`<option value="${esc(f.n)}">${esc(f.n)} — Level ${f.lv} · $${f.sq.toFixed(2)}/sq ft</option>`).join('')}</select></div>
+  <button class="btn btn-p" id="pgo">Calculate</button>
+  <div id="pout"></div></div></div>`;
+};
+
+V.settings = () => {
+  const s=DB.settings();
+  return `<div class="hd"><div><h1>Settings</h1><p>Keys and business details. Everything here stays in this browser.</p></div></div>
+
+  <div class="panel"><header><h3>Claude assistant</h3><span class="dot ${s.anthropicKey?'on':''}"></span></header><div class="bd">
+    <div class="note warn"><b>Your own Anthropic key goes here.</b> The assistant calls Anthropic directly from this browser and is billed to your account. The key never leaves this machine and never touches our servers. Get one at <b>console.anthropic.com → API Keys</b>.</div>
+    <div class="f"><label>Anthropic API key</label><input id="s-key" type="password" placeholder="sk-ant-..." value="${esc(s.anthropicKey)}"></div>
+    <div class="f"><label>Model</label><select id="s-model">
+      ${['claude-sonnet-4-6','claude-opus-4-1','claude-haiku-4-5'].map(m=>`<option${m===s.model?' selected':''}>${m}</option>`).join('')}</select></div>
+    <button class="btn btn-p" data-act="savekey">Save key</button>
+    <span id="keymsg" class="inline-msg"></span>
+  </div></div>
+
+  <div class="panel"><header><h3>Business</h3></header><div class="bd">
+    <div class="f2"><div class="f"><label>Business name</label><input id="s-biz" value="${esc(s.business)}"></div>
+      <div class="f"><label>Phone</label><input id="s-phone" value="${esc(s.phone)}"></div></div>
+    <div class="f2"><div class="f"><label>Email</label><input id="s-email" value="${esc(s.email)}"></div>
+      <div class="f"><label>Markup multiplier</label><input id="s-markup" type="number" step="0.1" value="${s.markup}"></div></div>
+    <button class="btn btn-p" data-act="savebiz">Save</button></div></div>
+
+  <div class="panel"><header><h3>Still to connect</h3></header><div class="bd">
+    <div class="f"><label>Web3Forms key — website contact form</label><input id="s-w3f" placeholder="Sign up free at web3forms.com" value="${esc(s.web3forms)}"></div>
+    <div class="f"><label>Resend API key — quote emails</label><input id="s-resend" type="password" placeholder="re_..." value="${esc(s.resendKey)}"></div>
+    <div class="f"><label>Google Maps embed URL — contact page</label><input id="s-map" placeholder="Maps → Share → Embed a map → copy the src" value="${esc(s.mapsEmbed)}"></div>
+    <button class="btn" data-act="savebiz">Save</button></div></div>
+
+  <div class="panel"><header><h3>Your data</h3></header><div class="bd">
+    <div class="note">Everything lives in this browser. That is fine for one person on one computer — it is not fine for a crew on three phones. <b>Download a backup weekly.</b> The handover notes explain the one change that moves this to a shared database.</div>
+    <div class="btnrow">
+      <button class="btn" data-act="export">Download backup</button>
+      <button class="btn" data-act="import">Restore from backup</button>
+      <button class="btn danger" data-act="reset">Reset to demo data</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json" hidden></div></div>`;
+};
+
+/* ═══════════════ ROUTER ═══════════════ */
+let view='today';
+function render(){
+  $('#main').innerHTML = V[view]();
+  document.querySelectorAll('.nvi').forEach(b=>b.toggleAttribute('aria-current', b.dataset.v===view));
+  $('#main').scrollTop=0;
+  paintRegions();
+  if(view==='quotes') wireCalc();
+}
+document.addEventListener('click', e=>{
+  const nav=e.target.closest('[data-v],[data-nav]');
+  if(nav){ view=nav.dataset.v||nav.dataset.nav; render(); return; }
+  const act=e.target.closest('[data-act]'); if(act) return doAct(act.dataset.act);
+  const job=e.target.closest('[data-job]'); if(job){ e.stopPropagation(); return openJob(job.dataset.job); }
+  const cl=e.target.closest('[data-client]'); if(cl) return openClient(cl.dataset.client);
+  const day=e.target.closest('.day'); if(day) return openJob(null, day.dataset.date);
+});
+
+function doAct(a){
+  if(a==='newclient') return openClient(null);
+  if(a==='newjob')    return openJob(null);
+  if(a==='savekey'){
+    DB.setSettings({anthropicKey:$('#s-key').value.trim(), model:$('#s-model').value});
+    $('#keymsg').textContent='Saved — the assistant is live.';
+    document.querySelector('.agent .dot')?.classList.toggle('on', !!$('#s-key').value.trim());
+    return;
+  }
+  if(a==='savebiz'){
+    DB.setSettings({business:$('#s-biz')?.value, phone:$('#s-phone')?.value, email:$('#s-email')?.value,
+      markup:+($('#s-markup')?.value||2.8), web3forms:$('#s-w3f')?.value,
+      resendKey:$('#s-resend')?.value, mapsEmbed:$('#s-map')?.value});
+    render(); return;
+  }
+  if(a==='export'){
+    const b=new Blob([DB.export()],{type:'application/json'});
+    const u=URL.createObjectURL(b), l=document.createElement('a');
+    l.href=u; l.download=`js-closets-backup-${today()}.json`; l.click();
+    setTimeout(()=>URL.revokeObjectURL(u),2000); return;
+  }
+  if(a==='import'){
+    const f=$('#importFile'); f.value=''; f.click();
+    f.onchange=()=>{ const file=f.files[0]; if(!file) return;
+      const r=new FileReader();
+      r.onload=()=>{ try{ DB.import(r.result); render(); alert('Backup restored.'); }
+                     catch(err){ alert('Could not read that file: '+err.message); } };
+      r.readAsText(file); };
+    return;
+  }
+  if(a==='reset'){ if(confirm('Reset everything back to the demo data? Your current records will be lost.')){DB.reset(); render();} return; }
+}
+
+/* ═══════════════ MODALS ═══════════════ */
+const dlg=$('#dlg');
+const close=()=>dlg.close();
+function openClient(id){
+  const c = id ? DB.client(id) : null;
+  dlg.innerHTML=`<h2>${c?'Client':'New client'}</h2>
+   <div class="f"><label>Name</label><input id="m-n" value="${esc(c?.name||'')}"></div>
+   <div class="f2"><div class="f"><label>Phone</label><input id="m-p" value="${esc(c?.phone||'')}"></div>
+     <div class="f"><label>Email</label><input id="m-e" type="email" value="${esc(c?.email||'')}"></div></div>
+   <div class="f"><label>Address</label><input id="m-a" value="${esc(c?.addr||'')}"></div>
+   <div class="f2"><div class="f"><label>Region</label><select id="m-r">${REGIONS.map(r=>`<option value="${r.id}"${(c?.region||DB.region())===r.id?' selected':''}>${r.name}</option>`).join('')}</select></div>
+     <div class="f"><label>Source</label><select id="m-s">${['Website','Referral','Google','Houzz','Trade','Walk-in'].map(x=>`<option${c?.source===x?' selected':''}>${x}</option>`).join('')}</select></div></div>
+   <div class="f"><label>Notes</label><textarea id="m-no" rows="2">${esc(c?.notes||'')}</textarea></div>
+   <div class="dlgacts"><button class="btn" value="cancel">Cancel</button><button class="btn btn-p" id="m-ok">${c?'Save':'Add client'}</button></div>`;
+  dlg.showModal();
+  dlg.querySelector('[value=cancel]').onclick=close;
+  $('#m-ok').onclick=()=>{
+    if(!$('#m-n').value.trim()) return;
+    const p={name:$('#m-n').value,phone:$('#m-p').value,email:$('#m-e').value,addr:$('#m-a').value,
+             region:$('#m-r').value,source:$('#m-s').value,notes:$('#m-no').value};
+    c?DB.updateClient(c.id,p):DB.addClient(p);
+    close(); render();
+  };
+}
+function openJob(id, presetDate){
+  const j = id ? DB.job(id) : null;
+  const cs = DB.clients('all');
+  dlg.innerHTML=`<h2>${j?'Visit':'New visit'}</h2>
+   <div class="f"><label>Client</label><select id="m-c">${cs.map(c=>`<option value="${c.id}"${j&&j.client===c.id?' selected':''}>${esc(c.name)} — ${DB.regionMeta(c.region).short}</option>`).join('')}</select></div>
+   <div class="f"><label>Job title</label><input id="m-t" value="${esc(j?.title||'')}" placeholder="e.g. Primary walk-in"></div>
+   <div class="f2"><div class="f"><label>Date</label><input id="m-d" type="date" value="${j?.date||presetDate||today()}"></div>
+     <div class="f"><label>Visit type</label><select id="m-k">${KINDS.map(k=>`<option${j&&j.kind===k?' selected':''}>${k}</option>`).join('')}</select></div></div>
+   <div class="f2"><div class="f"><label>Stage</label><select id="m-st">${STAGES.map(s=>`<option value="${s}"${j&&j.stage===s?' selected':''}>${STAGE_LABEL[s]}</option>`).join('')}</select></div>
+     <div class="f"><label>Value ($)</label><input id="m-v" type="number" value="${j?.value||0}"></div></div>
+   <div class="f2"><div class="f"><label>Crew</label><input id="m-cr" value="${esc(j?.crew||'')}" placeholder="Who's going"></div>
+     <div class="f"><label>Finish</label><input id="m-fi" value="${esc(j?.finish||'—')}"></div></div>
+   <div class="f"><label>Notes</label><textarea id="m-no" rows="3">${esc(j?.notes||'')}</textarea></div>
+   <div class="dlgacts">${j?'<button class="btn danger" id="m-del">Delete</button>':''}
+     <button class="btn" value="cancel">Cancel</button><button class="btn btn-p" id="m-ok">${j?'Save':'Book it'}</button></div>`;
+  dlg.showModal();
+  dlg.querySelector('[value=cancel]').onclick=close;
+  $('#m-del')?.addEventListener('click',()=>{ if(confirm('Delete this visit?')){DB.removeJob(j.id); close(); render();} });
+  $('#m-ok').onclick=()=>{
+    const cl=DB.client($('#m-c').value);
+    const p={client:$('#m-c').value, region:cl?cl.region:DB.region(),
+      title:$('#m-t').value||'Untitled', date:$('#m-d').value, kind:$('#m-k').value,
+      stage:$('#m-st').value, value:+$('#m-v').value, crew:$('#m-cr').value,
+      finish:$('#m-fi').value||'—', notes:$('#m-no').value};
+    j?DB.updateJob(j.id,p):DB.addJob({...p,type:'—'});
+    close(); render();
+  };
+}
+
+function wireCalc(){
+  $('#pgo').onclick=()=>{
+    const w=+$('#pw').value, d=+$('#pd').value, layout=$('#pl').value, fin=$('#pf').value;
+    if(w < 24){ $('#pout').innerHTML='<div class="note">Too narrow — a bay cannot be under 24".</div>'; return; }
+    const r=quickPrice(w,d,layout,fin,cat);
+    $('#pout').innerHTML=`<div class="note calc">
+      <b class="big">${money(r.price.price)}</b> installed &nbsp;·&nbsp; cost ${money(r.price.cost)} × ${r.price.markup}
+      <br><span class="sub">${r.bays.length} bays · ${r.parts.length} parts · ${r.order.length} order lines · ${esc(fin)} · ${r.finish.lead} week lead</span></div>`;
+  };
+}
+
+paintRegions(); render();

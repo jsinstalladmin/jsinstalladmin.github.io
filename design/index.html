@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script>window.BASE='../';</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Build Your Own Closet in 3D | Live Pricing | JS Closets</title>
+<meta name="description" content="Build a custom closet bay by bay in your browser. Your real wall dimensions, your own layout in every bay, 78 finishes, hardware, and a live installed price with a full parts list.">
+<link rel="canonical" href="https://jsclosets.com/design/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Build Your Own Closet in 3D | Live Pricing | JS Closets">
+<meta property="og:description" content="Build a custom closet bay by bay in your browser. Your real wall dimensions, your own layout in every bay, 78 finishes, hardware, and a live installed price with a full parts list.">
+<meta property="og:url" content="https://jsclosets.com/design/">
+<meta property="og:site_name" content="JS Installations &amp; Closets">
+<meta property="og:image" content="https://jsclosets.com/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#17120E">
+<link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="../assets/css/site.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HomeAndConstructionBusiness","name":"JS Installations & Closets","image":"https://jsclosets.com/img/og.jpg","@id":"https://jsclosets.com/#business","url":"https://jsclosets.com","telephone":"(561) 000-0000","email":"jsinstallationsclosets@gmail.com","priceRange":"$$-$$$","address":{"@type":"PostalAddress","addressLocality":"Boca Raton","addressRegion":"FL","addressCountry":"US"},"areaServed":[{"@type":"City","name":"Boca Raton"},{"@type":"City","name":"Delray Beach"},{"@type":"City","name":"Boynton Beach"},{"@type":"City","name":"Deerfield Beach"},{"@type":"City","name":"Parkland"},{"@type":"City","name":"Coral Springs"},{"@type":"City","name":"Fort Lauderdale"},{"@type":"City","name":"West Palm Beach"}],"description":"Measured, built and installed by the same crew. No subcontractors, no drywall damage, no surprises on the invoice.","makesOffer":[{"@type":"Offer","itemOffered":{"@type":"Service","name":"Walk-In Closets"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Reach-In Closets"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Pantry Systems"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Garage Storage"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Laundry Rooms"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Wall Beds"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Linen Closets"}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://jsclosets.com/"},{"@type":"ListItem","position":2,"name":"Build yours","item":"https://jsclosets.com/design/"}]}</script>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+}}</script>
+<link rel="stylesheet" href="../assets/css/builder.css">
+</head>
+<body class="">
+<a class="skip" href="#main">Skip to content</a><header class="hdr" id="hdr"><div class="hdr-in">
+  <a class="lk" href="../index.html" aria-label="JS Installations &amp; Closets — home">
+  <svg class="lk-mark" viewBox="0 0 40 40" aria-hidden="true">
+  <path d="M5.6 4.4h28.8a1.2 1.2 0 0 1 1.2 1.2v28.8a1.2 1.2 0 0 1-1.2 1.2H5.6a1.2 1.2 0 0 1-1.2-1.2V5.6a1.2 1.2 0 0 1 1.2-1.2Zm1.6 3.2v24.8h25.6V7.6H7.2Z"/>
+  <path d="M15.4 7.6h2.6v24.8h-2.6zM22 7.6h2.6v24.8H22z"/>
+  <path d="M7.2 15.1h8.2v2.4H7.2zM24.6 15.1h8.2v2.4h-8.2zM7.2 22.6h8.2v2.4H7.2zM24.6 22.6h8.2v2.4h-8.2z"/>
+  <path d="M18 17.9h4v1.9h-4z"/>
+</svg><span class="lk-txt"><b>JS Closets</b><span>Installations</span></span></a>
+  <nav class="navbox" aria-label="Primary">
+    <a href="../walk-in-closets.html">Walk-In Closets</a><a href="../reach-in-closets.html">Reach-In Closets</a><a href="../pantries.html">Pantries</a><a href="../garage-storage.html">Garage</a><a href="../laundry-rooms.html">Laundry</a><a href="../wall-beds.html">Wall Beds</a>
+    <a href="../finishes.html">Finishes</a>
+    <a href="../design/" aria-current="page">Design</a>
+  </nav>
+  <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="drawer">Menu</button>
+  <div class="hdr-cta">
+    <a class="btn btn-fill btn-sm" href="../contact.html">Free measure</a>
+  </div>
+</div></header>
+<div class="drawer" id="drawer">
+  <button class="x" id="drawerX">Close</button>
+  <a href="../walk-in-closets.html">Walk-In Closets</a><a href="../reach-in-closets.html">Reach-In Closets</a><a href="../pantries.html">Pantries</a><a href="../garage-storage.html">Garage</a><a href="../laundry-rooms.html">Laundry</a><a href="../wall-beds.html">Wall Beds</a><a href="../finishes.html">Finishes</a><a href="../design/">Design yours</a><a href="../about.html">About</a><a href="../contact.html">Contact</a>
+</div><main id="main">
+<div class="bwrap">
+
+  <div class="bstage">
+    <canvas id="c3d"></canvas>
+    <div class="stage-top"><span class="stage-ttl">Click any bay on the drawing to edit what goes in it</span></div>
+    <div class="scene" id="scene">
+      <button data-a="spin" aria-pressed="false" title="Turntable"><svg viewBox="0 0 20 20"><path d="M10 3a7 7 0 1 1-6.3 4M3 3v4h4"/></svg><span>360°</span></button>
+      <button data-a="evening" aria-pressed="false" title="Evening light"><svg viewBox="0 0 20 20"><path d="M16 11.5A6.5 6.5 0 0 1 8.5 4a6.5 6.5 0 1 0 7.5 7.5Z"/></svg><span>Evening</span></button>
+      <button data-a="reset" title="Reset view"><svg viewBox="0 0 20 20"><path d="M3 10a7 7 0 1 1 2 4.9M3 16v-4h4"/></svg><span>Reset</span></button>
+    </div>
+    <span class="bhint">Drag to orbit · scroll to zoom</span>
+  </div>
+
+  <aside class="bpanel">
+    <div class="pscroll">
+
+      <details class="acc" open><summary><span><em>1</em>Your space</span><i></i></summary>
+        <div class="accb">
+          <div id="types" class="pills"></div>
+          <div id="dims" class="steps"></div>
+          <h4 class="subh">Mounting</h4>
+          <div id="mount" class="pills"></div>
+          <div id="walls" hidden></div>
+        </div>
+      </details>
+
+      <details class="acc" open><summary><span><em>2</em>Divide it into bays</span><i></i></summary>
+        <div class="accb">
+          <div id="bays"></div>
+          <p class="note" id="bayNote"></p>
+        </div>
+      </details>
+
+      <details class="acc" open><summary><span><em>3</em>Fill the bay</span><i></i></summary>
+        <div class="accb" id="stack"></div>
+      </details>
+
+      <details class="acc"><summary><span><em>4</em>Finish</span><i></i></summary>
+        <div class="accb">
+          <div class="srch"><svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.6"/><path d="M13.2 13.2 17 17"/></svg>
+            <input id="fq" type="search" placeholder="Search 78 finishes…" aria-label="Search finishes"></div>
+          <h4 class="subh">Carcass</h4><div id="fin1" class="fins"></div><p class="finnote" id="finNote1"></p>
+          <h4 class="subh">Drawer &amp; door fronts</h4><div id="fin2" class="fins"></div><p class="finnote" id="finNote2"></p>
+        </div>
+      </details>
+
+      <details class="acc"><summary><span><em>5</em>Handles</span><i></i></summary>
+        <div class="accb">
+          <div id="pulls" class="pullgrid"></div>
+          <p class="finnote" id="pullNote"></p>
+          <h4 class="subh">Metal finish</h4>
+          <div id="pullfin" class="pills metalrow"></div>
+        </div>
+      </details>
+
+      <details class="acc"><summary><span><em>6</em>Your order</span><i></i></summary>
+        <div class="accb">
+          <p class="note">Every piece your design needs. This travels with your enquiry, so we are most of the way to a quote before anyone visits.</p>
+          <div class="orderhd"><span id="orderCount"></span><button class="btn btn-ghost btn-sm" id="dlOrder">Download CSV</button></div>
+          <div id="order" class="ordertab"></div>
+        </div>
+      </details>
+
+    </div>
+
+    <div class="pfoot">
+      <div id="warn" class="warnbox" hidden></div>
+      <span class="plabel">Estimated, installed</span>
+      <div id="price">—</div><span id="priceSub"></span>
+      <div class="pacts">
+        <button class="btn btn-accent btn-sm" id="send">Send this to us</button>
+        <button class="btn btn-ghost btn-sm" id="breakdown">Breakdown</button>
+      </div>
+      <div id="bdbox" hidden></div>
+    </div>
+  </aside>
+</div>
+
+<section class="sec"><div class="shell"><div class="ed">
+  <h2 data-rv="up">About this estimate</h2>
+  <div class="faq"><details open><summary>Is this the real price?</summary><div class="ans">It is built from the same parts list and the same per-square-foot finish costs we order from, so it is far closer than a range on a brochure. What it cannot know is your walls — baseboard, out-of-square corners, an air return in the way. The measure settles those and the figure moves a little either way.</div></details><details><summary>Does it include installation?</summary><div class="ans">Yes. The figure shown is delivered and installed.</div></details><details><summary>Why can't a bay be wider than 36 inches?</summary><div class="ans">Because three-quarter-inch melamine sags past that under load. The builder will warn you rather than draw something we would not fit.</div></details><details><summary>What is the order list for?</summary><div class="ans">It is every panel, shelf, rod, drawer box, glide, basket and pull your design needs, with sizes and counts. Send it with your enquiry and we are already most of the way to a quote.</div></details><details><summary>My room isn't a rectangle.</summary><div class="ans">Build the closest rectangle to get the number, then tell us in the notes. Angled ceilings, bulkheads and returns are normal and there are parts for all of them.</div></details></div>
+</div></div></section>
+</main><footer class="ftr"><div class="shell">
+  <div class="ftr-grid">
+    <div>
+      <a class="lk" href="../index.html" aria-label="JS Installations &amp; Closets — home">
+  <svg class="lk-mark" viewBox="0 0 40 40" aria-hidden="true">
+  <path d="M5.6 4.4h28.8a1.2 1.2 0 0 1 1.2 1.2v28.8a1.2 1.2 0 0 1-1.2 1.2H5.6a1.2 1.2 0 0 1-1.2-1.2V5.6a1.2 1.2 0 0 1 1.2-1.2Zm1.6 3.2v24.8h25.6V7.6H7.2Z"/>
+  <path d="M15.4 7.6h2.6v24.8h-2.6zM22 7.6h2.6v24.8H22z"/>
+  <path d="M7.2 15.1h8.2v2.4H7.2zM24.6 15.1h8.2v2.4h-8.2zM7.2 22.6h8.2v2.4H7.2zM24.6 22.6h8.2v2.4h-8.2z"/>
+  <path d="M18 17.9h4v1.9h-4z"/>
+</svg><span class="lk-txt"><b>JS Closets</b><span>Installations</span></span></a>
+      <p style="margin:1.3em 0 0;max-width:34ch">Measured, built and installed by the same crew. No subcontractors, no drywall damage, no surprises on the invoice.</p>
+    </div>
+    <div><h4>Closets</h4><ul><li><a href="../walk-in-closets.html">Walk-In Closets</a></li><li><a href="../reach-in-closets.html">Reach-In Closets</a></li><li><a href="../pantries.html">Pantries</a></li><li><a href="../garage-storage.html">Garage</a></li><li><a href="../laundry-rooms.html">Laundry</a></li><li><a href="../wall-beds.html">Wall Beds</a></li><li><a href="../linen-closets.html">Linen</a></li></ul></div>
+    <div><h4>Company</h4><ul>
+      <li><a href="../finishes.html">All 78 finishes</a></li>
+      <li><a href="../design/">Design yours in 3D</a></li>
+      <li><a href="../about.html">About</a></li>
+      <li><a href="../contact.html">Contact</a></li>
+    </ul></div>
+    <div><h4>Get in touch</h4><ul>
+      <li><a href="tel:+15610000000">(561) 000-0000</a></li>
+      <li><a href="mailto:jsinstallationsclosets@gmail.com">jsinstallationsclosets@gmail.com</a></li>
+      <li>Mon–Fri 8:00–5:00, Sat by appointment</li>
+      <li style="opacity:.6;margin-top:.4em">Boca Raton, FL</li>
+    </ul></div>
+  </div>
+  <div class="ftr-btm">
+    <span>© 2026 JS Installations &amp; Closets</span>
+    <span>Serving Boca Raton · Delray Beach · Boynton Beach · Deerfield Beach and the rest of South Florida</span>
+  </div>
+</div></footer>
+<script src="../assets/js/site.js" type="module"></script>
+<script src="../assets/js/builder.js" type="module"></script>
+</body></html>
