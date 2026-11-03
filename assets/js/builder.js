@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
-         buildDesign, makeBay, defaultStackFor } from './design.js';
+         buildDesign, makeBay, defaultStackFor, canAdd } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, makeComposer } from './render.js';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
@@ -396,6 +396,9 @@ function paintStack(){
   const box=$('#stack');
   if(!S.sel || !S.runs[S.sel.wall]?.bays[S.sel.i]){ box.innerHTML='<p class="note">Pick a bay above, or click one on the drawing.</p>'; return; }
   const bay=S.runs[S.sel.wall].bays[S.sel.i];
+  /* same arithmetic buildDesign uses, so the palette agrees with the drawing */
+  const floorY = S.mounting==='wall' ? SPEC.wallHungBase : SPEC.toeKick;
+  const usable = Math.min(SPEC.topShelf, S.room.h - 6) - floorY;
   box.innerHTML=`
     <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · bay ${S.sel.i+1}</b>
       <span class="wadj"><button data-bw="-2">−</button><i>${bay.w.toFixed(0)}" wide</i><button data-bw="2">+</button></span></div>
@@ -416,10 +419,14 @@ function paintStack(){
     <h4 class="subh">Add to this bay</h4>
     <div class="palette">${MODULE_IDS.map(id=>{const d=MODULES[id];
       const img = id.toLowerCase().replace(/_/g,'-');
-      return `<button data-add="${id}" title="${d.hint}">
+      const chk = canAdd(bay.stack, id, usable);
+      /* the reasons contain inch marks, which close the title attribute */
+      const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
+      return `<button data-add="${id}" ${chk.ok?'':'disabled'}
+        title="${tip}">
         <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
              width="420" height="315">
-        <i>${d.label}</i></button>`}).join('')}</div>`;
+        <i>${d.label}</i>${chk.ok?'':'<u>Full</u>'}</button>`}).join('')}</div>`;
 }
 
 /* ───────── finishes + hardware ───────── */

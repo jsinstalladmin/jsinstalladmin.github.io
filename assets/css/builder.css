@@ -250,3 +250,16 @@
   border-radius:12px;color:var(--muted);font-size:.86rem;background:rgba(26,18,10,.02)}
 .bayacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .bayacts .addw{font-variant-numeric:tabular-nums;font-weight:500}
+
+/* a part that cannot go in the selected bay */
+.palette button:disabled{cursor:not-allowed;opacity:.42;filter:grayscale(.75)}
+.palette button:disabled:hover{border-color:var(--line);transform:none;box-shadow:none}
+.palette button u{position:absolute;top:6px;right:6px;text-decoration:none;
+  font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--ink);color:var(--paper);padding:.2em .5em;border-radius:999px}
+.palette button{position:relative}
+
+/* the figure is the cabinetry, not an installed job — saying "installed"
+   promised a number we cannot stand behind before measuring */
+.pnote{margin:.7em 0 0;font-size:.72rem;line-height:1.5;color:rgba(248,245,240,.56);
+  max-width:40ch}

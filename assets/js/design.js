@@ -60,6 +60,44 @@ export const DRAWER_BOX = {
 const GLIDES = [10, 12, 14, 16, 18, 20, 22, 24, 30];
 const fit = (list, max) => { const ok = list.filter(v => v <= max); return ok.length ? Math.max(...ok) : null; };
 
+/* ---- what can actually go in one bay -------------------------------------
+   Without these, five long hangs could be dropped into a single 84" bay.
+   Each one is a fill module with a 62" minimum, so resolveHeights() split the
+   leftover five ways and then clamped every slice back UP to 62" — 310" of
+   cabinetry in a 7-foot opening, which is what was punching through the
+   ceiling in the 3D view.
+
+   LIMIT  = how many of this module belong in one bay
+   GROUP  = modules in the same group are mutually exclusive (one front only) */
+export const LIMIT = {
+  LONG_HANG:1, DOUBLE_HANG:1, DOOR:1, GLASS_DOOR:1, HAMPER:1, COUNTER:2,
+  DRAWERS:2, BASKETS:2, SHOES:2, SHOE_SLANT:2, SHELVES:3, CUBBIES:2, OPEN:2
+};
+const GROUP = { DOOR:'front', GLASS_DOOR:'front' };
+
+/* The real constraint is vertical: everything in the bay has to fit between
+   the toe kick and the top shelf at its own minimum height. */
+export function canAdd(stack, id, usableH){
+  const def = MODULES[id];
+  if(!def) return { ok:false, why:'Unknown part.' };
+
+  const n = stack.filter(s => s.m === id).length;
+  const lim = LIMIT[id] ?? 2;
+  if(n >= lim)
+    return { ok:false, why: lim === 1
+      ? `Only one ${def.label.toLowerCase()} per section.`
+      : `${lim} ${def.label.toLowerCase()} is the most that fits in one section.` };
+
+  if(GROUP[id] && stack.some(s => GROUP[s.m] === GROUP[id]))
+    return { ok:false, why:'This section already has a front on it.' };
+
+  const need = stack.reduce((a,s) => a + MODULES[s.m].minH, 0) + def.minH;
+  if(need > usableH + 0.5)
+    return { ok:false, why:`No room left — that needs ${def.minH}" and only ${Math.max(0, usableH - (need - def.minH)).toFixed(0)}" is free.` };
+
+  return { ok:true };
+}
+
 export const MODULES = {
   LONG_HANG: {
     label:'Long hang', hint:'Coats and dresses. One rod with full clearance below.',
@@ -294,8 +332,13 @@ function resolveHeights(stack, total){
   }
   const left = Math.max(0, total - used);
   if(fillers.length){
-    const each = left / fillers.length;
-    fillers.forEach(s => s.H = clamp(each, s.def.minH, Math.max(s.def.minH, s.def.maxH)));
+    /* Give each filler its minimum first, then share whatever is genuinely
+       spare. Clamping a slice back up to minH — which is what this used to do
+       — invented height that the bay does not have. */
+    const floor = fillers.reduce((a,s) => a + s.def.minH, 0);
+    const spare = Math.max(0, left - floor);
+    const bonus = spare / fillers.length;
+    fillers.forEach(s => s.H = Math.min(s.def.maxH, s.def.minH + bonus));
   }
   return mods;
 }
