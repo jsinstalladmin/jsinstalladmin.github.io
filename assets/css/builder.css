@@ -341,3 +341,21 @@
   font-size:.56rem;color:var(--ink);transition:.2s var(--ease)}
 .movw button:hover:not(:disabled){border-color:var(--accent);background:var(--paper-2)}
 .movw button:disabled{opacity:.3;cursor:not-allowed}
+
+/* ---------- LAYOUT PRESETS ----------------------------------------------
+   Named configurations, listed above the raw component grid. A customer
+   recognises "Drawer Tower"; they do not recognise a stack of modules. */
+.presets{display:grid;gap:6px;margin-bottom:18px}
+.presets button{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:11px;
+  align-items:center;text-align:left;cursor:pointer;padding:7px 11px 7px 7px;
+  border:1px solid var(--line);border-radius:13px;background:var(--paper);font:inherit;
+  transition:border-color .22s var(--ease),background .22s var(--ease),transform .22s var(--ease)}
+.presets button:hover{border-color:var(--accent);background:var(--paper-2);transform:translateX(2px)}
+.presets button img{width:54px;height:41px;object-fit:cover;border-radius:8px;
+  background:#F0ECE5;display:block}
+.presets .pb{min-width:0}
+.presets .pb b{display:block;font-weight:500;font-size:.84rem;color:var(--ink);line-height:1.25}
+.presets .pb i{display:block;font-style:normal;font-size:.7rem;color:var(--muted);
+  line-height:1.35;margin-top:1px}
+.presets u{text-decoration:none;font-size:.72rem;color:var(--muted);white-space:nowrap;
+  font-variant-numeric:tabular-nums}

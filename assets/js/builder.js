@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
-         buildDesign, makeBay, defaultStackFor, canAdd } from './design.js';
+         buildDesign, makeBay, defaultStackFor, canAdd, PRESETS,
+         presetDelta } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, makeComposer } from './render.js';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
@@ -495,7 +496,21 @@ function paintStack(){
           <button data-rm="${i}" title="Remove" ${bay.stack.length<2?'disabled':''}>×</button>
         </span></div>`;
     }).join('')}</div>
-    <h4 class="subh">Add to this bay</h4>
+    <h4 class="subh">Start from a layout</h4>
+    <p class="note" style="margin:-2px 0 9px">Pick one, then change anything you like underneath.</p>
+    <div class="presets">${PRESETS.map(pre=>{
+      const price = presetDelta(pre, bay.w, usable, cat, S.finish);
+      const cheapest = PRESETS.reduce((lo,p)=>{
+        const v = presetDelta(p, bay.w, usable, cat, S.finish);
+        return (v!=null && (lo==null || v<lo)) ? v : lo; }, null);
+      const delta = (price!=null && cheapest!=null) ? Math.round(price-cheapest) : null;
+      const tag = delta==null ? '' : delta<=0 ? 'Incl.' : '+'+money(delta);
+      return `<button data-preset="${pre.id}" title="${pre.desc.replace(/"/g,'&quot;')}">
+        <img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async">
+        <span class="pb"><b>${pre.name}</b><i>${pre.desc}</i></span>
+        <u>${tag}</u></button>`}).join('')}</div>
+
+    <h4 class="subh">Or build it piece by piece</h4>
     <div class="palette">${MODULE_IDS.map(id=>{const d=MODULES[id];
       const img = id.toLowerCase().replace(/_/g,'-');
       const chk = canAdd(bay.stack, id, usable);
@@ -633,6 +648,11 @@ $('#bays').addEventListener('drop', e=>{
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;
+  if(t.dataset.preset){
+    const pre = PRESETS.find(p=>p.id===t.dataset.preset);
+    if(pre){ bay.stack = structuredClone(pre.stack); rebuild(true); }
+    return;
+  }
   if(t.dataset.move){
     const d=+t.dataset.move, bays=S.runs[S.sel.wall].bays, i=S.sel.i, j=i+d;
     if(j>=0 && j<bays.length){ const [m]=bays.splice(i,1); bays.splice(j,0,m); S.sel.i=j; rebuild(true); }

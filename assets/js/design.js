@@ -298,6 +298,67 @@ export const MODULES = {
     build(){}
   }
 };
+/* ---- LAYOUT PRESETS ------------------------------------------------------
+   A customer does not think in "modules". They think "I want a drawer tower
+   there". Handing them thirteen raw parts and asking them to assemble
+   cabinetry is a parts bin, not a configurator.
+
+   Each preset is a named, recognisable configuration that expands into a
+   real stack. The component list stays underneath for anyone who wants to
+   build from scratch — this is a starting point, not a cage. */
+export const PRESETS = [
+  { id:'double-hang', name:'Double Hanging',   img:'double-hang',
+    desc:'Two rods — shirts up top, trousers below. The most storage per foot.',
+    stack:[{m:'DOUBLE_HANG',h:null,o:{}}] },
+
+  { id:'long-hang',   name:'Long Hanging',     img:'long-hang',
+    desc:'One full-height rod for dresses and coats.',
+    stack:[{m:'LONG_HANG',h:null,o:{}}] },
+
+  { id:'hang-shelf',  name:'Hanging + Shelves', img:'shelves',
+    desc:'A rod below, folded storage above.',
+    stack:[{m:'LONG_HANG',h:null,o:{}},{m:'SHELVES',h:18,o:{n:2}}] },
+
+  { id:'shelves',     name:'Adjustable Shelves', img:'shelves',
+    desc:'Six shelves on 32mm centres. Move any of them later.',
+    stack:[{m:'SHELVES',h:null,o:{n:6}}] },
+
+  { id:'drawer-tower',name:'Drawer Tower',     img:'drawers',
+    desc:'A bank of soft-close drawers with shelving over it.',
+    stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'SHELVES',h:null,o:{n:3}}] },
+
+  { id:'hang-drawers',name:'Hanging + Drawers', img:'drawers',
+    desc:'Drawers at the bottom, a hanging rod above. The usual bedroom answer.',
+    stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'DOUBLE_HANG',h:null,o:{}}] },
+
+  { id:'baskets',     name:'Pull-Out Baskets',  img:'baskets',
+    desc:'Chrome wire on full-extension glides, shelving above.',
+    stack:[{m:'BASKETS',h:30,o:{n:3}},{m:'SHELVES',h:null,o:{n:3}}] },
+
+  { id:'shoe-wall',   name:'Shoe Wall',         img:'shoe-slant',
+    desc:'Angled shoe shelving the full height of the section.',
+    stack:[{m:'SHOE_SLANT',h:null,o:{}}] },
+
+  { id:'hamper',      name:'Hamper + Hanging',  img:'hamper',
+    desc:'Tilt-out laundry hamper under a hanging rod.',
+    stack:[{m:'HAMPER',h:28,o:{}},{m:'DOUBLE_HANG',h:null,o:{}}] },
+
+  { id:'cubbies',     name:'Cubbies',           img:'cubbies',
+    desc:'A grid of open compartments for bags, hats and folded knits.',
+    stack:[{m:'CUBBIES',h:null,o:{n:4}}] },
+];
+
+/* the price difference a preset makes, against the cheapest one, so the
+   list can read "Incl." / "+$85" the way a customer expects */
+export function presetDelta(preset, bayW, usableH, cat, finish){
+  try{
+    const mk = st => buildDesign({ room:{w:bayW+1.5,d:24,h:96}, mounting:'floor',
+      finish, frontFinish:finish, pull:'bar4', pullFinish:'nickel',
+      runs:[{wall:'back',start:0,depth:24,bays:[{w:bayW,stack:structuredClone(st)}]}] }, cat).price.price;
+    return mk(preset.stack);
+  }catch(e){ return null; }
+}
+
 export const MODULE_IDS = Object.keys(MODULES);
 
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
