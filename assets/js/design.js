@@ -167,6 +167,14 @@ export const MODULES = {
         G.push({k:'front', p:[0, cy, d/2-0.4], s:[w-0.2, fh-0.18, 0.8], m:'front'});
         addPull(G, pull, 0, cy, d/2, w, fh);
       }
+      /* A drawer bank is capped. The module used to emit fronts and nothing
+         else, so the top drawer had open carcass above it and you could see
+         straight over it — which is both wrong on screen and wrong in the
+         shop: the fixed top carries the upper glides and stops the bank
+         racking. It is a real part and it gets priced. */
+      G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
+      parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the drawer bank'));
+
       if(pull && pull.id!=='none') parts.push({code:'PULL',qty:n,note:`${n} × ${pull.name}`});
     }
   },
@@ -221,6 +229,9 @@ export const MODULES = {
       const n = clamp(o.n ?? 3, 1, 6);
       parts.push({code:'BASKET',qty:n,w,note:`${n} pull-out chrome baskets`});
       for(let i=0;i<n;i++) G.push({k:'basket', p:[0, y+(h/n)*i+(h/n)/2, 0], s:[w-2, (h/n)-2, d-3], m:'metal'});
+      /* same as the drawer bank — the runners mount to a fixed top */
+      G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
+      parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the basket run'));
     }
   },
   CUBBIES: {

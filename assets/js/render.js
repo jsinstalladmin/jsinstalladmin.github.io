@@ -142,7 +142,7 @@ export function makeComposer(renderer, scene, cam, w, h){
     ao.output = GTAOPass.OUTPUT.Default;
     ao.blendIntensity = 1.25;
     ao.updateGtaoMaterial({ radius:9.0, distanceExponent:1.0, thickness:1.0,
-      scale:1.1, samples:16, distanceFallOff:1.0, screenSpaceRadius:false });
+      scale:1.1, samples:8, distanceFallOff:1.0, screenSpaceRadius:false });   // 16 -> 8: half the AO cost, no visible difference at this scale
     composer.addPass(ao);
     composer.addPass(new SMAAPass(w,h));   // EffectComposer has no MSAA; antialias:true is a no-op here
     composer.addPass(new OutputPass());    // applies toneMapping + outputColorSpace. ALWAYS last.

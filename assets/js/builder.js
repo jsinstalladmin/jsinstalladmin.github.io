@@ -115,21 +115,52 @@ const GLASS=new THREE.MeshPhysicalMaterial({color:0xE8F0F2,transmission:.9,thick
 let PULLMAT=hardwareMaterial();
 let composer=null, ao=null;
 
+/* declared before resize() touches it — a `let` below its first use is a
+   temporal dead zone and throws the moment resize fires early */
+let needsFrame = true;
+
 function sizeNow(){ const r=canvas.parentElement.getBoundingClientRect();
   return {w:Math.max(320,r.width|0), h:Math.max(260,r.height|0)}; }
 function resize(){ const {w,h}=sizeNow(); renderer.setSize(w,h,false);
-  cam.aspect=w/h; cam.updateProjectionMatrix(); if(composer) composer.setSize(w,h); }
+  cam.aspect=w/h; cam.updateProjectionMatrix(); if(composer) composer.setSize(w,h);
+  needsFrame = true; }
 addEventListener('resize',resize);
 /* ?noao=1 skips ambient occlusion — a useful escape hatch on weak hardware */
 if(!new URLSearchParams(location.search).has('noao')){
   const {w,h}=sizeNow(); const m=makeComposer(renderer,scene,cam,w,h); composer=m.composer; ao=m.ao;
 }
 
-let visible=true;
-new IntersectionObserver(es=>{for(const e of es) visible=e.isIntersecting;},{threshold:.02}).observe(canvas);
-(function loop(){ requestAnimationFrame(loop); if(!visible) return;
-  ctl.autoRotate=S.spin; ctl.update();
-  if(composer) composer.render(); else renderer.render(scene,cam); })();
+let visible = true;
+new IntersectionObserver(es=>{ for(const e of es) visible = e.isIntersecting; },{threshold:.02}).observe(canvas);
+
+/* ---- RENDER ON DEMAND ----------------------------------------------------
+   This loop used to run a full composer pass — RenderPass, a 16-sample GTAO,
+   SMAA and OutputPass, four full-screen passes — sixty times a second for as
+   long as the page was open, whether or not anything had changed. On a laptop
+   that pins a GPU core and spins the fan on a static picture.
+
+   Now a frame is drawn only when something asks for one: the camera moved,
+   the design changed, the canvas resized, or OrbitControls is still settling
+   its damping. Idle cost is one requestAnimationFrame callback that returns
+   immediately. preserveDrawingBuffer (set in makeRenderer) is what lets the
+   last frame persist between draws. */
+ctl.addEventListener('change', () => { needsFrame = true; });
+
+(function loop(){
+  requestAnimationFrame(loop);
+  if(!visible) return;
+
+  if(S.spin){ ctl.autoRotate = true; ctl.update(); needsFrame = true; }
+  else {
+    ctl.autoRotate = false;
+    /* update() returns true while damping is still moving the camera */
+    if(ctl.update()) needsFrame = true;
+  }
+
+  if(!needsFrame) return;
+  needsFrame = false;
+  if(composer) composer.render(); else renderer.render(scene, cam);
+})();
 
 /* ───────── room + closet ───────── */
 /* ---- procedural room textures --------------------------------------------
