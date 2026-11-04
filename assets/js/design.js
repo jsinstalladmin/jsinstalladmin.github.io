@@ -18,7 +18,7 @@
 export const SPEC = {
   topShelf:84, longHang:66, dhUpper:80, dhLower:40,
   bayMin:24, bayMax:36, hangDepth:24, shelfDepth:14,
-  shoeGap:8, toeKick:3.5, panel:0.75, pin:1.25, counter:36, wallHungBase:6
+  shoeGap:8, toeKick:3.75, panel:0.75, pin:1.25, counter:36, wallHungBase:6
 };
 
 /* ---------- decorative pulls ----------
@@ -45,6 +45,10 @@ export const PULL_FINISHES = [
    Each one knows its own height rules, its parts and its geometry.
    ============================================================ */
 const P = (code,qty,sqft,edge,note) => ({code,qty,sqft,edge,note});
+
+/* The basket tables stock Chrome, Matte Black and Satin Nickel. Follow the
+   handle finish so the metal in one bay matches. */
+const BASKET_FINISH = { nickel:'Satin Nickel', black:'Matte Black', brass:'Chrome' };
 
 /* Real drawer hardware from his ClosetPro catalogue — 129 box SKUs and 10
    glide lengths. This matters because a drawer FRONT is melamine cut to any
@@ -159,7 +163,7 @@ export const MODULES = {
       if(!boxW) warn && warn(`A ${w.toFixed(0)}" bay is too narrow for a drawer box — the smallest he stocks is ${DRAWER_BOX.w[0]}" and needs a ${(DRAWER_BOX.w[0]+1).toFixed(0)}" opening.`);
       if(!boxH) warn && warn(`${n} drawers across ${h.toFixed(0)}" gives ${fh.toFixed(1)}" fronts — too short for the ${DRAWER_BOX.h[0]}" box, the shallowest he stocks. Use fewer drawers.`);
 
-      parts.push({code:'DRAWER',qty:n,w,h:fh,d:Math.min(d-2,20),
+      parts.push({code:'DRAWER',qty:n,w,h:fh,d:Math.min(d-2,20),style:c.boxStyle,
         note:`${n} drawers, ${fh.toFixed(1)}" fronts` +
              (boxW&&boxH&&boxD ? ` · ${boxW}"×${boxH}"×${boxD}" boxes, ${glide}" glides` : ' · NO STOCK BOX FITS')});
       for(let i=0;i<n;i++){
@@ -213,7 +217,7 @@ export const MODULES = {
     build(c){
       const {w,d,y,h,G,parts,pull} = c;
       parts.push({code:'HAMPER',qty:1,note:'Tilt-down hamper'});
-      parts.push({code:'BASKET',qty:1,w,note:'Chrome tilt basket'});
+      parts.push({code:'HAMPER_BASKET',qty:1,w,d,finish:c.basketFinish,note:'Tilt-out hamper basket'});
       G.push({k:'front', p:[0, y+h/2, d/2-0.4], s:[w-0.2, h-1, 0.8], m:'front'});
       addPull(G, pull, 0, y+h/2, d/2, w, h);
       if(pull && pull.id!=='none') parts.push({code:'PULL',qty:1,note:`1 × ${pull.name}`});
@@ -227,7 +231,7 @@ export const MODULES = {
     build(c){
       const {w,d,y,h,G,parts,o} = c;
       const n = clamp(o.n ?? 3, 1, 6);
-      parts.push({code:'BASKET',qty:n,w,note:`${n} pull-out chrome baskets`});
+      parts.push({code:'BASKET',qty:n,w,d,bh:h/n,finish:c.basketFinish,note:`${n} pull-out baskets`});
       for(let i=0;i<n;i++) G.push({k:'basket', p:[0, y+(h/n)*i+(h/n)/2, 0], s:[w-2, (h/n)-2, d-3], m:'metal'});
       /* same as the drawer bank — the runners mount to a fixed top */
       G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
@@ -472,6 +476,8 @@ export function buildDesign(cfg, cat){
            fall into the base system, which is how closet companies quote. */
         const mark = parts.length;
         MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull,
+                              boxStyle: cfg.boxStyle || DEFAULT_BOX_STYLE,
+                              basketFinish: BASKET_FINISH[cfg.pullFinish] || 'Chrome',
                               warn: m => warnings.push(m) });
         for(let i=mark;i<parts.length;i++) parts[i].grp = s.m;
         for(const g of sub) local.push({...g, p:[cx + g.p[0], y + g.p[1], g.p[2]]});
@@ -518,14 +524,24 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
   for(const p of parts){
     let c = 0, label = p.note || p.code;
     if(p.code === 'DRAWER'){
-      const box = pickBox(cat,p.w,p.h,p.d), gl = pickGlide(cat,p.d);
+      const box = pickBox(cat, p.w, p.h, p.d, p.style);
+      const gl  = pickGlide(cat, p.d, box);
       const front = (p.w*p.h)/144 * DF.sq + ((p.w+p.h)*2)/12 * DF.eb;
-      c = (box.p + gl.p*2 + front) * p.qty;
-      label = `${p.qty} × drawer ${p.h.toFixed(1)}" — box ${box.p.toFixed(2)}, glides ${(gl.p*2).toFixed(2)}, front ${front.toFixed(2)}`;
+      c = ((box?.cost || 0) + gl.cost*2 + front) * p.qty;
+      label = `${p.qty} × drawer ${p.h.toFixed(1)}" ${box?.ctor.name || ''} — box ${(box?.cost||0).toFixed(2)}, `
+            + `glides ${(gl.cost*2).toFixed(2)} (${gl.l}" ${gl.s}), front ${front.toFixed(2)}`;
     }
     else if(p.code === 'PULL'){ c = pull.cost * pullFin.mult * p.qty; label = p.note + ` (${pullFin.name})`; }
-    else if(p.code === 'HANGROD'){ c = 9.0 * p.qty; label = p.note; }
-    else if(p.code === 'BASKET'){ const b = pickBasket(cat,p.w); c = b.p * p.qty; label = `${p.qty} × basket ${b.w}×${b.d}`; }
+    else if(p.code === 'BASKET'){
+      const b = pickBasket(cat, p.w, p.d, p.finish, p.bh);
+      c = b.cost * p.qty;
+      label = `${p.qty} × pull-out basket ${b.w}×${b.d}×${b.h} ${b.f}`;
+    }
+    else if(p.code === 'HAMPER_BASKET'){
+      const b = pickHamperBasket(cat, p.w, p.d, p.finish);
+      c = b.cost * p.qty;
+      label = `Tilt-out hamper basket ${b.w}×${b.d}×${b.h} ${b.f}`;
+    }
     else if(p.code === 'GLASS_LITE'){ c = (p.w*p.h)/144 * 14.0; label = p.note + ' — local glazier, estimate'; }
     else {
       const def = cat.parts[p.code]; if(!def) continue;
@@ -612,12 +628,14 @@ function orderList(parts, cat, F, DF, pull, pullFin){
     const def = cat.parts[p.code];
     const name = p.code==='DRAWER' ? `Drawer box + glides (${p.h?.toFixed(1)}"H × ${p.w?.toFixed(1)}"W)`
       : p.code==='PULL' ? `${pull.name} — ${pullFin.name}`
-      : p.code==='BASKET' ? 'Pull-out / tilt basket'
+      : p.code==='BASKET' ? 'Pull-out wire basket'
+      : p.code==='HAMPER_BASKET' ? 'Tilt-out hamper basket'
       : p.code==='HANGROD' ? 'Hang rod'
       : p.code==='GLASS_LITE' ? `Glass lite ${p.w?.toFixed(1)}" × ${p.h?.toFixed(1)}"`
       : (def?.n || p.code);
     const finish = (p.code==='DRAWER'||p.code==='DOOR') ? DF.n
-      : (p.code==='PULL'||p.code==='BASKET'||p.code==='HANGROD'||p.code==='GLASS_LITE') ? '—' : F.n;
+      : (p.code==='PULL'||p.code==='BASKET'||p.code==='HAMPER_BASKET'||
+         p.code==='HANGROD'||p.code==='GLASS_LITE') ? '—' : F.n;
     const key = name+'|'+finish;
     const g = group.get(key) || { item:name, finish, qty:0, sqft:0, edge_ft:0, notes:new Set() };
     g.qty += p.qty || 1;
@@ -633,18 +651,91 @@ function orderList(parts, cat, F, DF, pull, pullFin){
   })).sort((a,b)=>a.item.localeCompare(b.item));
 }
 
-function pickBox(cat,w,h,d){
-  const fit = cat.boxes.filter(b=>b.w>=w-0.5 && b.h>=h-0.5 && b.d>=d-0.5);
-  return fit.length ? fit.reduce((a,b)=>b.p<a.p?b:a) : cat.boxes.reduce((a,b)=>b.p>a.p?b:a);
+/* ---------- SKU pickers, against the real manufacturer sheets -------------
+   Every one of these was wrong in a way that cost money or shipped a part
+   that cannot be fitted:
+
+   · pickBox searched all three constructions and took the CHEAPEST, so it
+     always landed on melamine side-mount — while the page promises
+     "soft-close undermount". We were quoting one box and advertising another.
+   · pickGlide searched both series, so a side-mount box could be paired with
+     an 828 undermount glide. That does not physically mount.
+   · pickBasket searched every basket row including the 25" tilt-out HAMPER
+     basket, and ignored depth and finish entirely.
+   · None of them applied the per-item add-on the sheets specify.
+
+   The sheets price an item the same shape as the parts formula:
+        max(price + addOn$, minimum) × (1 + addOn%)                        */
+
+export const BOX_STYLES = [
+  { id:'mel-um',   c:'5/8" HRM Mel UnderMount',           name:'Melamine, soft-close undermount',
+    note:'The standard box. Soft-close, full extension, hidden runners.' },
+  { id:'birch-um', c:'5/8" Solid Birch Dovetail UnderMount', name:'Solid birch dovetail, soft-close undermount',
+    note:'Dovetailed solid birch sides. The upgrade you can see when the drawer is open.' },
+  { id:'mel-sm',   c:'5/8" HRM Mel Side Mount',           name:'Melamine, side-mount',
+    note:'Epoxy side runners. The budget box — visible runners, no soft close.' }
+];
+export const DEFAULT_BOX_STYLE = 'mel-um';
+
+const addOn = (price, m) => Math.max(price + (m?.add || 0), m?.min || 0) * (1 + (m?.pct || 0));
+
+function boxCtor(cat, styleId){
+  const st = BOX_STYLES.find(b => b.id === styleId) || BOX_STYLES[0];
+  return { ...st, meta: cat.boxTypes?.[st.c] || null };
 }
-function pickGlide(cat,d){
-  const fit = cat.glides.filter(g=>g.l>=d-2);
-  return fit.length ? fit.reduce((a,b)=>b.l<a.l?b:a) : cat.glides.reduce((a,b)=>b.l>a.l?b:a);
+
+/* Smallest stocked box that still swallows the opening, within one construction. */
+function pickBox(cat, w, h, d, styleId){
+  const ctor = boxCtor(cat, styleId);
+  const inRange = b => b.w >= w - 0.5 && b.h >= h - 0.5 && b.d >= d - 0.5;
+  const same = cat.boxes.filter(b => b.c === ctor.c);
+  const fit  = same.filter(inRange);
+  const pool = fit.length ? fit : same;
+  if(!pool.length) return null;
+  const box = fit.length
+    ? pool.reduce((a,b) => b.p < a.p ? b : a)          // cheapest that fits
+    : pool.reduce((a,b) => b.p > a.p ? b : a);         // nothing fits: biggest, and warn
+  return { ...box, ctor, fits: !!fit.length, cost: +addOn(box.p, ctor.meta).toFixed(2) };
 }
-function pickBasket(cat,w){
-  const h = cat.baskets.filter(b=>b.w<=w);
-  return (h.length?h:cat.baskets).reduce((a,b)=>b.w>a.w?b:a);
+
+/* The glide has to belong to the series the box is drilled for. */
+function pickGlide(cat, d, boxPick){
+  const want = (boxPick?.ctor?.meta?.gt || '').toLowerCase();
+  const series = cat.glides.filter(g => !want || g.s.toLowerCase() === want);
+  const pool = series.length ? series : cat.glides;
+  const fit  = pool.filter(g => g.l >= d - 2);
+  const g = fit.length ? fit.reduce((a,b) => b.l < a.l ? b : a)
+                       : pool.reduce((a,b) => b.l > a.l ? b : a);
+  const key = Object.keys(cat.glideTypes || {}).find(k => k.toLowerCase() === g.s.toLowerCase());
+  return { ...g, cost: +addOn(g.p, cat.glideTypes?.[key]).toFixed(2) };
 }
+
+/* Pull-out baskets only. The hamper basket lives in its own table and is 25" tall.
+
+   Pick the BIGGEST basket the opening will take — widest, then deepest, then
+   tallest — because a basket that is smaller than its opening is wasted space
+   the customer paid for. Height matters: the wire table stocks 6", 11" and 17"
+   and the first version ignored it, so a 30" run of one basket was quoted the
+   6" tray. */
+const biggest = (a, x) => {
+  if(x.w !== a.w) return x.w > a.w ? x : a;
+  if(x.d !== a.d) return x.d > a.d ? x : a;
+  return x.h > a.h ? x : a;
+};
+
+function pickFromBasketTable(cat, kind, w, d, finish, maxH){
+  const all  = cat.baskets.filter(b => b.k === kind);
+  const fin  = finish ? all.filter(b => b.f === finish) : all;
+  const pool = fin.length ? fin : all;
+  const fit  = pool.filter(b =>
+    b.w <= w + 0.5 && b.d <= d + 0.5 && (maxH == null || b.h <= maxH + 0.5));
+  const b = (fit.length ? fit : pool).reduce(biggest);
+  const mk = kind === 'wire' ? cat.basketMarkup?.wire : cat.basketMarkup?.hamper;
+  return { ...b, fits: !!fit.length, cost: +addOn(b.p, mk).toFixed(2) };
+}
+
+const pickBasket       = (cat,w,d,finish,maxH) => pickFromBasketTable(cat,'wire',w,d,finish,maxH);
+const pickHamperBasket = (cat,w,d,finish)      => pickFromBasketTable(cat,'hamper',w,d,finish,null);
 
 /* small helper so the admin calculator can price one bay quickly */
 export function quickPrice(width, depth, moduleId, finish, cat){

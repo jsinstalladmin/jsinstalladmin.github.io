@@ -525,9 +525,10 @@ function paintStack(){
 }
 
 /* ───────── finishes + hardware ───────── */
-const swStyle=f=> f.x<0 ? 'background:linear-gradient(135deg,#E3D9CC,#EFE8DF)'
+const swStyle=f=> f.col ? `background:${f.col}`
+  : f.x<0 ? 'background:linear-gradient(135deg,#E3D9CC,#EFE8DF)'
   : `background-image:url(${(window.BASE||'')}img/finishes/sprite.jpg);background-size:${cat.meta.cols*100}% ${cat.meta.rows*100}%;background-position:${(f.x/(cat.meta.cols-1))*100}% ${(f.y/(cat.meta.rows-1))*100}%`;
-const FAMS=[{lv:2,n:'Everyday'},{lv:3,n:'Textured'},{lv:4,n:'Specialty'},{lv:5,n:'High gloss'}];
+const FAMS=[{lv:1,n:'Standard white'},{lv:2,n:'Everyday'},{lv:3,n:'Textured'},{lv:4,n:'Specialty'},{lv:5,n:'High gloss'}];
 function paintFin(which){
   const box=$(which==='carcass'?'#fin1':'#fin2');
   const cur=which==='carcass'?S.finish:(S.frontFinish||S.finish);
@@ -541,7 +542,7 @@ function paintFin(which){
   }).join('');
   const f=cat.finishes.find(x=>x.n===cur);
   if(f) $(which==='carcass'?'#finNote1':'#finNote2').innerHTML=
-    `<b>${f.n}</b> <span class="muted">· Level ${f.lv} · $${f.sq.toFixed(2)}/sq ft · ${f.lead} wks</span>`;
+    `<b>${f.n}</b> <span class="muted">· Level ${f.lv} · $${f.sq.toFixed(2)}/sq ft · ${f.lead} ${f.lead==='1'?'week':'weeks'}</span>`;
 }
 function paintPulls(){
   $('#pulls').innerHTML=PULLS.map(p=>`<button data-pull="${p.id}" aria-pressed="${p.id===S.pull}" title="${p.note}">
