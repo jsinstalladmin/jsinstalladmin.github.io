@@ -466,8 +466,14 @@ export function buildDesign(cfg, cat){
       let y = floorY;
       for(const s of mods){
         const sub = [];
+        /* Everything this module pushes gets stamped with the module id, so the
+           review panel can say "Drawer bank  $1,240" instead of listing forty
+           panels. Parts pushed by the carcass code below carry no stamp and
+           fall into the base system, which is how closet companies quote. */
+        const mark = parts.length;
         MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull,
                               warn: m => warnings.push(m) });
+        for(let i=mark;i<parts.length;i++) parts[i].grp = s.m;
         for(const g of sub) local.push({...g, p:[cx + g.p[0], y + g.p[1], g.p[2]]});
         y += s.H;
       }
@@ -491,7 +497,9 @@ export function buildDesign(cfg, cat){
   const DF = cat.finishes.find(f=>f.n===cfg.frontFinish)  || F;
   const price = priceParts(parts, cat, F, DF, pull, pullFin);
   return { parts, geo:G, price, finish:F, frontFinish:DF, pull, pullFinish:pullFin,
-           bays:bayIndex, warnings:[...new Set(warnings)], order:orderList(parts, cat, F, DF, pull, pullFin) };
+           bays:bayIndex, warnings:[...new Set(warnings)],
+           quote:quoteSummary(price, bayIndex, cfg.runs),
+           order:orderList(parts, cat, F, DF, pull, pullFin) };
 }
 
 function place(g, run, room){
@@ -525,10 +533,76 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
       c = Math.max(base, def.min) * (1 + def.pct) + def.hw;
       c *= (p.qty && p.sqft ? 1 : (p.qty || 1));
     }
-    cost += c; lines.push({label, cost:+c.toFixed(2)});
+    cost += c; lines.push({label, cost:+c.toFixed(2), grp:p.grp, code:p.code});
   }
   const markup = cat.meta.markup;
   return { cost:+cost.toFixed(2), price:+(cost*markup).toFixed(2), markup, lines };
+}
+
+/* ---------- the quote the customer actually reads -------------------------
+   We price every panel, shelf, dowel and screw and sum it — that is the only
+   way to get the number right. But nobody buys a closet by reading a list of
+   forty panels. So the same arithmetic is presented the way the trade quotes
+   it: one base-system line carrying the carcass and the hanging, then the
+   extras itemised, then the total. Nothing is re-priced here. The pennies are
+   rounded into the base line so the column always adds up to the total. */
+const BASE_GRP = new Set(['LONG_HANG','DOUBLE_HANG','OPEN']);
+const OPT_NAME = {
+  SHELVES:'Adjustable shelves', DRAWERS:'Drawer bank', BASKETS:'Pull-out baskets',
+  SHOES:'Shoe shelving', SHOE_SLANT:'Slanted shoe gallery', CUBBIES:'Cubbies',
+  COUNTER:'Counter top', DOOR:'Closed doors', GLASS_DOOR:'Glass doors',
+  HAMPER:'Tilt-out hamper'
+};
+/* what we count for the "×N" on an option line */
+function optQty(id, stack){
+  const hits = stack.filter(s => s.m === id);
+  if(id === 'SHELVES')  return hits.reduce((a,s) => a + (s.o?.n ?? 4), 0);
+  if(id === 'DRAWERS')  return hits.reduce((a,s) => a + (s.o?.n ?? 4), 0);
+  if(id === 'BASKETS')  return hits.reduce((a,s) => a + (s.o?.n ?? 3), 0);
+  return hits.length;
+}
+const UNIT = { SHELVES:['shelf','shelves'], DRAWERS:['drawer','drawers'], BASKETS:['basket','baskets'] };
+
+export function quoteSummary(price, bays, runs){
+  const markup  = price.markup;
+  const retail  = c => c * markup;
+  const linFt   = runs.reduce((a,r) => a + (r.width || 0), 0) / 12;
+  const sections = bays.length;
+  const stack   = bays.flatMap(b => b.stack || []);
+
+  const bucket = new Map();
+  let baseCost = 0;
+  for(const l of price.lines){
+    if(!l.grp || BASE_GRP.has(l.grp)){ baseCost += l.cost; continue; }
+    bucket.set(l.grp, (bucket.get(l.grp) || 0) + l.cost);
+  }
+
+  const options = [...bucket.entries()]
+    .map(([id, cost]) => {
+      const q = optQty(id, stack), u = UNIT[id];
+      return { id,
+        label: OPT_NAME[id] || id,
+        qty: q,
+        note: u ? `${q} ${u[q === 1 ? 0 : 1]}` : (q > 1 ? `×${q}` : ''),
+        price: Math.round(retail(cost)) };
+    })
+    .sort((a,b) => b.price - a.price);
+
+  const total  = Math.round(price.price);
+  const optSum = options.reduce((a,o) => a + o.price, 0);
+
+  /* Don't claim the base covers hanging when nothing in the design hangs. */
+  const hasHang = stack.some(s => s.m === 'LONG_HANG' || s.m === 'DOUBLE_HANG');
+
+  return {
+    sections, linFt:+linFt.toFixed(1),
+    baseNote: 'Carcass, partitions, top shelf, cleats and toe kick'
+            + (hasHang ? ', plus the hanging rods' : ''),
+    baseLabel: `Base system · ${sections} section${sections===1?'':'s'} · ${(+linFt.toFixed(1)).toLocaleString()} linear ft`,
+    base: total - optSum,                 // absorbs the rounding, so it adds up
+    options, total,
+    empty: sections === 0
+  };
 }
 
 /* ---------- the order list that goes to the back end ---------- */

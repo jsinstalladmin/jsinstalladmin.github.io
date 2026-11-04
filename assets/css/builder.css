@@ -112,12 +112,6 @@
 .pacts{display:flex;gap:.5em;margin-top:1em;flex-wrap:wrap}
 .pfoot .btn-ghost{border-color:rgba(248,245,240,.28);color:var(--paper)}
 .pfoot .btn-ghost:hover{background:var(--paper);color:var(--ink);border-color:var(--paper)}
-#bdbox{margin-top:.9em;max-height:238px;overflow-y:auto;font-size:.76rem;
-  border:1px solid rgba(248,245,240,.18);border-radius:var(--r-sm);padding:.85em}
-.bdnote{color:rgba(248,245,240,.52);margin:0 0 .7em;font-size:.72rem;line-height:1.45}
-.bdl{display:flex;justify-content:space-between;gap:1em;padding:.22em 0;color:rgba(248,245,240,.76)}
-.bdl b{color:var(--paper);font-variant-numeric:tabular-nums;white-space:nowrap}
-.bdl.tot{border-top:1px solid rgba(248,245,240,.2);margin-top:.55em;padding-top:.55em}
 
 /* ════════ v2: bay / stack builder ════════ */
 .acc > summary span{display:flex;align-items:center;gap:.6em}
@@ -359,3 +353,43 @@
   line-height:1.35;margin-top:1px}
 .presets u{text-decoration:none;font-size:.72rem;color:var(--muted);white-space:nowrap;
   font-variant-numeric:tabular-nums}
+
+/* ════════ v3: the itemised quote on the review step ════════
+   Same arithmetic as the footer total, read the way a customer reads a
+   quote: one base-system line, the extras itemised, then the total. */
+.qbox{margin:0 0 1.6em}
+.qcard{border:1px solid var(--line);border-radius:var(--r-md,14px);overflow:hidden;background:var(--paper)}
+.qtop{display:flex;justify-content:space-between;align-items:flex-start;gap:1em;
+  padding:.95em 1.1em;background:var(--paper-2);border-bottom:1px solid var(--line)}
+.qtop .ql{font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);
+  display:block;margin-bottom:.3em}
+.qtop b{font-family:'Fraunces',serif;font-size:1.02rem;font-weight:400;letter-spacing:-.01em;
+  color:var(--ink);line-height:1.25;display:block}
+.qref{font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;
+  text-align:right;flex:0 0 auto}
+.qsec{padding:.9em 1.1em}
+.qsec + .qsec{border-top:1px solid var(--line-2)}
+.qsec > .ql{font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);
+  display:block;margin-bottom:.6em}
+.qrow{display:flex;justify-content:space-between;align-items:baseline;gap:1em;padding:.3em 0}
+.qrow i{font-style:normal;font-size:.86rem;color:var(--ink)}
+.qrow i small{display:block;font-size:.72rem;color:var(--muted);margin-top:.12em}
+.qrow b{font-family:'Archivo',sans-serif;font-size:.9rem;font-weight:500;color:var(--ink);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.qtot{display:flex;justify-content:space-between;align-items:center;gap:1em;
+  padding:1em 1.1em;background:var(--ink);color:var(--paper)}
+.qtot .ql{font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;
+  color:rgba(248,245,240,.56);display:block;margin-bottom:.22em}
+.qtot em{font-style:normal;font-size:.72rem;color:rgba(248,245,240,.56);display:block}
+.qtot b{font-family:'Fraunces',serif;font-size:1.85rem;font-weight:400;letter-spacing:-.03em;
+  line-height:1;color:var(--paper);font-variant-numeric:tabular-nums;white-space:nowrap}
+.qnone{font-size:.8rem;color:var(--muted);padding:.2em 0}
+
+/* On the review step the card already carries the total, the caveat and the
+   itemisation. Printing all three again in the footer reads like a bug. */
+body[data-step="6"] .pfoot .plabel,
+body[data-step="6"] .pfoot #price,
+body[data-step="6"] .pfoot #priceSub,
+body[data-step="6"] .pfoot .pnote,
+body[data-step="6"] .pfoot #breakdown{display:none}
+body[data-step="6"] .pacts{margin-top:0}

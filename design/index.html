@@ -101,7 +101,9 @@
       </section>
 <section class="tabpanel" id="tp6" role="tabpanel" aria-labelledby="tb6" hidden>
         <div class="accb">
-          <p class="note">Every piece your design needs. This travels with your enquiry, so we are most of the way to a quote before anyone visits.</p>
+          <div id="quotebox" class="qbox"></div>
+          <h4 class="subh">Every part, by the piece</h4>
+          <p class="note">The full parts list behind the figure above. This travels with your enquiry, so we are most of the way to a quote before anyone visits.</p>
           <div class="orderhd"><span id="orderCount"></span><button class="btn btn-ghost btn-sm" id="dlOrder">Download CSV</button></div>
           <div id="order" class="ordertab"></div>
         </div>
@@ -117,9 +119,8 @@
         baseboard comes off.</p>
       <div class="pacts">
         <button class="btn btn-accent btn-sm" id="send">Send this to us</button>
-        <button class="btn btn-ghost btn-sm" id="breakdown">Breakdown</button>
+        <button class="btn btn-ghost btn-sm" id="breakdown">See the itemisation</button>
       </div>
-      <div id="bdbox" hidden></div>
     </div>
   </aside>
 </div>
@@ -171,6 +172,9 @@
   if(!nav) return;
   var tabs = [].slice.call(nav.querySelectorAll('[data-tab]'));
   function show(n){
+    /* the footer carries the running total on steps 1–5; on step 6 the card
+       in the panel already shows it, so the footer stands down to the action */
+    document.body.setAttribute('data-step', n);
     tabs.forEach(function(t){
       var on = t.dataset.tab === n;
       t.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -193,6 +197,7 @@
   });
   /* clicking a section in the 3D jumps to "Fill the bay" */
   window.gotoStep = show;
+  document.body.setAttribute('data-step','1');
 })();
 </script>
 </body></html>

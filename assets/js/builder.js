@@ -386,7 +386,7 @@ function rebuild(reframe){
   if(reframe){ resize(); frame(); }
   paintAll();
 }
-function paintAll(){ paintSteps(); paintBays(); paintStack(); paintPrice(); paintOrder(); markSteps(); }
+function paintAll(){ paintSteps(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); markSteps(); }
 
 /* tick the steps that have been satisfied, so the bar reads as progress
    rather than six identical buttons */
@@ -560,6 +560,48 @@ function paintPrice(){
   $('#warn').hidden=!cur.warnings.length;
   $('#warn').innerHTML=cur.warnings.map(w=>`<span>${w}</span>`).join('');
 }
+/* The review step shows the same number three ways: the base system, the
+   extras, the total. Supplier cost never appears here — that is Joseph's
+   margin and it does not belong on a public page. */
+function paintQuote(){
+  const q = cur.quote, el = $('#quotebox');
+  if(!el) return;
+  if(!q || q.empty){
+    el.innerHTML = `<p class="qnone">Nothing in the design yet. Add a section on step 2 and the itemisation builds itself.</p>`;
+    return;
+  }
+  const shape = S.type==='walk-in' ? ` (${SHAPES[S.shape].label})` : '';
+  el.innerHTML = `<div class="qcard">
+    <div class="qtop">
+      <span><span class="ql">Your design</span><b>${TYPES[S.type].label} closet${shape}</b></span>
+      <span class="qref">${designRef()}<br>${cur.finish.n}</span>
+    </div>
+    <div class="qsec">
+      <span class="ql">Base system</span>
+      <div class="qrow"><i>${q.baseLabel}<small>${q.baseNote}</small></i><b>${money(q.base)}</b></div>
+    </div>
+    <div class="qsec">
+      <span class="ql">Your options</span>
+      ${q.options.length
+        ? q.options.map(o=>`<div class="qrow"><i>${o.label}${o.note?`<small>${o.note}</small>`:''}</i><b>${money(o.price)}</b></div>`).join('')
+        : `<p class="qnone">No extras yet — shelves, drawers, baskets and doors itemise here as you add them.</p>`}
+    </div>
+    <div class="qtot">
+      <span><span class="ql">Estimated total</span><em>Cabinetry only · installation quoted separately</em></span>
+      <b>${money(q.total)}</b>
+    </div>
+  </div>`;
+}
+/* A short handle so he and the customer are looking at the same design.
+   Deterministic: same choices in, same code out. */
+function designRef(){
+  const t = { 'reach-in':'R','walk-in':'W','pantry':'P','garage':'G','laundry':'L' }[S.type] || 'C';
+  const seed = JSON.stringify([S.type,S.shape,S.room,S.mounting,S.finish,S.frontFinish,
+    cur.bays.map(b=>[b.wall,+b.w.toFixed(1),(b.stack||[]).map(x=>[x.m,x.o?.n??0])])]);
+  let h = 0x811c9dc5;
+  for(let i=0;i<seed.length;i++){ h ^= seed.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return `${t}${cur.bays.length}-${h.toString(36).toUpperCase().slice(0,5).padStart(5,'0')}`;
+}
 function paintOrder(){
   $('#order').innerHTML=`<table><thead><tr><th>Item</th><th>Qty</th><th>Sq ft</th><th>Finish</th></tr></thead><tbody>`+
     cur.order.map(o=>`<tr><td>${o.item}</td><td class="num">${o.qty}</td><td class="num">${o.sq_ft||'—'}</td><td class="fin">${o.finish}</td></tr>`).join('')+
@@ -724,11 +766,10 @@ $('#dlOrder').onclick=()=>{
   const a=document.createElement('a'); a.href=u; a.download='closet-order.csv'; a.click();
   setTimeout(()=>URL.revokeObjectURL(u),1500);
 };
-$('#breakdown').onclick=()=>{ const d=$('#bdbox');
-  if(!d.hidden){d.hidden=true;return;} d.hidden=false;
-  d.innerHTML=`<p class="bdnote">Supplier cost per line. Your price applies our markup and includes delivery and installation.</p>`+
-    cur.price.lines.map(l=>`<div class="bdl"><span>${l.label}</span><b>${money(l.cost)}</b></div>`).join('')+
-    `<div class="bdl tot"><span><b>Installed</b></span><b>${money(cur.price.price)}</b></div>`;
+$('#breakdown').onclick=()=>{
+  if(window.gotoStep) window.gotoStep('6');
+  const el=$('#quotebox');
+  if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
 };
 
 /* ───────── go ───────── */
