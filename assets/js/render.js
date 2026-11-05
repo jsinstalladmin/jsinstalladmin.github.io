@@ -5,8 +5,6 @@
    from tutorials is the usual reason this looks wrong.
    ============================================================ */
 import * as THREE from 'three';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -51,12 +49,39 @@ export function makeRenderer(canvas){
 export function setupLighting(scene, renderer){
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
-  // instant, zero-download
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+  /* three.js RoomEnvironment is a warm studio box: orange-tinted emissive
+     panels. On rough white walls that tint IS the ambient, which is why the
+     room kept rendering tan no matter what colour the wall material was set
+     to. Chasing it with a cooler wall colour would just move the problem onto
+     the cabinetry. This is a neutral dome instead: bright grey above, a touch
+     warmer at the horizon where a real room bounces off the floor, darker
+     below. Reflections stay soft, ambient stays neutral. */
+  const EW = 256, EH = 128;
+  const envC = document.createElement('canvas'); envC.width = EW; envC.height = EH;
+  const eg = envC.getContext('2d');
+  const grad = eg.createLinearGradient(0, 0, 0, EH);
+  grad.addColorStop(0.00, '#FFFFFF');
+  grad.addColorStop(0.44, '#F0F0EF');
+  grad.addColorStop(0.52, '#DEDEDC');   // horizon
+  grad.addColorStop(1.00, '#9B9B99');   // floor bounce, neutral
+  eg.fillStyle = grad; eg.fillRect(0, 0, EW, EH);
+  /* A soft bright patch where the key light sits. Without it the dome is
+     perfectly even and every gloss finish reflects a flat grey card, which
+     reads as plastic. This is the window. */
+  const win = eg.createRadialGradient(EW * 0.26, EH * 0.3, 2, EW * 0.26, EH * 0.3, EH * 0.46);
+  win.addColorStop(0, 'rgba(255,255,255,1)');
+  win.addColorStop(1, 'rgba(255,255,255,0)');
+  eg.fillStyle = win; eg.fillRect(0, 0, EW, EH);
+  const envTex = new THREE.CanvasTexture(envC);
+  envTex.mapping = THREE.EquirectangularReflectionMapping;
+  envTex.colorSpace = THREE.SRGBColorSpace;
+  scene.environment = pmrem.fromEquirectangular(envTex).texture;
   scene.environmentIntensity = 1.0;
+  envTex.dispose();
 
   /* Without a background the composer clears to black and the room floats in a void. */
-  scene.background = new THREE.Color(0xE9E6E1);
+  scene.background = new THREE.Color(0xEDEDEC);
 
   /* Three-point, not one. A single key gave every vertical panel the same flat
      value, which is why the cabinetry looked drawn rather than lit. */
@@ -81,18 +106,15 @@ export function setupLighting(scene, renderer){
   rim.position.set(-40, 50, -150);
   scene.add(rim);
 
-  // upgrade to the real room HDRI in the background
-  // upgrade to the real room HDRI in the background
-  new RGBELoader().load((window.BASE||"")+'assets/hdr/lythwood_room_1k.hdr', hdr=>{
-    const rt = pmrem.fromEquirectangular(hdr);
-    hdr.dispose();
-    scene.environment = rt.texture;
-    scene.environmentRotation.y = Math.PI * 0.22;
-    onEnvReady && onEnvReady();
-  }, undefined, ()=>{ /* keep RoomEnvironment */ });
+  /* There used to be an RGBELoader here pulling in lythwood_room_1k.hdr and
+     replacing the environment above. That HDRI is a warm wood-panelled room,
+     so its colour became the ambient: a pure white baseboard rendered
+     (225,203,176), and no wall colour could fix it, because the problem was
+     the light and not the paint.
 
-  let onEnvReady = null;
-  return { key, pmrem, onReady:fn=>{onEnvReady=fn} };
+     The dome is built synchronously, so there is nothing to wait for. onReady
+     fires the moment a caller registers rather than on a network callback. */
+  return { key, pmrem, onReady: fn => { if(typeof fn === 'function') fn(); } };
 }
 
 export function fitShadowCamera(key, root){

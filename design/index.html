@@ -62,7 +62,7 @@
   </div>
 
   <aside class="bpanel">
-    <nav class="steptabs" role="tablist" aria-label="Design steps"><button role="tab" id="tb1" aria-controls="tp1" aria-selected="true" data-tab="1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20V7l9-4 9 4v13"/><path d="M3 20h18"/></svg><span>Your space</span><b>1</b></button><button role="tab" id="tb2" aria-controls="tp2" aria-selected="false" data-tab="2"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M9 4v16M15 4v16"/></svg><span>Divide it into bays</span><b>2</b></button><button role="tab" id="tb3" aria-controls="tp3" aria-selected="false" data-tab="3"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 10h18M3 15h18"/><circle cx="12" cy="7" r="1"/></svg><span>Fill the bay</span><b>3</b></button><button role="tab" id="tb4" aria-controls="tp4" aria-selected="false" data-tab="4"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16"/></svg><span>Finish</span><b>4</b></button><button role="tab" id="tb5" aria-controls="tp5" aria-selected="false" data-tab="5"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="3"/><path d="M8 12h8"/></svg><span>Handles</span><b>5</b></button><button role="tab" id="tb6" aria-controls="tp6" aria-selected="false" data-tab="6"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16l-7-3-7 3z"/><path d="M9 9h6M9 13h4"/></svg><span>Your order</span><b>6</b></button></nav>
+    <nav class="steptabs" role="tablist" aria-label="Design steps"><button role="tab" id="tb1" aria-controls="tp1" aria-selected="true" data-tab="1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20V7l9-4 9 4v13"/><path d="M3 20h18"/></svg><span>Your space</span><b>1</b></button><button role="tab" id="tb2" aria-controls="tp2" aria-selected="false" data-tab="2"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M9 4v16M15 4v16"/><path d="M3 12h6"/></svg><span>Layout</span><b>2</b></button><button role="tab" id="tb3" aria-controls="tp3" aria-selected="false" data-tab="3"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16"/></svg><span>Finish</span><b>3</b></button><button role="tab" id="tb3" aria-controls="tp3" aria-selected="false" data-tab="4"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="16" height="6" rx="3"/><path d="M8 12h8"/></svg><span>Handles</span><b>4</b></button><button role="tab" id="tb4" aria-controls="tp4" aria-selected="false" data-tab="5"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16l-7-3-7 3z"/><path d="M9 9h6M9 13h4"/></svg><span>Your order</span><b>5</b></button></nav>
     <div class="pscroll">
 
       <section class="tabpanel" id="tp1" role="tabpanel" aria-labelledby="tb1">
@@ -78,12 +78,10 @@
         <div class="accb">
           <div id="bays"></div>
           <p class="note" id="bayNote"></p>
+          <div id="stack"></div>
         </div>
       </section>
 <section class="tabpanel" id="tp3" role="tabpanel" aria-labelledby="tb3" hidden>
-        <div class="accb" id="stack"></div>
-      </section>
-<section class="tabpanel" id="tp4" role="tabpanel" aria-labelledby="tb4" hidden>
         <div class="accb">
           <div class="srch"><svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.6"/><path d="M13.2 13.2 17 17"/></svg>
             <input id="fq" type="search" placeholder="Search 79 finishes…" aria-label="Search finishes"></div>
@@ -91,7 +89,7 @@
           <h4 class="subh">Drawer &amp; door fronts</h4><div id="fin2" class="fins"></div><p class="finnote" id="finNote2"></p>
         </div>
       </section>
-<section class="tabpanel" id="tp5" role="tabpanel" aria-labelledby="tb5" hidden>
+<section class="tabpanel" id="tp4" role="tabpanel" aria-labelledby="tb4" hidden>
         <div class="accb">
           <div id="pulls" class="pullgrid"></div>
           <p class="finnote" id="pullNote"></p>
@@ -99,7 +97,7 @@
           <div id="pullfin" class="pills metalrow"></div>
         </div>
       </section>
-<section class="tabpanel" id="tp6" role="tabpanel" aria-labelledby="tb6" hidden>
+<section class="tabpanel" id="tp5" role="tabpanel" aria-labelledby="tb5" hidden>
         <div class="accb">
           <div id="quotebox" class="qbox"></div>
           <h4 class="subh">Every part, by the piece</h4>
@@ -112,11 +110,15 @@
 
     <div class="pfoot">
       <div id="warn" class="warnbox" hidden></div>
+      <button class="pinfo" id="pinfo" type="button" aria-expanded="false"
+              aria-label="What this price covers">i</button>
+      <div class="ptip" role="note">
+        <b>Cabinetry only.</b>Installation is quoted once we have measured the room.
+        It depends on access, the shelving that has to come out and whether the
+        baseboard comes off.
+      </div>
       <span class="plabel">Cabinetry only</span>
       <div id="price">…</div><span id="priceSub"></span>
-      <p class="pnote">Installation is quoted separately once we have measured
-        the room. It depends on access, the existing shelving and whether the
-        baseboard comes off.</p>
       <div class="pacts">
         <button class="btn btn-accent btn-sm" id="send">Send this to us</button>
         <button class="btn btn-ghost btn-sm" id="breakdown">See the itemisation</button>
@@ -196,6 +198,10 @@
     e.preventDefault(); tabs[j].focus(); show(tabs[j].dataset.tab);
   });
   /* clicking a section in the 3D jumps to "Fill the bay" */
+  var pi = document.getElementById('pinfo');
+  if(pi) pi.addEventListener('click', function(){
+    pi.setAttribute('aria-expanded', pi.getAttribute('aria-expanded') === 'true' ? 'false' : 'true');
+  });
   window.gotoStep = show;
   document.body.setAttribute('data-step','1');
 })();

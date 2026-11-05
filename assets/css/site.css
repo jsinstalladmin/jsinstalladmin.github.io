@@ -4,7 +4,7 @@
    One weight per family. Negative tracking on display, positive
    only on small uppercase labels. Warm greys, never pure black.
    ========================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..700,0..100,0..1;1,9..144,300..700,0..100,0..1&family=Archivo:ital,wdth,wght@0,80..125,300..700;1,80..125,300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:ital,wdth,wght@0,80..125,300..700;1,80..125,300..700&display=swap');
 
 :root{
   --ink:#16120D;
@@ -36,7 +36,11 @@ body{
 }
 img,video,canvas,svg{display:block;max-width:100%}
 a{color:inherit}
-h1,h2,h3,h4{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--ink);margin:0}
+/* Display is Instrument Serif: tighter, higher contrast and a lot less
+   familiar than what was here. Small headings drop to Archivo, because a
+   display cut at 1.1rem just looks like a mistake. */
+h1,h2{font-family:'Instrument Serif',Georgia,serif;font-weight:400;color:var(--ink);margin:0}
+h3,h4{font-family:'Archivo',system-ui,sans-serif;font-weight:500;color:var(--ink);margin:0}
 h1{font-size:clamp(3rem,7.6vw,6.6rem);line-height:.93;letter-spacing:-.035em}
 h2{font-size:clamp(2rem,4.4vw,3.6rem);line-height:1.0;letter-spacing:-.028em}
 h3{font-size:clamp(1.25rem,2vw,1.7rem);line-height:1.1;letter-spacing:-.015em}
@@ -75,7 +79,7 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .drawer{position:fixed;inset:0;z-index:80;background:var(--ink);color:var(--paper);
   padding:84px var(--shell-pad,22px) 40px;display:none;overflow-y:auto}
 .drawer.open{display:block}
-.drawer a{display:block;text-decoration:none;font-family:'Fraunces',serif;
+.drawer a{display:block;text-decoration:none;font-family:'Instrument Serif',serif;
   font-size:2rem;letter-spacing:-.02em;padding:.34em 0;border-bottom:1px solid var(--line-dk)}
 .drawer .x{position:absolute;top:22px;right:22px;background:transparent;border:1px solid var(--line-dk);
   color:inherit;border-radius:var(--r-pill);padding:.5em 1em;font:inherit;cursor:pointer}
@@ -85,7 +89,7 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .lk:hover{background:var(--line-2)}
 .lk-mark{width:37px;height:37px;flex:0 0 auto}
 .lk-txt{display:flex;flex-direction:column;line-height:1}
-.lk-txt b{font-family:'Fraunces',serif;font-weight:400;font-size:1.16rem}
+.lk-txt b{font-family:'Instrument Serif',serif;font-weight:400;font-size:1.16rem}
 .lk-txt span{font-size:.54rem;letter-spacing:.3em;text-transform:uppercase;opacity:.58;margin-top:3px}
 
 /* ---------- buttons ---------- */
@@ -208,7 +212,7 @@ body[data-hero="dark"]  .hero-veil{background:
 /* four specs, even columns, never one orphaned on a second row */
 .vbox-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:1em;
   margin-top:1.8em;padding-top:1.4em;border-top:1px solid rgba(248,245,240,.16)}
-.vbox-facts div b{display:block;font-family:'Fraunces',serif;font-size:1.45rem;
+.vbox-facts div b{display:block;font-family:'Archivo',sans-serif;font-weight:600;font-size:1.3rem;
   line-height:1.1;color:var(--paper)}
 .vbox-facts div span{display:block;margin-top:.3em;font-size:.64rem;letter-spacing:.11em;
   text-transform:uppercase;color:rgba(248,245,240,.56);line-height:1.35}
@@ -231,7 +235,7 @@ body[data-hero="dark"]  .hero-veil{background:
 .dcard .scrim{position:absolute;inset:0;display:grid;place-items:center;opacity:0;
   background:rgba(12,9,6,.46);transition:opacity .34s ease-in-out}
 .dcard:hover .scrim,.dcard:focus-visible .scrim{opacity:1}
-.dcard .scrim span{color:#fff;font-family:'Fraunces',serif;font-size:1.22rem;
+.dcard .scrim span{color:#fff;font-family:'Instrument Serif',serif;font-size:1.22rem;
   letter-spacing:-.01em;display:flex;align-items:center;gap:.5em}
 .dcard .scrim svg{width:30px;height:30px;stroke:#fff;fill:none;stroke-width:1.2}
 .dcard .scrim circle{stroke-dasharray:95;stroke-dashoffset:95;transition:stroke-dashoffset .42s var(--ease-out) .06s}
@@ -330,7 +334,7 @@ body[data-hero="dark"]  .hero-veil{background:
   letter-spacing:.09em;line-height:2.5;text-align:justify;color:var(--muted)}
 .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
   gap:clamp(14px,2vw,28px);border-top:1px solid var(--line);padding-top:clamp(20px,2.6vw,34px)}
-.statrow div b{display:block;font-family:'Fraunces',serif;font-size:clamp(1.9rem,3.2vw,2.7rem);
+.statrow div b{display:block;font-family:'Archivo',sans-serif;font-weight:600;font-size:clamp(1.7rem,2.9vw,2.4rem);
   line-height:1;color:var(--ink);letter-spacing:-.025em}
 .statrow div span{display:block;font-size:.73rem;letter-spacing:.13em;text-transform:uppercase;
   color:var(--muted);margin-top:.55em}
@@ -359,7 +363,7 @@ body[data-hero="dark"]  .hero-veil{background:
 .rg:hover,.rg:focus-visible,.rg.on{background:rgba(248,245,240,.05);padding-left:.8em;outline:0}
 .rg:hover .rghd b,.rg.on .rghd b{color:var(--accent)}
 .rghd{display:flex;align-items:baseline;justify-content:space-between;gap:1em}
-.rghd b{font-family:'Fraunces',serif;font-weight:400;font-size:1.3rem;
+.rghd b{font-family:'Instrument Serif',serif;font-weight:400;font-size:1.3rem;
   letter-spacing:-.018em;color:var(--paper)}
 .rghd span{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(248,245,240,.4)}
 .rgbase{margin:.15em 0 .35em;font-size:.78rem;letter-spacing:.11em;text-transform:uppercase;color:var(--accent)}
@@ -413,7 +417,7 @@ body[data-hero="dark"]  .hero-veil{background:
 .article p{margin:0 0 1.1em;font-size:1.045rem;line-height:1.72}
 .article .artlist{margin:0 0 1.5em;padding-left:1.25em;display:grid;gap:.6em}
 .article .artlist li{line-height:1.6;padding-left:.15em}
-.article ol.artlist li::marker{font-family:'Fraunces',serif;font-size:1.12em;color:var(--accent)}
+.article ol.artlist li::marker{font-family:'Instrument Serif',serif;font-size:1.12em;color:var(--accent)}
 .article .artcta{margin:2.4em 0 0;padding-top:1.8em;border-top:1px solid var(--line)}
 .gcard{display:flex;flex-direction:column;text-decoration:none;background:var(--paper-2);
   border-radius:var(--r-md);overflow:hidden;border:1px solid transparent;
@@ -466,20 +470,24 @@ body[data-hero="dark"]  .hero-veil{background:
 }
 
 /* ---------- TYPE SYSTEM -------------------------------------------------
-   Fraunces for display, Archivo for text.
+   Instrument Serif for display, Archivo for text and every number.
 
-   Fraunces is a variable face with optical-size, SOFT and WONK axes. Set
+   Instrument Serif has one cut, so the tuning here is tracking and leading. Set
    opsz high on the big headings so the contrast opens up the way a display
    cut should, and keep a little WONK — the single-storey g and the canted
    leaf terminals are what stop this reading as a default serif. Archivo
    carries the body because its figures are the clearest at the small sizes
    this site is full of (84", 32mm, 24–36"). */
-h1,h2,h3,h4{
-  font-variation-settings:'opsz' 120,'SOFT' 28,'WONK' 1;
-  font-weight:380;letter-spacing:-.016em;line-height:1.05}
-h1{font-variation-settings:'opsz' 144,'SOFT' 34,'WONK' 1;letter-spacing:-.024em}
-h3,h4{font-variation-settings:'opsz' 42,'SOFT' 20,'WONK' 0;letter-spacing:-.008em}
+h1,h2{font-weight:400;letter-spacing:-.018em;line-height:1.02}
+h1{letter-spacing:-.028em}
+h3,h4{letter-spacing:-.006em;line-height:1.2}
 body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
+/* Numbers live in Archivo, never in the display serif. A price set in a
+   high-contrast serif reads like a magazine pull quote; set in a grotesque
+   with tabular figures it reads like a quotation, which is what it is. */
+.money,.pricebig,#price,.vbox-facts div b,.card .v{
+  font-family:'Archivo',system-ui,sans-serif;font-weight:600;
+  letter-spacing:-.022em;font-variant-numeric:tabular-nums}
 /* numerals: tabular everywhere a dimension or a price is shown */
 .statrow div b,.vbox-facts div b,.pricebig,.step b,.bw,.phero-facts span,
 .article .artlist li,td,th{font-variant-numeric:tabular-nums}

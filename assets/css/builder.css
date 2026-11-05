@@ -34,7 +34,7 @@
 .pscroll{overflow-y:auto;flex:1;padding:4px 0}
 .acc{border-bottom:1px solid var(--line)}
 .acc > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
-  padding:1.05em clamp(16px,2vw,24px);font-family:'Fraunces',serif;font-size:1.3rem;
+  padding:1.05em clamp(16px,2vw,24px);font-family:'Instrument Serif',serif;font-size:1.34rem;
   letter-spacing:-.015em;color:var(--ink)}
 .acc > summary::-webkit-details-marker{display:none}
 .acc > summary i{width:9px;height:9px;border-right:1.4px solid var(--muted);border-bottom:1.4px solid var(--muted);
@@ -107,7 +107,8 @@
 .pfoot{border-top:1px solid var(--line);background:var(--ink);color:var(--paper);
   padding:clamp(14px,1.8vw,20px) clamp(16px,2vw,24px)}
 .plabel{font-size:.66rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(248,245,240,.5)}
-#price{font-family:'Fraunces',serif;font-size:2.5rem;line-height:1.02;letter-spacing:-.03em;color:var(--paper)}
+#price{font-family:'Archivo',system-ui,sans-serif;font-weight:600;font-size:2.3rem;
+  line-height:1.02;letter-spacing:-.03em;color:var(--paper);font-variant-numeric:tabular-nums}
 #priceSub{display:block;font-size:.75rem;color:rgba(248,245,240,.58);margin-top:.3em}
 .pacts{display:flex;gap:.5em;margin-top:1em;flex-wrap:wrap}
 .pfoot .btn-ghost{border-color:rgba(248,245,240,.28);color:var(--paper)}
@@ -278,7 +279,7 @@
    corner. The previous pills wrapped onto two lines at panel width and gave
    no sense of progress. These sit on one row, the current one filled, the
    ones you have been through marked done. */
-.steptabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;
+.steptabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;
   padding:10px 10px 11px;border-bottom:1px solid var(--line);
   background:var(--paper);position:sticky;top:0;z-index:6}
 .steptabs button{position:relative;display:flex;flex-direction:column;align-items:center;
@@ -363,7 +364,7 @@
   padding:.95em 1.1em;background:var(--paper-2);border-bottom:1px solid var(--line)}
 .qtop .ql{font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);
   display:block;margin-bottom:.3em}
-.qtop b{font-family:'Fraunces',serif;font-size:1.02rem;font-weight:400;letter-spacing:-.01em;
+.qtop b{font-family:'Instrument Serif',serif;font-size:1.1rem;font-weight:400;letter-spacing:-.01em;
   color:var(--ink);line-height:1.25;display:block}
 .qref{font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;
   text-align:right;flex:0 0 auto}
@@ -381,7 +382,7 @@
 .qtot .ql{font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;
   color:rgba(248,245,240,.56);display:block;margin-bottom:.22em}
 .qtot em{font-style:normal;font-size:.72rem;color:rgba(248,245,240,.56);display:block}
-.qtot b{font-family:'Fraunces',serif;font-size:1.85rem;font-weight:400;letter-spacing:-.03em;
+.qtot b{font-family:'Archivo',system-ui,sans-serif;font-size:1.72rem;font-weight:600;letter-spacing:-.03em;
   line-height:1;color:var(--paper);font-variant-numeric:tabular-nums;white-space:nowrap}
 .qnone{font-size:.8rem;color:var(--muted);padding:.2em 0}
 
@@ -425,3 +426,96 @@ body[data-step="6"] .pacts{margin-top:0}
 @media(max-width:420px){ .bayacts{grid-template-columns:repeat(3,1fr)}
   .bayacts .mini[data-bay="addfill"]{grid-column:span 3}
   .bayacts .mini[data-bay="del"],.bayacts .mini[data-bay="even"]{grid-column:span 3} }
+
+/* ════════ v5: every region is its own card ════════
+   The designer was three flush panels sharing hairline borders, which reads
+   as one undifferentiated slab. Each region now floats: the drawing, the step
+   rail, the controls and the price all sit in their own rounded box with the
+   page showing between them. */
+.bwrap{padding:14px;gap:14px;border-top:0;background:var(--paper-2)}
+.bstage{border-radius:var(--r-md);border:1px solid var(--line);
+  box-shadow:0 2px 14px rgba(26,18,10,.04)}
+.bpanel{border-left:0;background:transparent;gap:12px}
+.steptabs{border-radius:var(--r-md);border:1px solid var(--line);border-bottom:1px solid var(--line);
+  box-shadow:0 2px 14px rgba(26,18,10,.04)}
+.pscroll{border-radius:var(--r-md);border:1px solid var(--line);background:var(--paper);
+  box-shadow:0 2px 14px rgba(26,18,10,.04)}
+.pfoot{border-radius:var(--r-md);border:1px solid var(--ink);
+  box-shadow:0 6px 22px rgba(26,18,10,.14)}
+@media(max-width:1060px){
+  .bpanel{border-top:0}
+  .bwrap{padding:10px;gap:10px}
+}
+
+/* ---- the price box: one line of caveat, not a paragraph ----
+   The installation note was four lines of body copy under the number, which
+   pushed the actions off the bottom of the panel on a laptop. It is now an
+   info button in the corner of the box. */
+.pfoot{position:relative}
+.pinfo{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:50%;
+  border:1px solid rgba(248,245,240,.3);background:transparent;color:rgba(248,245,240,.72);
+  font:inherit;font-size:.76rem;line-height:1;cursor:pointer;display:grid;place-items:center;
+  padding:0;transition:.2s var(--ease)}
+.pinfo:hover,.pinfo[aria-expanded="true"]{background:var(--paper);color:var(--ink);
+  border-color:var(--paper)}
+.ptip{position:absolute;top:42px;right:12px;z-index:9;width:min(290px,calc(100% - 24px));
+  background:var(--paper);color:var(--ink);border-radius:var(--r-sm);padding:.85em .95em;
+  font-size:.75rem;line-height:1.55;box-shadow:0 14px 38px rgba(0,0,0,.3);
+  opacity:0;visibility:hidden;translate:0 -4px;transition:.22s var(--ease)}
+.pinfo:hover + .ptip,.ptip:hover,.pinfo[aria-expanded="true"] + .ptip{
+  opacity:1;visibility:visible;translate:0 0}
+.ptip b{display:block;margin-bottom:.3em;font-weight:500}
+
+/* ════════ v5: one picker, and sections you can see the width of ════════ */
+
+/* "Add a section" was a row of grey text chips reading + 24" + 28" + 30".
+   Nothing about them said what a section is. Each is now a card with a bar
+   drawn to scale against the 36" maximum, so the widths are comparable
+   before you commit to one. */
+.addrow{margin-top:.75em}
+.addlbl{display:block;font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.5em}
+.addgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.wcard{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;
+  padding:9px 7px 7px;border:1px solid var(--line);border-radius:10px;
+  background:var(--paper);cursor:pointer;font:inherit;transition:.22s var(--ease)}
+.wcard .wbar{display:block;height:5px;border-radius:3px;background:var(--line-2);overflow:hidden}
+.wcard .wbar span{display:block;height:100%;border-radius:3px;background:var(--accent,#A8824C);opacity:.55}
+.wcard b{font-size:.73rem;font-weight:500;color:var(--ink);text-align:center;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.wcard:hover{border-color:var(--ink);transform:translateY(-1px)}
+.wcard:hover .wbar span{opacity:1}
+.wcard.fill{grid-column:span 2}
+.addutil{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
+.addutil .mini{width:100%}
+.addutil .danger:hover{border-color:#B4553F;color:#B4553F}
+@media(max-width:480px){ .addgrid{grid-template-columns:repeat(3,1fr)} .wcard.fill{grid-column:span 3} }
+
+/* One grid for ready-made layouts AND single parts. They were two separate
+   pickers doing the same job, which is what made the panel feel twice as
+   long as it needed to be. */
+.pgrid{display:grid;gap:9px;grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+.pcard{position:relative;display:flex;flex-direction:column;padding:0;overflow:hidden;
+  border:1px solid var(--line);border-radius:12px;background:var(--paper);cursor:pointer;
+  font:inherit;text-align:left;
+  transition:border-color .25s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease)}
+.pcard img{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--paper-3)}
+.pcard i{font-style:normal;font-size:.76rem;font-weight:500;color:var(--ink);
+  padding:.52em .6em 0;line-height:1.25}
+.pcard em{font-style:normal;font-size:.63rem;color:var(--muted);line-height:1.35;
+  padding:.2em .6em .62em;display:block}
+.pcard:hover:not(:disabled){border-color:var(--accent,#A8824C);transform:translateY(-2px);
+  box-shadow:0 8px 22px rgba(26,18,10,.10)}
+.pcard:disabled{opacity:.42;cursor:not-allowed}
+.pcard.ready{border-color:rgba(168,130,76,.4)}
+.pbadge{position:absolute;top:7px;left:7px;font-size:.55rem;letter-spacing:.1em;
+  text-transform:uppercase;background:var(--ink);color:var(--paper);
+  padding:.28em .5em;border-radius:5px}
+.pcard u{position:absolute;top:7px;right:7px;text-decoration:none;font-size:.62rem;
+  background:var(--paper);color:var(--ink);padding:.26em .48em;border-radius:5px;
+  border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.pcard u.full{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.emptybay,.emptysel{padding:.9em 1em;border:1px dashed var(--line);border-radius:10px;
+  background:var(--paper-2);margin:.2em 0 1em}
+.addlbl.full{color:var(--ink);opacity:.72}
+.addgrid:empty{display:none}

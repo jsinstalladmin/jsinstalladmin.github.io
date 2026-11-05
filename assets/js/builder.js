@@ -267,9 +267,9 @@ function roomTextures(){
       const len = rnd(0.34, 0.72) * S;
       /* each board gets its own colour, and roughly one in six is a notably
          darker or lighter board, which is what real oak looks like laid */
-      const odd  = Math.random() < 0.17;
-      const base = odd ? rnd(138, 154) : rnd(162, 182);
-      const r = base + rnd(3, 9), g = base - rnd(0, 4), b = base * rnd(0.84, 0.91);
+      const odd  = Math.random() < 0.10;
+      const base = odd ? rnd(146, 158) : rnd(164, 180);
+      const r = base + rnd(10, 18), g = base - rnd(1, 5), b = base * rnd(0.72, 0.79);
       f.save();
       f.beginPath(); f.rect(x, y0, len, ph); f.clip();
       f.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
@@ -338,7 +338,7 @@ function roomTextures(){
   // --- painted wall: very fine tooth, almost flat ---
   const wc = document.createElement('canvas'); wc.width = wc.height = 512;
   const w = wc.getContext('2d');
-  w.fillStyle = '#EEECE8'; w.fillRect(0, 0, 512, 512);
+  w.fillStyle = '#E8E8E7'; w.fillRect(0, 0, 512, 512);
   const img = w.getImageData(0, 0, 512, 512), px = img.data;
   for(let i = 0; i < px.length; i += 4){
     const n = (Math.random() - 0.5) * 7;
@@ -371,7 +371,7 @@ function drawRoom(){
      so you look straight through it at the back of the closet instead of at a
      flat grey panel. Double-sided walls were boxing the camera in. */
   const wallMat = () => new THREE.MeshStandardMaterial({
-    map: T.wall, color: 0xF2F1EE, roughness: .96, metalness: 0,
+    map: T.wall, color: 0xE4E4E3, roughness: .95, metalness: 0,
     envMapIntensity: .45, side: THREE.FrontSide });
 
   const plane = (w, h, px, py, pz, rx, ry, mat) => {
@@ -411,7 +411,7 @@ function drawRoom(){
   fl.receiveShadow = true;
 
   // baseboard — the single detail that stops this reading as a grey box
-  const bmat = new THREE.MeshStandardMaterial({ color: 0xFBFAF8, roughness: .72, metalness: 0,
+  const bmat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: .62, metalness: 0,
     envMapIntensity: .45 });
   const baseboard = (w, px, pz, ry) => {
     const b = new THREE.Mesh(new THREE.BoxGeometry(w, BASE_H, BASE_T), bmat);
@@ -467,12 +467,18 @@ function drawCloset(res){
   if(S.sel){
     const hit=picks.children.find(o=>o.userData.wall===S.sel.wall&&o.userData.i===S.sel.i);
     if(hit){
+      /* depthTest:false drew this outline straight THROUGH the cabinetry, so
+         every panel looked see-through and the whole drawing read as a wire
+         sketch rather than solid boxes. The outline now respects depth and is
+         pushed a hair toward the camera with polygonOffset, which keeps it
+         crisp on the near faces without ghosting through the far ones. */
       const outline = new THREE.LineSegments(
         new THREE.EdgesGeometry(hit.geometry, 1),
-        new THREE.LineBasicMaterial({ color:0xCDA96E, transparent:true, opacity:.95, depthTest:false }));
+        new THREE.LineBasicMaterial({ color:0xCDA96E, transparent:true, opacity:.95,
+          depthTest:true, depthWrite:false,
+          polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 }));
       outline.position.copy(hit.position);
-      outline.scale.set(1.012, 1.004, 1.012);
-      outline.renderOrder = 999;
+      outline.scale.set(1.006, 1.002, 1.006);
       root.add(outline);
 
       /* a very faint wash so the chosen section separates from its neighbours */
@@ -505,9 +511,11 @@ canvas.addEventListener('pointerup',e=>{
   if(hit){
     S.sel={wall:hit.object.userData.wall,i:hit.object.userData.i};
     rebuild(false);
-    /* clicking a section in the drawing jumps to its controls, otherwise the
-       selection happens on a tab you are not looking at */
-    if(typeof window.gotoStep === 'function') window.gotoStep('3');
+    /* Dividing the wall and filling it are one panel now, so clicking a
+       section on the drawing just selects it. It used to yank you onto
+       another tab, which is what made adding two sections in a row feel
+       like the thing was fighting you. */
+    if(typeof window.gotoStep === 'function') window.gotoStep('2');
   }
 });
 
@@ -598,24 +606,26 @@ function standOff(b, dist){
 function view(step){
   const { w:W, d:D, h:H } = S.room;
   switch(String(step)){
-    case '2': {            // dividing the wall: straight on, so widths read true
-      const dist = fitDist(H * 1.22, (W + PAD_X * 0.6) * 1.1) * 1.04;
-      return { t:[W/2, H*0.45, 0], p:[W/2, H*0.47, dist] };
-    }
-    case '3': {            // filling a section: that section fills the frame
+    case '2': {
+      /* Layout. With a section selected, go in on it. With nothing selected
+         yet, show the wall straight on so the widths read true. */
+      if(!S.sel || !cur?.bays?.length){
+        const d = fitDist(H * 1.22, (W + PAD_X * 0.6) * 1.1) * 1.04;
+        return { t:[W/2, H*0.45, 0], p:[W/2, H*0.47, d] };
+      }
       const b = focusBay();
       const midY = SPEC.toeKick + b.h / 2;
-      const dist = fitDist(b.h * 1.18, Math.max(b.w, 24) * 1.9);
+      const dist = fitDist(b.h * 1.52, Math.max(b.w, 24) * 2.9);
       const [px, pz] = standOff(b, dist);
       return { t:[b.x, midY, b.z], p:[px, midY + b.h * 0.06, pz] };
     }
-    case '4': {            // finishes: three-quarter, so grain runs across panels
+    case '3': {            // finishes: three-quarter, so grain runs across panels
       const dist = fitDist(H * 1.1, W * 0.78);
       return { t:[W*0.5, H*0.45, D*0.25], p:[W*0.5 + dist*0.56, H*0.56, D*0.25 + dist*0.84] };
     }
-    case '5': {            // handles: frame something that actually HAS one
+    case '4': {            // handles: frame something that actually HAS one
       const f = pullFace();
-      if(!f) return view('4');          // nothing in the design takes a pull yet
+      if(!f) return view('3');          // nothing in the design takes a pull yet
       const dist = fitDist(f.h * 1.5, f.w * 1.5);
       const [px, pz] = standOff(f, dist);
       /* a slight three-quarter, so the pull reads as a solid object rather
@@ -676,7 +686,7 @@ function paintAll(){ paintSteps(); paintBays(); paintStack(); paintPrice(); pain
   /* steps 3 and 5 look at one section, so changing which one is selected has
      to move the camera too, not just the panel */
   const st = document.body.dataset.step;
-  if((st === '3' || st === '5') && cur?.bays?.length) flyTo(st, 520);
+  if((st === '2' || st === '4') && cur?.bays?.length) flyTo(st, 520);
 }
 
 /* tick the steps that have been satisfied, so the bar reads as progress
@@ -684,7 +694,7 @@ function paintAll(){ paintSteps(); paintBays(); paintStack(); paintPrice(); pain
 function markSteps(){
   const anyBay   = Object.values(S.runs).some(r => r?.on && r.bays.length);
   const anyFill  = Object.values(S.runs).some(r => r?.on && r.bays.some(b => b.stack.length));
-  const done = { '1':true, '2':anyBay, '3':anyFill, '4':!!S.finish, '5':!!S.pull, '6':anyFill };
+  const done = { '1':true, '2':anyFill || anyBay, '3':!!S.finish, '4':!!S.pull, '5':anyFill };
   document.querySelectorAll('.steptabs [data-tab]').forEach(t=>{
     if(done[t.dataset.tab]) t.dataset.done='1'; else delete t.dataset.done;
   });
@@ -750,26 +760,78 @@ function paintBays(){
     d.innerHTML = `<div class="runhd"><b>${wall[0].toUpperCase()+wall.slice(1)} wall</b>
       <span class="${left < -0.5 ? 'over' : ''}">${used.toFixed(0)}" of ${len.toFixed(0)}" used${left>0.5?` · ${left.toFixed(0)}" free`:''}</span></div>
       ${strip}
-      <div class="bayacts">
-        ${fits.map(w=>`<button class="mini addw" data-bay="addw" data-wall="${wall}" data-w="${w}">+ ${w}"</button>`).join('')}
-        ${left >= SPEC.bayMin ? `<button class="mini" data-bay="addfill" data-wall="${wall}">+ Fill the rest (${clampBay(left).toFixed(0)}")</button>` : ''}
-        ${r.bays.length ? `<button class="mini" data-bay="del" data-wall="${wall}">− Remove last</button>
-        <button class="mini" data-bay="even" data-wall="${wall}">Even them up</button>` : ''}
+      <div class="addrow">
+        ${fits.length || left >= SPEC.bayMin
+          ? `<span class="addlbl">Add a section</span>`
+          : `<span class="addlbl full">Wall is full &middot; ${len.toFixed(0)}" used</span>`}
+        <div class="addgrid">
+          ${fits.map(w=>`<button class="wcard" data-bay="addw" data-wall="${wall}" data-w="${w}">
+            <span class="wbar"><span style="width:${(w/SPEC.bayMax)*100}%"></span></span>
+            <b>${w}"</b></button>`).join('')}
+          ${left >= SPEC.bayMin ? `<button class="wcard fill" data-bay="addfill" data-wall="${wall}">
+            <span class="wbar"><span style="width:100%"></span></span>
+            <b>Rest ${clampBay(left).toFixed(0)}"</b></button>` : ''}
+        </div>
+        ${r.bays.length ? `<div class="addutil">
+          <button class="mini" data-bay="even" data-wall="${wall}">Even them up</button>
+          <button class="mini danger" data-bay="del" data-wall="${wall}">Remove last</button>
+        </div>` : ''}
       </div>`;
     host.appendChild(d);
   }
   $('#bayNote').textContent = `Sections run ${SPEC.bayMin}"–${SPEC.bayMax}" wide. Past ${SPEC.bayMax}" a ¾" shelf sags, so a partition goes in. That is why those are the only widths offered.`;
 }
 
-/* ───────── step 3: the selected bay's stack ───────── */
+/* ───────── step 2b: what goes in the selected section ─────────
+   This used to be its own tab, and it used to show two pickers: a row of
+   "layouts" and a grid of "pieces". They were the same control. A layout is
+   just a section pre-filled with pieces, so both now live in one grid, with
+   the ready-made ones first and badged.
+
+   It also used to dead-end: no section selected meant an empty panel telling
+   you to go and pick one. If sections exist, one of them is selected. */
 function paintStack(){
-  const box=$('#stack');
-  if(!S.sel || !S.runs[S.sel.wall]?.bays[S.sel.i]){ box.innerHTML='<p class="note">Pick a bay above, or click one on the drawing.</p>'; return; }
-  const bay=S.runs[S.sel.wall].bays[S.sel.i];
+  const box = $('#stack');
+  const run = S.sel && S.runs[S.sel.wall];
+  if(!run?.bays[S.sel?.i]){
+    /* nothing chosen, but something exists: choose it rather than dead-end */
+    const wall = Object.keys(S.runs).find(k => S.runs[k]?.on && S.runs[k].bays.length);
+    if(wall){ S.sel = { wall, i:0 }; return paintStack(); }
+    box.innerHTML = `<p class="note emptysel">Add a section above and its parts appear here.</p>`;
+    return;
+  }
+  const bay = S.runs[S.sel.wall].bays[S.sel.i];
   /* same arithmetic buildDesign uses, so the palette agrees with the drawing */
-  const floorY = S.mounting==='wall' ? SPEC.wallHungBase : SPEC.toeKick;
+  const floorY = S.mounting === 'wall' ? SPEC.wallHungBase : SPEC.toeKick;
   const usable = Math.min(SPEC.topShelf, S.room.h - 6) - floorY;
-  box.innerHTML=`
+
+  const cheapest = PRESETS.reduce((lo, p) => {
+    const v = presetDelta(p, bay.w, usable, cat, S.finish);
+    return (v != null && (lo == null || v < lo)) ? v : lo; }, null);
+
+  const presetCards = PRESETS.map(pre => {
+    const price = presetDelta(pre, bay.w, usable, cat, S.finish);
+    const delta = (price != null && cheapest != null) ? Math.round(price - cheapest) : null;
+    const tag   = delta == null ? '' : delta <= 0 ? 'Incl.' : '+' + money(delta);
+    return `<button class="pcard ready" data-preset="${pre.id}" title="${pre.desc.replace(/"/g,'&quot;')}">
+      <img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async"
+           width="420" height="315">
+      <i>${pre.name}</i><em>${pre.desc}</em>
+      <span class="pbadge">Ready-made</span>${tag ? `<u>${tag}</u>` : ''}</button>`;
+  }).join('');
+
+  const partCards = MODULE_IDS.map(id => {
+    const d = MODULES[id], img = id.toLowerCase().replace(/_/g,'-');
+    const chk = canAdd(bay.stack, id, usable);
+    const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
+    return `<button class="pcard" data-add="${id}" ${chk.ok?'':'disabled'} title="${tip}">
+      <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
+           width="420" height="315">
+      <i>${d.label}</i><em>${(d.spec||'').replace(/"/g,'&quot;')}</em>
+      ${chk.ok ? '' : '<u class="full">No room</u>'}</button>`;
+  }).join('');
+
+  box.innerHTML = `
     <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · section ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
       <span class="selacts">
         <span class="wadj"><button data-bw="-2" title="Narrower">−</button><i>${bay.w.toFixed(0)}" wide</i><button data-bw="2" title="Wider">+</button></span>
@@ -778,12 +840,13 @@ function paintStack(){
           <button data-move="1" ${S.sel.i>=S.runs[S.sel.wall].bays.length-1?'disabled':''} title="Move right along the wall">&#9654;</button>
         </span>
       </span></div>
-    <div class="stacklist">${bay.stack.slice().reverse().map((s,ri)=>{
-      const i=bay.stack.length-1-ri, d=MODULES[s.m];
-      return `<div class="srow ${s.h==null?'flex':''}">
+
+    ${bay.stack.length ? `<div class="stacklist">${bay.stack.slice().reverse().map((st,ri)=>{
+      const i=bay.stack.length-1-ri, d=MODULES[st.m];
+      return `<div class="srow ${st.h==null?'flex':''}">
         <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
-        <span class="sname"><b>${d.label}</b><i>${s.h==null?'fills the space':(s.h+'" tall')}</i></span>
-        ${d.opt?`<span class="sopt"><button data-opt="-1" data-i="${i}">−</button><i>${(s.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-i="${i}">+</button></span>`:''}
+        <span class="sname"><b>${d.label}</b><i>${st.h==null?'fills the space':(st.h+'" tall')}</i></span>
+        ${d.opt?`<span class="sopt"><button data-opt="-1" data-i="${i}">−</button><i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-i="${i}">+</button></span>`:''}
         <span class="sacts">
           <button data-mv="1"  data-i="${i}" title="Move up"    ${i===bay.stack.length-1?'disabled':''}>↑</button>
           <button data-mv="-1" data-i="${i}" title="Move down"  ${i===0?'disabled':''}>↓</button>
@@ -791,33 +854,11 @@ function paintStack(){
           <button data-hh="4"  data-i="${i}" title="Taller">▴</button>
           <button data-rm="${i}" title="Remove" ${bay.stack.length<2?'disabled':''}>×</button>
         </span></div>`;
-    }).join('')}</div>
-    <h4 class="subh">Start from a layout</h4>
-    <p class="note" style="margin:-2px 0 9px">Pick one, then change anything you like underneath.</p>
-    <div class="presets">${PRESETS.map(pre=>{
-      const price = presetDelta(pre, bay.w, usable, cat, S.finish);
-      const cheapest = PRESETS.reduce((lo,p)=>{
-        const v = presetDelta(p, bay.w, usable, cat, S.finish);
-        return (v!=null && (lo==null || v<lo)) ? v : lo; }, null);
-      const delta = (price!=null && cheapest!=null) ? Math.round(price-cheapest) : null;
-      const tag = delta==null ? '' : delta<=0 ? 'Incl.' : '+'+money(delta);
-      return `<button data-preset="${pre.id}" title="${pre.desc.replace(/"/g,'&quot;')}">
-        <img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async">
-        <span class="pb"><b>${pre.name}</b><i>${pre.desc}</i></span>
-        <u>${tag}</u></button>`}).join('')}</div>
+    }).join('')}</div>` : `<p class="note emptybay">This section is empty. Pick anything below to put in it.</p>`}
 
-    <h4 class="subh">Or build it piece by piece</h4>
-    <div class="palette">${MODULE_IDS.map(id=>{const d=MODULES[id];
-      const img = id.toLowerCase().replace(/_/g,'-');
-      const chk = canAdd(bay.stack, id, usable);
-      /* the reasons contain inch marks, which close the title attribute */
-      const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
-      return `<button data-add="${id}" ${chk.ok?'':'disabled'}
-        title="${tip}">
-        <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
-             width="420" height="315">
-        <i>${d.label}</i>
-        <em>${(d.spec||'').replace(/"/g,'&quot;')}</em>${chk.ok?'':'<u>Full</u>'}</button>`}).join('')}</div>`;
+    <h4 class="subh">What goes in this section</h4>
+    <p class="note" style="margin:-2px 0 10px">Ready-made layouts first, then single parts. Everything can be changed after.</p>
+    <div class="pgrid">${presetCards}${partCards}</div>`;
 }
 
 /* ───────── finishes + hardware ───────── */
@@ -858,7 +899,7 @@ function paintPrice(){
   $('#warn').innerHTML=cur.warnings.map(w=>`<span>${w}</span>`).join('');
 }
 /* The review step shows the same number three ways: the base system, the
-   extras, the total. Supplier cost never appears here — that is Joseph's
+   extras, the total. Supplier cost never appears here: that is Joseph's
    margin and it does not belong on a public page. */
 function paintQuote(){
   const q = cur.quote, el = $('#quotebox');
@@ -935,7 +976,7 @@ $('#bays').onclick=e=>{
         S.sel = { wall, i: r.bays.length - 1 };      // select it so they can fill it
         /* adding an empty section and leaving you on the "divide" tab means the
            next thing you want is one tab away and not obvious. Go there. */
-        if(typeof window.gotoStep === 'function') setTimeout(()=>window.gotoStep('3'), 60);
+        /* no tab jump: you are already looking at the right panel */
       }
     }
     if(act==='del' && r.bays.length){
@@ -1064,7 +1105,7 @@ $('#dlOrder').onclick=()=>{
   setTimeout(()=>URL.revokeObjectURL(u),1500);
 };
 $('#breakdown').onclick=()=>{
-  if(window.gotoStep) window.gotoStep('6');
+  if(window.gotoStep) window.gotoStep('5');
   const el=$('#quotebox');
   if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
 };
