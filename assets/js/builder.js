@@ -710,11 +710,19 @@ function paintSteps(){
   $('#types').className='pills icons icons-3';
   $('#types').innerHTML=Object.entries(TYPES).map(([k,t])=>
     iconBtn('data-t', k, k===S.type, t.art, t.label, t.note)).join('');
+  /* Three stacked rows each with one number in the middle wasted most of the
+     panel and you could not type a real measurement into any of them. Three
+     columns, and the number is an input: type 103 if the wall is 103. */
   $('#dims').innerHTML=[['w','Wall width',36,288,6],['d','Depth',12,48,2],['h','Ceiling',84,132,2]]
-    .map(([k,l,mn,mx,st])=>`<div class="step"><span>${l}</span>
-      <button data-k="${k}" data-s="-${st}" data-mn="${mn}" data-mx="${mx}">−</button>
-      <b>${S.room[k]}"</b>
-      <button data-k="${k}" data-s="${st}" data-mn="${mn}" data-mx="${mx}">+</button></div>`).join('');
+    .map(([k,l,mn,mx,st])=>`<div class="dim">
+      <span class="dimlbl">${l}</span>
+      <div class="dimrow">
+        <button data-k="${k}" data-s="-${st}" data-mn="${mn}" data-mx="${mx}" aria-label="Less ${l}">−</button>
+        <label class="diminput"><input type="number" inputmode="numeric" data-dim="${k}"
+          value="${S.room[k]}" min="${mn}" max="${mx}" step="1" aria-label="${l} in inches"><i>in</i></label>
+        <button data-k="${k}" data-s="${st}" data-mn="${mn}" data-mx="${mx}" aria-label="More ${l}">+</button>
+      </div>
+      <span class="dimrange">${mn}&ndash;${mx}"</span></div>`).join('');
   $('#mount').className='pills icons icons-2';
   $('#mount').innerHTML=MOUNTS.map(m=>
     iconBtn('data-m', m.k, m.k===S.mounting, m.art, m.label, m.note)).join('');
@@ -809,14 +817,23 @@ function paintStack(){
     const v = presetDelta(p, bay.w, usable, cat, S.finish);
     return (v != null && (lo == null || v < lo)) ? v : lo; }, null);
 
+  /* A preset made of two modules was showing one module's photo, so
+     "Hanging + Shelves" was a picture of shelves with no rod in it. The card
+     now draws the actual stack, top module above bottom module, in the same
+     order it will be built. */
+  const partImg = id => (window.BASE||'') + 'img/parts/' + id.toLowerCase().replace(/_/g,'-') + '.jpg';
   const presetCards = PRESETS.map(pre => {
     const price = presetDelta(pre, bay.w, usable, cat, S.finish);
     const delta = (price != null && cheapest != null) ? Math.round(price - cheapest) : null;
     const tag   = delta == null ? '' : delta <= 0 ? 'Incl.' : '+' + money(delta);
+    const ids   = [...new Set(pre.stack.map(x => x.m))].reverse();   // top of stack first
+    const art   = ids.length > 1
+      ? `<span class="pstack">${ids.map(id =>
+          `<img src="${partImg(id)}" alt="" loading="lazy" decoding="async">`).join('')}</span>`
+      : `<img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async"
+             width="420" height="315">`;
     return `<button class="pcard ready" data-preset="${pre.id}" title="${pre.desc.replace(/"/g,'&quot;')}">
-      <img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async"
-           width="420" height="315">
-      <i>${pre.name}</i><em>${pre.desc}</em>
+      ${art}<i>${pre.name}</i><em>${pre.desc}</em>
       <span class="pbadge">Ready-made</span>${tag ? `<u>${tag}</u>` : ''}</button>`;
   }).join('');
 
@@ -839,6 +856,7 @@ function paintStack(){
           <button data-move="-1" ${S.sel.i===0?'disabled':''} title="Move left along the wall">&#9664;</button>
           <button data-move="1" ${S.sel.i>=S.runs[S.sel.wall].bays.length-1?'disabled':''} title="Move right along the wall">&#9654;</button>
         </span>
+        <button class="rmsec" data-rmsec="1" title="Remove this section">Remove section</button>
       </span></div>
 
     ${bay.stack.length ? `<div class="stacklist">${bay.stack.slice().reverse().map((st,ri)=>{
@@ -865,7 +883,16 @@ function paintStack(){
 const swStyle=f=> f.col ? `background:${f.col}`
   : f.x<0 ? 'background:linear-gradient(135deg,#E3D9CC,#EFE8DF)'
   : `background-image:url(${(window.BASE||'')}img/finishes/sprite.jpg);background-size:${cat.meta.cols*100}% ${cat.meta.rows*100}%;background-position:${(f.x/(cat.meta.cols-1))*100}% ${(f.y/(cat.meta.rows-1))*100}%`;
-const FAMS=[{lv:1,n:'Standard white'},{lv:2,n:'Everyday'},{lv:3,n:'Textured'},{lv:4,n:'Specialty'},{lv:5,n:'High gloss'}];
+/* The levels are the manufacturer's own price bands, not something invented
+   for the website. Level is what the decorative surface costs: the board,
+   the edgebanding and the lead time are otherwise identical. Saying so in the
+   panel stops "Level 4" reading as a made-up tier. */
+const FAMS=[
+  {lv:1,n:'Standard white', why:'The house white. Cheapest board, one week.'},
+  {lv:2,n:'Everyday',       why:'Woodgrains and solid colours. Two to three weeks.'},
+  {lv:3,n:'Textured',       why:'Grain you can feel, synchronised to the print.'},
+  {lv:4,n:'Specialty',      why:'Imported decors. Three to four weeks.'},
+  {lv:5,n:'High gloss',     why:'Mirror finish and heavy texture. Longest lead.'}];
 function paintFin(which){
   const box=$(which==='carcass'?'#fin1':'#fin2');
   const cur=which==='carcass'?S.finish:(S.frontFinish||S.finish);
@@ -873,9 +900,15 @@ function paintFin(which){
   box.innerHTML=FAMS.map(fam=>{
     const l=cat.finishes.filter(f=>f.lv===fam.lv&&(!term||f.n.toLowerCase().includes(term)));
     if(!l.length) return '';
-    return `<div class="fam"><div class="famhd"><b>${fam.n}</b><span>${l.length} · $${Math.min(...l.map(f=>f.sq)).toFixed(2)}/sq ft</span></div>
-      <div class="swrow">${l.map(f=>`<button class="sw" data-n="${f.n.replace(/"/g,'&quot;')}" data-w="${which}"
-        aria-pressed="${f.n===cur}" aria-label="${f.n.replace(/"/g,'&quot;')}" style="${swStyle(f)}"></button>`).join('')}</div></div>`;
+    return `<div class="fam"><div class="famhd">
+        <b>${fam.n}</b><span>${l.length} · from $${Math.min(...l.map(f=>f.sq)).toFixed(2)}/sq ft</span>
+      </div>
+      <p class="famwhy">${fam.why}</p>
+      <div class="swrow">${l.map(f=>`<button class="sw ${f.x<0?'nophoto':''}"
+        data-n="${f.n.replace(/"/g,'&quot;')}" data-w="${which}"
+        aria-pressed="${f.n===cur}" title="${f.n.replace(/"/g,'&quot;')}${f.x<0?' (colour only, no sample photo yet)':''}">
+        <span class="swc" style="${swStyle(f)}"></span>
+        <i>${f.n.replace(/\s*\(1 week lead time\)/,'')}</i></button>`).join('')}</div></div>`;
   }).join('');
   const f=cat.finishes.find(x=>x.n===cur);
   if(f) $(which==='carcass'?'#finNote1':'#finNote2').innerHTML=
@@ -949,6 +982,18 @@ function paintOrder(){
 
 /* ───────── events ───────── */
 $('#types').onclick=e=>{const b=e.target.closest('button');if(!b)return;applyType(b.dataset.t);rebuild(true)};
+/* Clamp when the field is committed, not on every keystroke, or typing "10"
+   on the way to "108" snaps to the 36" minimum under your fingers. */
+$('#dims').addEventListener('change', e=>{
+  const i = e.target.closest('input[data-dim]'); if(!i) return;
+  const k = i.dataset.dim, mn = +i.min, mx = +i.max;
+  const v = Math.round(Number(i.value));
+  S.room[k] = Number.isFinite(v) ? Math.min(mx, Math.max(mn, v)) : S.room[k];
+  rebuild(true);
+});
+$('#dims').addEventListener('keydown', e=>{
+  if(e.key === 'Enter' && e.target.matches('input[data-dim]')){ e.preventDefault(); e.target.blur(); }
+});
 $('#mount').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.mounting=b.dataset.m;rebuild(false)};
 $('#dims').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   const k=b.dataset.k,s=+b.dataset.s;
@@ -1028,6 +1073,14 @@ $('#bays').addEventListener('drop', e=>{
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;
+  /* "Remove last" was the only way to delete a section, so getting rid of the
+     second of four meant deleting three. This removes the selected one. */
+  if(t.dataset.rmsec){
+    const bays = S.runs[S.sel.wall].bays;
+    bays.splice(S.sel.i, 1);
+    S.sel = bays.length ? { wall:S.sel.wall, i:Math.min(S.sel.i, bays.length-1) } : null;
+    rebuild(true); return;
+  }
   if(t.dataset.preset){
     const pre = PRESETS.find(p=>p.id===t.dataset.preset);
     if(pre){ bay.stack = structuredClone(pre.stack); rebuild(true); }

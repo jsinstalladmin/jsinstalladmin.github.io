@@ -1797,7 +1797,8 @@
 "eb": 0.2,
 "lead": "1",
 "sku": ".75 White",
-"col": "#F5F3EF"
+"col": "#F5F3EF",
+"fam": "White"
 },
 {
 "n": "Acacia Honey L591",
@@ -1807,7 +1808,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa - Karisma L591 Acacia Honey"
+"sku": ".75 Tafisa - Karisma L591 Acacia Honey",
+"fam": "Beige"
 },
 {
 "n": "Auburn Carini Walnut H3791",
@@ -1817,7 +1819,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger H3791 Auburn Carini Walnut"
+"sku": ".75 Egger H3791 Auburn Carini Walnut",
+"fam": "Brown"
 },
 {
 "n": "Beige Textil F416 ST10",
@@ -1827,7 +1830,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger EF416ST101946 ST10 Beige Textil"
+"sku": ".75 Egger EF416ST101946 ST10 Beige Textil",
+"fam": "Beige"
 },
 {
 "n": "Brava Black M203B",
@@ -1837,7 +1841,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M203 B Black 2S"
+"sku": ".75 Tafisa M203 B Black 2S",
+"fam": "Black"
 },
 {
 "n": "Carbon Frozen Wood 1292",
@@ -1847,7 +1852,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger H1292 Carbon Frozen Wood"
+"sku": ".75 Egger H1292 Carbon Frozen Wood",
+"fam": "Black"
 },
 {
 "n": "Cassis U444ST9",
@@ -1857,7 +1863,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger U444ST9 Cassis "
+"sku": ".75 Egger U444ST9 Cassis ",
+"fam": "Silver"
 },
 {
 "n": "Chocolate Carini Walnut H3794",
@@ -1867,7 +1874,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger H3794 Choc. Carini Walnut"
+"sku": ".75 Egger H3794 Choc. Carini Walnut",
+"fam": "Brown"
 },
 {
 "n": "Dark Chocolate L494",
@@ -1877,7 +1885,8 @@
 "sq": 2.15,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L494R Dark Chocolate 2S"
+"sku": ".75 Tafisa L494R Dark Chocolate 2S",
+"fam": "Black"
 },
 {
 "n": "Esipga Sal 98Q",
@@ -1887,7 +1896,8 @@
 "sq": 2.45,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Finsa 98Q Espiga Sal Textil"
+"sku": ".75 Finsa 98Q Espiga Sal Textil",
+"fam": "Beige"
 },
 {
 "n": "Espiga Pimienta 97Q",
@@ -1897,7 +1907,8 @@
 "sq": 2.45,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Finsa 97Q Espiga Pimienta Textil"
+"sku": ".75 Finsa 97Q Espiga Pimienta Textil",
+"fam": "Grey"
 },
 {
 "n": "Frost of Sea L080M",
@@ -1907,7 +1918,8 @@
 "sq": 2.3,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa L080M Frost of Sea"
+"sku": ".75 Tafisa L080M Frost of Sea",
+"fam": "White"
 },
 {
 "n": "Gray Vincenza Oak 3158",
@@ -1917,7 +1929,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger H3158 Grey Vicenza Oak"
+"sku": ".75 Egger H3158 Grey Vicenza Oak",
+"fam": "Silver"
 },
 {
 "n": "Hard Rock Maple H1815",
@@ -1927,7 +1940,8 @@
 "sq": 2.15,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger H1815 Hard Rock Maple"
+"sku": ".75 Egger H1815 Hard Rock Maple",
+"fam": "Beige"
 },
 {
 "n": "Latitude North L533A",
@@ -1937,7 +1951,8 @@
 "sq": 2.15,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L530A Latitude North 2S"
+"sku": ".75 Tafisa L530A Latitude North 2S",
+"fam": "White"
 },
 {
 "n": "Lecer Boreal 251B",
@@ -1947,7 +1962,8 @@
 "sq": 2.45,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Finsa 251B Lecer Boreal"
+"sku": ".75 Finsa 251B Lecer Boreal",
+"fam": "Beige"
 },
 {
 "n": "Lino Cancun 12G",
@@ -1957,7 +1973,8 @@
 "sq": 2.45,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Finsa 12G Lino Cancun Textil"
+"sku": ".75 Finsa 12G Lino Cancun Textil",
+"fam": "Beige"
 },
 {
 "n": "Misty Blue U502 ST9",
@@ -1967,7 +1984,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger U502 ST9 Misty Blue"
+"sku": ".75 Egger U502 ST9 Misty Blue",
+"fam": "Grey"
 },
 {
 "n": "Mysterious SF247",
@@ -1977,7 +1995,8 @@
 "sq": 2.3,
 "eb": 0.35,
 "lead": "3-4",
-"sku": ".75 Aurauco SF247 Mysterious"
+"sku": ".75 Aurauco SF247 Mysterious",
+"fam": "Black"
 },
 {
 "n": "Nogal Slow 5AE",
@@ -1987,7 +2006,8 @@
 "sq": 2.65,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Finsa 5AE Nogal Slow Atlas"
+"sku": ".75 Finsa 5AE Nogal Slow Atlas",
+"fam": "Brown"
 },
 {
 "n": "Non Stock Color",
@@ -1997,7 +2017,8 @@
 "sq": 2.75,
 "eb": 0.35,
 "lead": "5-8",
-"sku": ".75 Non Stock Color"
+"sku": ".75 Non Stock Color",
+"fam": "White"
 },
 {
 "n": "River Rock L538",
@@ -2007,7 +2028,8 @@
 "sq": 2.15,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L538A River Rock 2S"
+"sku": ".75 Tafisa L538A River Rock 2S",
+"fam": "Grey"
 },
 {
 "n": "Roble Eternity 4AE",
@@ -2017,7 +2039,8 @@
 "sq": 2.65,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Finsa 4AE Roble Eternity Atlas"
+"sku": ".75 Finsa 4AE Roble Eternity Atlas",
+"fam": "Silver"
 },
 {
 "n": "Roble Joplin 17N",
@@ -2027,7 +2050,8 @@
 "sq": 2.45,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Finsa 17N Roble Joplin Atlas"
+"sku": ".75 Finsa 17N Roble Joplin Atlas",
+"fam": "Silver"
 },
 {
 "n": "Spring Blossom L543",
@@ -2037,7 +2061,8 @@
 "sq": 2.15,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L543A Spring Blossom 2S"
+"sku": ".75 Tafisa L543A Spring Blossom 2S",
+"fam": "Black"
 },
 {
 "n": "Summer Breeze L540",
@@ -2047,7 +2072,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L540A Summer Breeze 2S"
+"sku": ".75 Tafisa L540A Summer Breeze 2S",
+"fam": "Beige"
 },
 {
 "n": "Summer Drop L202",
@@ -2057,7 +2083,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L202 Summer Drop"
+"sku": ".75 Tafisa L202 Summer Drop",
+"fam": "Grey"
 },
 {
 "n": "Summer Flame L420",
@@ -2067,7 +2094,8 @@
 "sq": 2,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L420 Summer Flame 2S"
+"sku": ".75 Tafisa L420 Summer Flame 2S",
+"fam": "Brown"
 },
 {
 "n": "Sweet and Savory L588",
@@ -2077,7 +2105,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L588 Sweet and Savory (K)"
+"sku": ".75 Tafisa L588 Sweet and Savory (K)",
+"fam": "Silver"
 },
 {
 "n": "Tessuto 70F",
@@ -2087,7 +2116,8 @@
 "sq": 2.45,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Finsa 70F Tessuto Textil"
+"sku": ".75 Finsa 70F Tessuto Textil",
+"fam": "White"
 },
 {
 "n": "Verde SF257",
@@ -2097,7 +2127,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "3-4",
-"sku": ".75 Aurauco SF257 Verde"
+"sku": ".75 Aurauco SF257 Verde",
+"fam": "Silver"
 },
 {
 "n": "Vincenza Oak 3157",
@@ -2107,7 +2138,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger H3157 Vicenza Oak"
+"sku": ".75 Egger H3157 Vicenza Oak",
+"fam": "Beige"
 },
 {
 "n": "White Brava M175B",
@@ -2117,7 +2149,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M175B White Brava"
+"sku": ".75 Tafisa M175B White Brava",
+"fam": "White"
 },
 {
 "n": "White Fineline H3195",
@@ -2127,7 +2160,8 @@
 "sq": 2.15,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger H3195 White Fineline "
+"sku": ".75 Egger H3195 White Fineline ",
+"fam": "White"
 },
 {
 "n": "White Frozen Wood 1290",
@@ -2137,7 +2171,8 @@
 "sq": 2.5,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger 1290 White Frozen Wood"
+"sku": ".75 Egger 1290 White Frozen Wood",
+"fam": "Grey"
 },
 {
 "n": "White Linen F422 ST10",
@@ -2147,7 +2182,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Egger F422 ST10 White Linen"
+"sku": ".75 Egger F422 ST10 White Linen",
+"fam": "White"
 },
 {
 "n": "Willow SF255",
@@ -2157,7 +2193,8 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "3-4",
-"sku": ".75 Aurauco SF255 Willow 2S"
+"sku": ".75 Aurauco SF255 Willow 2S",
+"fam": "Beige"
 },
 {
 "n": "After Hours M2010",
@@ -2167,7 +2204,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2010Y After Hours 2S"
+"sku": ".75 Tafisa M2010Y After Hours 2S",
+"fam": "Black"
 },
 {
 "n": "Apres-Ski M2015",
@@ -2177,7 +2215,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2015Y Apres Ski 2S"
+"sku": ".75 Tafisa M2015Y Apres Ski 2S",
+"fam": "Silver"
 },
 {
 "n": "Casting at First Light M2007",
@@ -2187,7 +2226,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2007Y Casting at First Light 2S"
+"sku": ".75 Tafisa M2007Y Casting at First Light 2S",
+"fam": "Beige"
 },
 {
 "n": "Raw MDF",
@@ -2197,7 +2237,8 @@
 "sq": 2.5,
 "eb": 0.35,
 "lead": "1",
-"sku": ".75 Raw MDF"
+"sku": ".75 Raw MDF",
+"fam": "White"
 },
 {
 "n": "Sugar on Ice M2014",
@@ -2207,7 +2248,8 @@
 "sq": 3,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2014 Sugar on Ice 2S"
+"sku": ".75 Tafisa M2014 Sugar on Ice 2S",
+"fam": "Brown"
 },
 {
 "n": "Sunday Brunch M2005",
@@ -2217,7 +2259,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2005Y Sunday Brunch 2S"
+"sku": ".75 Tafisa M2005Y Sunday Brunch 2S",
+"fam": "Brown"
 },
 {
 "n": "Sunset Cruise M2002",
@@ -2227,7 +2270,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2002 Sunset Cruise 2S"
+"sku": ".75 Tafisa M2002 Sunset Cruise 2S",
+"fam": "Silver"
 },
 {
 "n": "Tea for Two M2006",
@@ -2237,7 +2281,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2006Y Tea for Two 2S"
+"sku": ".75 Tafisa M2006Y Tea for Two 2S",
+"fam": "Brown"
 },
 {
 "n": "Tete a Tete M2001",
@@ -2247,7 +2292,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2001Y Tete a Tete 2S"
+"sku": ".75 Tafisa M2001Y Tete a Tete 2S",
+"fam": "Black"
 },
 {
 "n": "Weekend Getaway M2003",
@@ -2257,7 +2303,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2003Y Weekend Getaway 2S"
+"sku": ".75 Tafisa M2003Y Weekend Getaway 2S",
+"fam": "Grey"
 },
 {
 "n": "Winter Fun M2004",
@@ -2267,7 +2314,8 @@
 "sq": 2.6,
 "eb": 0.35,
 "lead": "2-3",
-"sku": ".75 Tafisa M2004Y Winter Fun 2S"
+"sku": ".75 Tafisa M2004Y Winter Fun 2S",
+"fam": "White"
 },
 {
 "n": "Calm Sea PM772 Lummia",
@@ -2277,7 +2325,8 @@
 "sq": 5,
 "eb": 0.5,
 "lead": "2-3",
-"sku": ".75 Tafisa Lummia PM772 Calm Sea PM"
+"sku": ".75 Tafisa Lummia PM772 Calm Sea PM",
+"fam": "White"
 },
 {
 "n": "Carte blanche HG115 Lummia",
@@ -2287,7 +2336,8 @@
 "sq": 6,
 "eb": 0.5,
 "lead": "5-8",
-"sku": ".75 Tafisa Lummia HG115 Carte blanche"
+"sku": ".75 Tafisa Lummia HG115 Carte blanche",
+"fam": "White"
 },
 {
 "n": "Carte blanche PM115 Lummia",
@@ -2297,7 +2347,8 @@
 "sq": 5.5,
 "eb": 0.5,
 "lead": "5-8",
-"sku": ".75 Tafisa Lummia PM115 Carte blanche"
+"sku": ".75 Tafisa Lummia PM115 Carte blanche",
+"fam": "White"
 },
 {
 "n": "Black L203",
@@ -2307,7 +2358,9 @@
 "sq": 2,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L203 Black 2S"
+"sku": ".75 Tafisa L203 Black 2S",
+"fam": "Black",
+"col": "#17171A"
 },
 {
 "n": "Brushed Aluminum L474",
@@ -2317,7 +2370,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L474 Brushed Aluminum"
+"sku": ".75 Tafisa L474 Brushed Aluminum",
+"fam": "Silver",
+"col": "#B6BABD"
 },
 {
 "n": "Celadon Green SF251",
@@ -2327,7 +2382,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "3-4",
-"sku": ".75 Aurauco SF251 Celadon"
+"sku": ".75 Aurauco SF251 Celadon",
+"fam": "Silver",
+"col": "#9BAE9A"
 },
 {
 "n": "Chocolate Pear L444",
@@ -2337,7 +2394,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L444 Chocolate Pear Tree 2S"
+"sku": ".75 Tafisa L444 Chocolate Pear Tree 2S",
+"fam": "Brown",
+"col": "#4A3528"
 },
 {
 "n": "Fashionista L582 (K)",
@@ -2347,7 +2406,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L582K Fashionista 2S"
+"sku": ".75 Tafisa L582K Fashionista 2S",
+"fam": "Brown",
+"col": "#6B4D34"
 },
 {
 "n": "First Class L583 (K)",
@@ -2357,7 +2418,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L583K First Class 2S"
+"sku": ".75 Tafisa L583K First Class 2S",
+"fam": "Brown",
+"col": "#6B4D34"
 },
 {
 "n": "Fog Gray L201",
@@ -2367,7 +2430,9 @@
 "sq": 2,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L201C Shadows 2S"
+"sku": ".75 Tafisa L201C Shadows 2S",
+"fam": "Grey",
+"col": "#9FA09E"
 },
 {
 "n": "Force of Nature L830 (K)",
@@ -2377,7 +2442,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L830K Force of Nature 2S"
+"sku": ".75 Tafisa L830K Force of Nature 2S",
+"fam": "Grey",
+"col": "#9B9994"
 },
 {
 "n": "Free Spirit L580 (K)",
@@ -2387,7 +2454,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L580K Free Spirit 2S"
+"sku": ".75 Tafisa L580K Free Spirit 2S",
+"fam": "Beige",
+"col": "#D6C7AE"
 },
 {
 "n": "Ivory L204",
@@ -2397,7 +2466,9 @@
 "sq": 2,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L204 Ivory 2S"
+"sku": ".75 Tafisa L204 Ivory 2S",
+"fam": "White",
+"col": "#EFE7D6"
 },
 {
 "n": "Kiss Curl L592 (K)",
@@ -2407,7 +2478,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L592 Kiss Curl (K)"
+"sku": ".75 Tafisa L592 Kiss Curl (K)",
+"fam": "Brown",
+"col": "#6B4D34"
 },
 {
 "n": "Latitude West L532A",
@@ -2417,7 +2490,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L532A Latitude West L532A"
+"sku": ".75 Tafisa L532A Latitude West L532A",
+"fam": "Black",
+"col": "#3A3A3C"
 },
 {
 "n": "Love at First Sight L590 (K)",
@@ -2427,7 +2502,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L590 Love at First Sight (K)"
+"sku": ".75 Tafisa L590 Love at First Sight (K)",
+"fam": "Beige",
+"col": "#D6C7AE"
 },
 {
 "n": "Mastermind L593 (K)",
@@ -2437,7 +2514,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L593 Mastermind (K)"
+"sku": ".75 Tafisa L593 Mastermind (K)",
+"fam": "Grey",
+"col": "#9B9994"
 },
 {
 "n": "Moonlight L761",
@@ -2447,7 +2526,9 @@
 "sq": 2,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L761 Moonlight 2S"
+"sku": ".75 Tafisa L761 Moonlight 2S",
+"fam": "Black",
+"col": "#2E3033"
 },
 {
 "n": "Morning Dew L763 (C)",
@@ -2457,7 +2538,9 @@
 "sq": 2,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L763 (C) Morning Dew"
+"sku": ".75 Tafisa L763 (C) Morning Dew",
+"fam": "Grey",
+"col": "#C9CBC8"
 },
 {
 "n": "Natural Affinity L586 (K)",
@@ -2467,7 +2550,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L586 Natural Affinity (K)"
+"sku": ".75 Tafisa L586 Natural Affinity (K)",
+"fam": "Grey",
+"col": "#9B9994"
 },
 {
 "n": "Rhapsody L585 (k)",
@@ -2477,7 +2562,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L585K Rhapsody 2S"
+"sku": ".75 Tafisa L585K Rhapsody 2S",
+"fam": "Brown",
+"col": "#6B4D34"
 },
 {
 "n": "Rock Solid L831 (k)",
@@ -2487,7 +2574,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L831K Rock Solid 2S"
+"sku": ".75 Tafisa L831K Rock Solid 2S",
+"fam": "Grey",
+"col": "#9B9994"
 },
 {
 "n": "Salt of the Earth L589 (K)",
@@ -2497,7 +2586,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L589 Salt of the Earth (K)"
+"sku": ".75 Tafisa L589 Salt of the Earth (K)",
+"fam": "Silver",
+"col": "#BEC1C3"
 },
 {
 "n": "Sheer Beauty L581 (K)",
@@ -2507,7 +2598,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L581K Sheer Beauty 2S"
+"sku": ".75 Tafisa L581K Sheer Beauty 2S",
+"fam": "Beige",
+"col": "#D6C7AE"
 },
 {
 "n": "Sugar Rush L587 (K)",
@@ -2517,7 +2610,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L587 Sugar Rush (K)"
+"sku": ".75 Tafisa L587 Sugar Rush (K)",
+"fam": "Brown",
+"col": "#6B4D34"
 },
 {
 "n": "The Chameleon L584 (k)",
@@ -2527,7 +2622,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L584K Chameleon 2S"
+"sku": ".75 Tafisa L584K Chameleon 2S",
+"fam": "Silver",
+"col": "#BEC1C3"
 },
 {
 "n": "Urban Vibe L832 (k)",
@@ -2537,7 +2634,9 @@
 "sq": 2.25,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L832K Urban Vibe 2S"
+"sku": ".75 Tafisa L832K Urban Vibe 2S",
+"fam": "Silver",
+"col": "#BEC1C3"
 },
 {
 "n": "White Chocolate L492 (1 week lead time)",
@@ -2547,7 +2646,9 @@
 "sq": 2,
 "eb": 0.35,
 "lead": "2",
-"sku": ".75 Tafisa L492R White Chocolate 2S"
+"sku": ".75 Tafisa L492R White Chocolate 2S",
+"fam": "White",
+"col": "#E6DED1"
 },
 {
 "n": "Monaco (Riviera Oak) K18",
@@ -2557,7 +2658,9 @@
 "sq": 3,
 "eb": 0.35,
 "lead": "3-4",
-"sku": ".75 Uniboard K18 Monaco (Riviera Oak)"
+"sku": ".75 Uniboard K18 Monaco (Riviera Oak)",
+"fam": "Brown",
+"col": "#9A7449"
 },
 {
 "n": "Custom Color Non-Stock",
@@ -2567,7 +2670,9 @@
 "sq": 4,
 "eb": 0.35,
 "lead": "5-8",
-"sku": ".75 Custom Color (Non Stock)"
+"sku": ".75 Custom Color (Non Stock)",
+"fam": "White",
+"col": "#D9D4CC"
 },
 {
 "n": "Natural Birch Ply 1_1/2\"",
@@ -2577,7 +2682,9 @@
 "sq": 5,
 "eb": 0.35,
 "lead": "5-8",
-"sku": "Natural Birch Ply 1_1/2\""
+"sku": "Natural Birch Ply 1_1/2\"",
+"fam": "Beige",
+"col": "#E0CCA8"
 }
 ],
 "boxTypes": {
