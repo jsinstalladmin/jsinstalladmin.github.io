@@ -1,8 +1,8 @@
 /* ============================================================
-   store.js — all CRM data.
+   store.js: all CRM data.
    Multi-region: every client, job and quote belongs to a region.
    Storage is this browser. To go multi-device, every read/write
-   goes through DB.* below — swap the bodies for Supabase calls
+   goes through DB.* below. Swap the bodies for Supabase calls
    and nothing else in the app changes.
    ============================================================ */
 const K = 'js_crm_v2';
@@ -32,27 +32,27 @@ const SEED = {
     {id:'c2',region:'fl',name:'Daniel Okafor',phone:'(561) 555-0188',email:'d.okafor@example.com',addr:'2210 Spanish River Rd, Boca Raton, FL 33432',source:'Referral',notes:'',created:d(-19)},
     {id:'c3',region:'fl',name:'The Ferrante Residence',phone:'(954) 555-0109',email:'ferrante.home@example.com',addr:'7712 NW 52nd Ct, Parkland, FL 33076',source:'Houzz',notes:'',created:d(-12)},
     {id:'c4',region:'nj',name:'Alicia Brandt',phone:'(201) 555-0171',email:'abrandt@example.com',addr:'88 Ridgewood Ave, Paramus, NJ 07652',source:'Website',notes:'',created:d(-9)},
-    {id:'c5',region:'nj',name:'Hoffman Builders',phone:'(201) 555-0133',email:'ops@hoffmanbuilt.example',addr:'15 Industrial Way, Teterboro, NJ 07608',source:'Trade',notes:'Builder account — four units this quarter.',created:d(-34)},
+    {id:'c5',region:'nj',name:'Hoffman Builders',phone:'(201) 555-0133',email:'ops@hoffmanbuilt.example',addr:'15 Industrial Way, Teterboro, NJ 07608',source:'Trade',notes:'Builder account, four units this quarter.',created:d(-34)},
     {id:'c6',region:'ny',name:'Priya Raghunathan',phone:'(914) 555-0188',email:'praghu@example.com',addr:'62 Larchmont Ave, Larchmont, NY 10538',source:'Google',notes:'',created:d(-7)},
     {id:'c7',region:'ny',name:'Sandra Whitlock',phone:'(516) 555-0120',email:'swhitlock@example.com',addr:'310 Shore Rd, Port Washington, NY 11050',source:'Referral',notes:'',created:d(-3)},
     {id:'c8',region:'ct',name:'Gareth Ellison',phone:'(203) 555-0164',email:'g.ellison@example.com',addr:'44 Hoyt St, Stamford, CT 06905',source:'Website',notes:'',created:d(-15)},
     {id:'c9',region:'pa',name:'The Marchetti Family',phone:'(215) 555-0147',email:'marchetti@example.com',addr:'920 Yardley Rd, Newtown, PA 18940',source:'Referral',notes:'',created:d(-5)}
   ],
   jobs:[
-    {id:'j1',region:'fl',client:'c1',title:'Primary walk-in — U-shape',type:'Walk-In Closets',stage:'done',value:6480,date:d(-9),kind:'install',finish:'Acacia Honey L591',crew:'Luis + Marco',notes:'Installed in one day. Asked about a quote for the guest room.'},
+    {id:'j1',region:'fl',client:'c1',title:'Primary walk-in, U-shape',type:'Walk-In Closets',stage:'done',value:6480,date:d(-9),kind:'install',finish:'Acacia Honey L591',crew:'Luis + Marco',notes:'Installed in one day. Asked about a quote for the guest room.'},
     {id:'j2',region:'fl',client:'c2',title:'Guest reach-in ×2',type:'Reach-In Closets',stage:'scheduled',value:3120,date:d(2),kind:'install',finish:'After Hours M2010',crew:'Luis + Marco',notes:'Two 6ft openings. Double hang + drawers both.'},
     {id:'j3',region:'fl',client:'c3',title:'Garage storage wall',type:'Garage Storage',stage:'ordered',value:5240,date:d(10),kind:'delivery',finish:'White Brava M175B',crew:'',notes:'Wall-hung throughout. Confirm water heater clearance.'},
-    {id:'j4',region:'fl',client:'c1',title:'Guest room reach-in',type:'Reach-In Closets',stage:'lead',value:0,date:d(1),kind:'measure',finish:'—',crew:'',notes:'Repeat client.'},
-    {id:'j5',region:'nj',client:'c4',title:'Primary walk-in',type:'Walk-In Closets',stage:'quoted',value:7890,date:d(3),kind:'measure',finish:'—',crew:'',notes:'Quote sent Tuesday. Deciding between Level 2 and 3.'},
-    {id:'j6',region:'nj',client:'c5',title:'Unit 12 — reach-ins ×4',type:'Reach-In Closets',stage:'ordered',value:9600,date:d(8),kind:'delivery',finish:'White Fineline H3195',crew:'Tomas + Ray',notes:'Builder account. Site access 7am only.'},
-    {id:'j7',region:'nj',client:'c5',title:'Unit 14 — reach-ins ×4',type:'Reach-In Closets',stage:'won',value:9600,date:d(21),kind:'measure',finish:'—',crew:'',notes:'Same spec as Unit 12.'},
-    {id:'j8',region:'ny',client:'c6',title:'Walk-in with island',type:'Walk-In Closets',stage:'lead',value:0,date:d(4),kind:'measure',finish:'—',crew:'',notes:'Came through the 3D builder — her layout is on the quote.'},
+    {id:'j4',region:'fl',client:'c1',title:'Guest room reach-in',type:'Reach-In Closets',stage:'lead',value:0,date:d(1),kind:'measure',finish:'n/a',crew:'',notes:'Repeat client.'},
+    {id:'j5',region:'nj',client:'c4',title:'Primary walk-in',type:'Walk-In Closets',stage:'quoted',value:7890,date:d(3),kind:'measure',finish:'n/a',crew:'',notes:'Quote sent Tuesday. Deciding between Level 2 and 3.'},
+    {id:'j6',region:'nj',client:'c5',title:'Unit 12, reach-ins ×4',type:'Reach-In Closets',stage:'ordered',value:9600,date:d(8),kind:'delivery',finish:'White Fineline H3195',crew:'Tomas + Ray',notes:'Builder account. Site access 7am only.'},
+    {id:'j7',region:'nj',client:'c5',title:'Unit 14, reach-ins ×4',type:'Reach-In Closets',stage:'won',value:9600,date:d(21),kind:'measure',finish:'n/a',crew:'',notes:'Same spec as Unit 12.'},
+    {id:'j8',region:'ny',client:'c6',title:'Walk-in with island',type:'Walk-In Closets',stage:'lead',value:0,date:d(4),kind:'measure',finish:'n/a',crew:'',notes:'Came through the 3D builder. Her layout is on the quote.'},
     {id:'j9',region:'ny',client:'c7',title:'Pantry + laundry',type:'Pantries',stage:'scheduled',value:4390,date:d(6),kind:'install',finish:'White Brava M175B',crew:'Tomas + Ray',notes:''},
-    {id:'j10',region:'ct',client:'c8',title:'Primary + guest walk-ins',type:'Walk-In Closets',stage:'ordered',value:11250,date:d(14),kind:'delivery',finish:'Carte blanche PM115 Lummia',crew:'',notes:'Gloss finish — 6 week lead, ordered three weeks ago.'},
-    {id:'j11',region:'pa',client:'c9',title:'Mudroom + laundry',type:'Laundry Rooms',stage:'won',value:5120,date:d(5),kind:'measure',finish:'—',crew:'',notes:'Deposit taken. Confirm machine heights at measure.'}
+    {id:'j10',region:'ct',client:'c8',title:'Primary + guest walk-ins',type:'Walk-In Closets',stage:'ordered',value:11250,date:d(14),kind:'delivery',finish:'Carte blanche PM115 Lummia',crew:'',notes:'Gloss finish, 6 week lead, ordered three weeks ago.'},
+    {id:'j11',region:'pa',client:'c9',title:'Mudroom + laundry',type:'Laundry Rooms',stage:'won',value:5120,date:d(5),kind:'measure',finish:'n/a',crew:'',notes:'Deposit taken. Confirm machine heights at measure.'}
   ],
   quotes:[
-    {id:'q1',region:'nj',client:'c4',title:'Primary walk-in — Level 2',total:7890,status:'sent',created:d(-5),summary:'U-shape · 108"×120"×96" · 8 sections · Acacia Honey L591'},
+    {id:'q1',region:'nj',client:'c4',title:'Primary walk-in, Level 2',total:7890,status:'sent',created:d(-5),summary:'U-shape · 108"×120"×96" · 8 sections · Acacia Honey L591'},
     {id:'q2',region:'ny',client:'c6',title:'Walk-in island (from builder)',total:11240,status:'draft',created:d(-1),summary:'Island · 132"×132"×96" · 11 sections · Carte blanche PM115 Lummia'},
     {id:'q3',region:'fl',client:'c3',title:'Garage storage wall',total:5240,status:'accepted',created:d(-18),summary:'One wall · 144"×24"×96" · 5 sections · White Brava M175B'},
     {id:'q4',region:'pa',client:'c9',title:'Mudroom + laundry',total:5120,status:'accepted',created:d(-11),summary:'Two walls · counter + lockers · White Fineline H3195'}
@@ -72,7 +72,7 @@ function load(){
 }
 let db = load();
 const save = () => { try{ localStorage.setItem(K, JSON.stringify(db)); }catch(e){
-  console.warn('[store] could not save — storage may be full or blocked', e); } };
+  console.warn('[store] could not save; storage may be full or blocked', e); } };
 const uid = p => p + Math.random().toString(36).slice(2,8);
 const today = () => new Date().toISOString().slice(0,10);
 

@@ -53,14 +53,14 @@ export function setupLighting(scene, renderer){
   pmrem.compileEquirectangularShader();
   // instant, zero-download
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 1.12;
+  scene.environmentIntensity = 1.0;
 
   /* Without a background the composer clears to black and the room floats in a void. */
   scene.background = new THREE.Color(0xE9E6E1);
 
   /* Three-point, not one. A single key gave every vertical panel the same flat
      value, which is why the cabinetry looked drawn rather than lit. */
-  const key = new THREE.DirectionalLight(0xfffaf3, 1.55);
+  const key = new THREE.DirectionalLight(0xfffdfa, 1.52);
   key.position.set(110, 200, 190);
   key.castShadow = true;
   key.shadow.mapSize.set(2560, 2560);   // 2048 stair-stepped on the toe kick; 3072 is needlessly heavy
@@ -72,12 +72,12 @@ export function setupLighting(scene, renderer){
 
   /* cool bounce from the opposite side, so shadowed faces separate from each
      other instead of going to one dead tone */
-  const fill = new THREE.DirectionalLight(0xdfe8f2, 0.34);
+  const fill = new THREE.DirectionalLight(0xdce7f4, 0.38);
   fill.position.set(-170, 90, 120);
   scene.add(fill);
 
   /* a low warm rim that grazes the front edges and lights the bevels */
-  const rim = new THREE.DirectionalLight(0xffeedd, 0.30);
+  const rim = new THREE.DirectionalLight(0xfff6ec, 0.28);
   rim.position.set(-40, 50, -150);
   scene.add(rim);
 

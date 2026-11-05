@@ -94,7 +94,7 @@ function runTool(name, a={}){
     }
     case 'create_client': {
       const ex=DB.findClient(a.name);
-      if(ex) return { note:'That client already exists — nothing created.', client:clientOut(ex) };
+      if(ex) return { note:'That client already exists, so nothing was created.', client:clientOut(ex) };
       const c=DB.addClient({name:a.name,phone:a.phone||'',email:a.email||'',addr:a.address||'',
         region:a.region||DB.region(),source:a.source||'Assistant',notes:a.notes||''});
       refresh(); return { created:clientOut(c) };
@@ -115,7 +115,7 @@ function runTool(name, a={}){
       else if(a.client_phone && !c.phone) DB.updateClient(c.id,{phone:a.client_phone});
       const j=DB.addJob({client:c.id,region:a.region||c.region,title:a.title,date:a.date,
         kind:a.kind||'measure',stage:a.stage||'lead',value:a.value||0,crew:a.crew||'',
-        finish:a.finish||'—',notes:a.notes||'',type:'—'});
+        finish:a.finish||'n/a',notes:a.notes||'',type:'n/a'});
       refresh();
       return { booked:jobOut(j), new_client_created:createdClient };
     }

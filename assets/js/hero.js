@@ -30,18 +30,28 @@ const DEBUG = new URLSearchParams(location.search).has('debug');
 if (video && cap && hero) {
   const CAPS = {
     dark:[
-      ['An empty room is the cheapest it will ever be.','Before anything is cut, we measure the walls, the baseboard and the ceiling you actually have.'],
-      ['Then the structure goes in.','Vertical panels every 24 to 36 inches. Past 36, three-quarter-inch melamine sags.'],
-      ['Hanging gets assigned, not guessed.','Long hang at 66 inches. Double hang at 80 and 40. Top shelf at 84.'],
-      ['Lighting lands on the fixed shelves.','Adjustable shelves move, so they cannot carry a wired strip. We will tell you that before you pay for it.'],
-      ['And then it is yours.','Measured, built and installed by the same crew. Usually in a single day.']
+      ['An empty room is the cheapest it will ever be.',
+       'Nothing is cut until we have the real numbers: wall length, ceiling height, baseboard depth and how far out of square the corners run.'],
+      ['Then the structure goes in.',
+       'Vertical panels every 24 to 36 inches, hung on a rail screwed into the studs. Past 36 inches a three-quarter-inch shelf starts to sag.'],
+      ['Hanging gets assigned, not guessed.',
+       'Long hang on a rod at 66 inches for coats and dresses. Double hang at 80 and 40 for shirts and folded trousers. Top shelf at 84.'],
+      ['Drawers run on soft-close undermount glides.',
+       'Full extension, hidden runners, nine box heights from 7.5 to 25 inches. The box is sized to the opening, not the other way round.'],
+      ['And then it is yours.',
+       'Measured, drawn, built and fitted by the same crew. Most closets go in inside a day and we take the packaging with us.']
     ],
     light:[
-      ['Daylight version, same build.','Some rooms want the drama. Some want to disappear into the house. Both are the same cabinetry.'],
-      ['Structure first.','Vertical panels every 24 to 36 inches, carried on a rail into the studs.'],
-      ['Hanging assigned by garment length.','Coats at 66. Shirts and folded trousers at 80 and 40.'],
-      ['Shelving on 32mm centres.','So you can move any adjustable shelf later without drilling anything new.'],
-      ['Finished, in one day.','We take the packaging with us and patch what we drilled.']
+      ['Daylight version, same build.',
+       'Some rooms want the drama, some want to disappear into the house. Underneath it is the same cabinetry and the same hardware.'],
+      ['Structure first.',
+       'Three-quarter-inch thermally fused laminate, the same board used in commercial casework. Every exposed edge is banded so it cannot swell.'],
+      ['Hanging assigned by garment length.',
+       'Coats and dresses at 66 inches. Shirts and folded trousers double-hung at 80 and 40. Nothing is left to a catalogue default.'],
+      ['Shelving on 32mm centres.',
+       'Every adjustable shelf moves later without drilling anything new. Fixed shelves carry the loads and the wired lighting.'],
+      ['Finished, in one day.',
+       'We patch what we drilled, take the offcuts away, and leave you the parts list for what is on your wall.']
     ]
   };
 

@@ -162,13 +162,17 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .hero-stick{position:sticky;top:0;height:100svh;overflow:hidden;background:#0B0907}
 .hero-stick video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .hero-veil{position:absolute;inset:0;transition:background .8s var(--ease)}
-body[data-hero="light"] .hero-veil{background:linear-gradient(180deg,rgba(14,11,8,.44) 0%,rgba(14,11,8,.04) 32%,rgba(14,11,8,.14) 60%,rgba(10,8,6,.62) 100%)}
-body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,.56) 0%,rgba(8,7,6,.10) 32%,rgba(8,7,6,.2) 62%,rgba(8,7,6,.74) 100%)}
+body[data-hero="light"] .hero-veil{background:
+  linear-gradient(100deg,rgba(14,11,8,.5) 0%,rgba(14,11,8,.22) 38%,rgba(14,11,8,0) 66%),
+  linear-gradient(180deg,rgba(14,11,8,.44) 0%,rgba(14,11,8,.04) 32%,rgba(14,11,8,.14) 60%,rgba(10,8,6,.66) 100%)}
+body[data-hero="dark"]  .hero-veil{background:
+  linear-gradient(100deg,rgba(8,7,6,.56) 0%,rgba(8,7,6,.26) 38%,rgba(8,7,6,0) 66%),
+  linear-gradient(180deg,rgba(8,7,6,.56) 0%,rgba(8,7,6,.10) 32%,rgba(8,7,6,.2) 62%,rgba(8,7,6,.76) 100%)}
 .hero-cap{position:absolute;left:0;right:0;bottom:clamp(88px,13vh,150px);color:var(--paper);pointer-events:none}
-.hero-cap .box{max-width:min(620px,86vw);background:rgba(16,12,9,.3);
-  backdrop-filter:blur(14px) saturate(1.3);border:1px solid rgba(248,245,240,.14);
-  border-radius:var(--r-lg);padding:clamp(22px,2.7vw,34px)}
-.hero-cap h1{font-size:clamp(1.95rem,4.3vw,3.5rem);color:var(--paper);margin-bottom:.32em;max-width:18ch}
+.hero-cap .box{max-width:min(600px,86vw);background:rgba(16,12,9,.28);
+  backdrop-filter:blur(16px) saturate(1.25);border:1px solid rgba(248,245,240,.14);
+  border-radius:var(--r-lg);padding:clamp(22px,2.7vw,34px);box-shadow:0 30px 80px rgba(0,0,0,.34)}
+.hero-cap h1{font-size:clamp(1.9rem,3.9vw,3.2rem);color:var(--paper);margin-bottom:.32em;max-width:18ch}
 .hero-cap p{font-size:1.01rem;color:rgba(248,245,240,.84);margin:0;max-width:46ch}
 .hero-scroll{position:absolute;left:50%;translate:-50% 0;bottom:32px;color:var(--paper);
   display:flex;flex-direction:column;align-items:center;gap:9px;font-size:.6rem;
@@ -183,22 +187,37 @@ body[data-hero="dark"]  .hero-veil{background:linear-gradient(180deg,rgba(8,7,6,
 .hero-toggle button[aria-pressed="true"]{background:var(--paper);color:var(--ink)}
 
 /* ---------- VARIANT B: looping video behind a rounded box ---------- */
-.vhero{position:relative;min-height:100svh;display:grid;place-items:center;
-  overflow:hidden;background:#0B0907;padding:120px max(22px,4vw) 70px}
+/* The box used to sit dead centre over the footage, so the one thing the
+   video is there to show was behind a sheet of frosted glass. It now sits in
+   a left column and the closet stays visible down the right. */
+.vhero{position:relative;min-height:100svh;display:grid;align-items:center;
+  grid-template-columns:minmax(0,1fr) minmax(0,.85fr);
+  overflow:hidden;background:#0B0907;padding:124px max(22px,4vw) 74px}
 .vhero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
-.vhero::after{content:'';position:absolute;inset:0;z-index:1;
-  background:linear-gradient(180deg,rgba(10,8,6,.52) 0%,rgba(10,8,6,.18) 44%,rgba(10,8,6,.56) 100%)}
-.vbox{position:relative;z-index:2;border-radius:20px;              /* the 20px box */
-  background:rgba(14,11,8,.38);backdrop-filter:blur(20px) saturate(1.35);
-  border:1px solid rgba(248,245,240,.16);box-shadow:0 40px 110px rgba(0,0,0,.42);
-  padding:clamp(30px,4.4vw,62px);max-width:min(760px,92vw);color:var(--paper)}
-.vbox h1{color:var(--paper);font-size:clamp(2.3rem,5.4vw,4.5rem);margin-bottom:.3em}
-.vbox .lede{color:rgba(248,245,240,.84);max-width:48ch}
-.vbox .acts{display:flex;gap:.65em;flex-wrap:wrap;margin-top:1.9em}
-.vbox-facts{display:flex;flex-wrap:wrap;gap:1.4em;margin-top:2em;padding-top:1.5em;
-  border-top:1px solid rgba(248,245,240,.16)}
-.vbox-facts div b{display:block;font-family:'Fraunces',serif;font-size:1.6rem;color:var(--paper)}
-.vbox-facts div span{font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:rgba(248,245,240,.56)}
+/* a scrim weighted to the left, so the copy reads without veiling the closet */
+.vhero::after{content:'';position:absolute;inset:0;z-index:1;background:
+  linear-gradient(100deg,rgba(10,8,6,.82) 0%,rgba(10,8,6,.62) 34%,rgba(10,8,6,.12) 62%,rgba(10,8,6,0) 82%),
+  linear-gradient(180deg,rgba(10,8,6,.42) 0%,rgba(10,8,6,0) 30%,rgba(10,8,6,.44) 100%)}
+.vbox{position:relative;z-index:2;border-radius:var(--r-lg,22px);
+  background:rgba(14,11,8,.28);backdrop-filter:blur(16px) saturate(1.25);
+  border:1px solid rgba(248,245,240,.14);box-shadow:0 36px 96px rgba(0,0,0,.38);
+  padding:clamp(26px,3.3vw,44px);max-width:min(600px,100%);color:var(--paper)}
+.vbox h1{color:var(--paper);font-size:clamp(2.1rem,4.1vw,3.5rem);margin-bottom:.34em;max-width:16ch}
+.vbox .lede{color:rgba(248,245,240,.84);max-width:44ch;font-size:1rem}
+.vbox .acts{display:flex;gap:.65em;flex-wrap:wrap;margin-top:1.7em}
+/* four specs, even columns, never one orphaned on a second row */
+.vbox-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:1em;
+  margin-top:1.8em;padding-top:1.4em;border-top:1px solid rgba(248,245,240,.16)}
+.vbox-facts div b{display:block;font-family:'Fraunces',serif;font-size:1.45rem;
+  line-height:1.1;color:var(--paper)}
+.vbox-facts div span{display:block;margin-top:.3em;font-size:.64rem;letter-spacing:.11em;
+  text-transform:uppercase;color:rgba(248,245,240,.56);line-height:1.35}
+@media(max-width:900px){
+  .vhero{grid-template-columns:1fr;align-items:end}
+  .vbox{max-width:100%}
+  .vhero::after{background:linear-gradient(180deg,rgba(10,8,6,.5) 0%,rgba(10,8,6,.1) 30%,rgba(10,8,6,.72) 100%)}
+}
+@media(max-width:560px){ .vbox-facts{grid-template-columns:repeat(2,1fr);gap:1.1em} }
 
 /* ---------- cards: hover = scrim + caption, never a zoom ---------- */
 .designs{display:grid;gap:clamp(14px,1.8vw,24px);
@@ -464,3 +483,22 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
 /* numerals: tabular everywhere a dimension or a price is shown */
 .statrow div b,.vbox-facts div b,.pricebig,.step b,.bw,.phero-facts span,
 .article .artlist li,td,th{font-variant-numeric:tabular-nums}
+
+/* ════════ contact: service area ════════
+   Replaces a grey box that sat there waiting for a Google Maps key. The
+   question a visitor has on a contact page is "do you come to me", and a
+   list answers it on the day it ships. */
+.sarea{margin-top:.4em;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.sband{padding:1.05em 1.15em}
+.sband + .sband{border-top:1px solid var(--line-2)}
+.sband-hd{display:flex;justify-content:space-between;align-items:baseline;gap:.8em;margin-bottom:.7em}
+.sband-hd b{font-size:.82rem;font-weight:500;color:var(--ink)}
+.sband-hd span{font-size:.7rem;color:var(--muted);text-align:right}
+.sband ul{list-style:none;margin:0;padding:0;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:.4em .9em}
+.sband li{font-size:.8rem;color:var(--ink-3);display:flex;align-items:center;gap:.45em}
+.sband li::before{content:'';width:4px;height:4px;border-radius:50%;
+  background:var(--accent,#A8824C);flex:0 0 auto}
+.sband-note{margin:0;padding:1em 1.15em;background:var(--paper-2);
+  border-top:1px solid var(--line-2);font-size:.76rem;line-height:1.55;color:var(--muted)}
+@media(max-width:480px){ .sband ul{grid-template-columns:repeat(2,1fr)} }

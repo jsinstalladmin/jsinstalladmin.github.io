@@ -83,7 +83,7 @@ const row = (j,withHead) => `<tr data-job="${j.id}">
   <td><b>${esc(j.title)}</b></td><td class="cap">${esc(j.kind)}</td>
   ${DB.region()==='all'?`<td><span class="rtag">${DB.regionMeta(j.region).short}</span></td>`:''}
   <td><span class="pill p-${j.stage}">${STAGE_LABEL[j.stage]}</span></td>
-  <td class="mono">${j.value?money(j.value):'—'}</td></tr>`;
+  <td class="mono">${j.value?money(j.value):'&ndash;'}</td></tr>`;
 
 V.schedule = () => {
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -96,7 +96,7 @@ V.schedule = () => {
     const ev=jobs.filter(j=>j.date===iso);
     cells+=`<div class="day ${dt.getMonth()!==m?'out':''} ${iso===today()?'today':''}" data-date="${iso}">
       <span class="dnum">${dt.getDate()}</span>
-      ${ev.map(e=>`<span class="ev ${e.kind}" data-job="${e.id}" title="${esc(DB.clientName(e.client))} — ${esc(e.title)}">${esc(DB.clientName(e.client).split(' ')[0])} · ${esc(e.title)}</span>`).join('')}
+      ${ev.map(e=>`<span class="ev ${e.kind}" data-job="${e.id}" title="${esc(DB.clientName(e.client))} · ${esc(e.title)}">${esc(DB.clientName(e.client).split(' ')[0])} · ${esc(e.title)}</span>`).join('')}
     </div>`;
   }
   const mo=jobs.filter(j=>j.date.slice(0,7)===today().slice(0,7));
@@ -133,8 +133,8 @@ V.jobs = () => {
     <td><b>${esc(x.title)}</b>${x.notes?`<br><span class="sub">${esc(x.notes.slice(0,70))}${x.notes.length>70?'…':''}</span>`:''}</td>
     <td class="sub">${esc(x.finish)}</td>
     ${DB.region()==='all'?`<td><span class="rtag">${DB.regionMeta(x.region).short}</span></td>`:''}
-    <td class="sub">${esc(x.crew||'—')}</td>
-    <td><span class="pill p-${x.stage}">${STAGE_LABEL[x.stage]}</span></td><td class="mono">${x.value?money(x.value):'—'}</td></tr>`).join('')}
+    <td class="sub">${esc(x.crew||'')||'&ndash;'}</td>
+    <td><span class="pill p-${x.stage}">${STAGE_LABEL[x.stage]}</span></td><td class="mono">${x.value?money(x.value):'&ndash;'}</td></tr>`).join('')}
   </tbody></table>`:'<div class="empty">No jobs in this region yet.</div>'}</div>`;
 };
 
@@ -154,7 +154,7 @@ V.quotes = () => {
     <div class="f"><label>Depth (in)</label><input id="pd" type="number" value="24"></div>
     <div class="f"><label>What's in it</label><select id="pl">${MODULE_IDS.map(k=>`<option value="${k}">${MODULES[k].label}</option>`).join('')}</select></div>
   </div>
-  <div class="f"><label>Finish</label><select id="pf">${cat.finishes.map(f=>`<option value="${esc(f.n)}">${esc(f.n)} — Level ${f.lv} · $${f.sq.toFixed(2)}/sq ft</option>`).join('')}</select></div>
+  <div class="f"><label>Finish</label><select id="pf">${cat.finishes.map(f=>`<option value="${esc(f.n)}">${esc(f.n)} · Level ${f.lv} · $${f.sq.toFixed(2)}/sq ft</option>`).join('')}</select></div>
   <button class="btn btn-p" id="pgo">Calculate</button>
   <div id="pout"></div></div></div>`;
 };
@@ -180,13 +180,13 @@ V.settings = () => {
     <button class="btn btn-p" data-act="savebiz">Save</button></div></div>
 
   <div class="panel"><header><h3>Still to connect</h3></header><div class="bd">
-    <div class="f"><label>Web3Forms key — website contact form</label><input id="s-w3f" placeholder="Sign up free at web3forms.com" value="${esc(s.web3forms)}"></div>
-    <div class="f"><label>Resend API key — quote emails</label><input id="s-resend" type="password" placeholder="re_..." value="${esc(s.resendKey)}"></div>
-    <div class="f"><label>Google Maps embed URL — contact page</label><input id="s-map" placeholder="Maps → Share → Embed a map → copy the src" value="${esc(s.mapsEmbed)}"></div>
+    <div class="f"><label>Web3Forms key, for the website contact form</label><input id="s-w3f" placeholder="Sign up free at web3forms.com" value="${esc(s.web3forms)}"></div>
+    <div class="f"><label>Resend API key, for quote emails</label><input id="s-resend" type="password" placeholder="re_..." value="${esc(s.resendKey)}"></div>
+    <div class="f"><label>Google Maps embed URL, for the contact page</label><input id="s-map" placeholder="Maps → Share → Embed a map → copy the src" value="${esc(s.mapsEmbed)}"></div>
     <button class="btn" data-act="savebiz">Save</button></div></div>
 
   <div class="panel"><header><h3>Your data</h3></header><div class="bd">
-    <div class="note">Everything lives in this browser. That is fine for one person on one computer — it is not fine for a crew on three phones. <b>Download a backup weekly.</b> The handover notes explain the one change that moves this to a shared database.</div>
+    <div class="note">Everything lives in this browser. That is fine for one person on one computer. It is not fine for a crew on three phones. <b>Download a backup weekly.</b> The handover notes explain the one change that moves this to a shared database.</div>
     <div class="btnrow">
       <button class="btn" data-act="export">Download backup</button>
       <button class="btn" data-act="import">Restore from backup</button>
@@ -218,7 +218,7 @@ function doAct(a){
   if(a==='newjob')    return openJob(null);
   if(a==='savekey'){
     DB.setSettings({anthropicKey:$('#s-key').value.trim(), model:$('#s-model').value});
-    $('#keymsg').textContent='Saved — the assistant is live.';
+    $('#keymsg').textContent='Saved. The assistant is live.';
     document.querySelector('.agent .dot')?.classList.toggle('on', !!$('#s-key').value.trim());
     return;
   }
@@ -274,14 +274,14 @@ function openJob(id, presetDate){
   const j = id ? DB.job(id) : null;
   const cs = DB.clients('all');
   dlg.innerHTML=`<h2>${j?'Visit':'New visit'}</h2>
-   <div class="f"><label>Client</label><select id="m-c">${cs.map(c=>`<option value="${c.id}"${j&&j.client===c.id?' selected':''}>${esc(c.name)} — ${DB.regionMeta(c.region).short}</option>`).join('')}</select></div>
+   <div class="f"><label>Client</label><select id="m-c">${cs.map(c=>`<option value="${c.id}"${j&&j.client===c.id?' selected':''}>${esc(c.name)} · ${DB.regionMeta(c.region).short}</option>`).join('')}</select></div>
    <div class="f"><label>Job title</label><input id="m-t" value="${esc(j?.title||'')}" placeholder="e.g. Primary walk-in"></div>
    <div class="f2"><div class="f"><label>Date</label><input id="m-d" type="date" value="${j?.date||presetDate||today()}"></div>
      <div class="f"><label>Visit type</label><select id="m-k">${KINDS.map(k=>`<option${j&&j.kind===k?' selected':''}>${k}</option>`).join('')}</select></div></div>
    <div class="f2"><div class="f"><label>Stage</label><select id="m-st">${STAGES.map(s=>`<option value="${s}"${j&&j.stage===s?' selected':''}>${STAGE_LABEL[s]}</option>`).join('')}</select></div>
      <div class="f"><label>Value ($)</label><input id="m-v" type="number" value="${j?.value||0}"></div></div>
    <div class="f2"><div class="f"><label>Crew</label><input id="m-cr" value="${esc(j?.crew||'')}" placeholder="Who's going"></div>
-     <div class="f"><label>Finish</label><input id="m-fi" value="${esc(j?.finish||'—')}"></div></div>
+     <div class="f"><label>Finish</label><input id="m-fi" value="${esc(j?.finish||'')}"></div></div>
    <div class="f"><label>Notes</label><textarea id="m-no" rows="3">${esc(j?.notes||'')}</textarea></div>
    <div class="dlgacts">${j?'<button class="btn danger" id="m-del">Delete</button>':''}
      <button class="btn" value="cancel">Cancel</button><button class="btn btn-p" id="m-ok">${j?'Save':'Book it'}</button></div>`;
@@ -293,8 +293,8 @@ function openJob(id, presetDate){
     const p={client:$('#m-c').value, region:cl?cl.region:DB.region(),
       title:$('#m-t').value||'Untitled', date:$('#m-d').value, kind:$('#m-k').value,
       stage:$('#m-st').value, value:+$('#m-v').value, crew:$('#m-cr').value,
-      finish:$('#m-fi').value||'—', notes:$('#m-no').value};
-    j?DB.updateJob(j.id,p):DB.addJob({...p,type:'—'});
+      finish:$('#m-fi').value||'n/a', notes:$('#m-no').value};
+    j?DB.updateJob(j.id,p):DB.addJob({...p,type:'n/a'});
     close(); render();
   };
 }
@@ -302,7 +302,7 @@ function openJob(id, presetDate){
 function wireCalc(){
   $('#pgo').onclick=()=>{
     const w=+$('#pw').value, d=+$('#pd').value, layout=$('#pl').value, fin=$('#pf').value;
-    if(w < 24){ $('#pout').innerHTML='<div class="note">Too narrow — a bay cannot be under 24".</div>'; return; }
+    if(w < 24){ $('#pout').innerHTML='<div class="note">Too narrow. A bay cannot be under 24".</div>'; return; }
     const r=quickPrice(w,d,layout,fin,cat);
     $('#pout').innerHTML=`<div class="note calc">
       <b class="big">${money(r.price.price)}</b> installed &nbsp;·&nbsp; cost ${money(r.price.cost)} × ${r.price.markup}

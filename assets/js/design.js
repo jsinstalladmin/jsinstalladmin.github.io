@@ -97,7 +97,7 @@ export function canAdd(stack, id, usableH){
 
   const need = stack.reduce((a,s) => a + MODULES[s.m].minH, 0) + def.minH;
   if(need > usableH + 0.5)
-    return { ok:false, why:`No room left — that needs ${def.minH}" and only ${Math.max(0, usableH - (need - def.minH)).toFixed(0)}" is free.` };
+    return { ok:false, why:`No room left. That needs ${def.minH}" and only ${Math.max(0, usableH - (need - def.minH)).toFixed(0)}" is free.` };
 
   return { ok:true };
 }
@@ -160,8 +160,8 @@ export const MODULES = {
       const boxH = fit(DRAWER_BOX.h, fh - 1.0);       // front overlays the box
       const glide = fit(GLIDES, boxD || 0);
 
-      if(!boxW) warn && warn(`A ${w.toFixed(0)}" bay is too narrow for a drawer box — the smallest he stocks is ${DRAWER_BOX.w[0]}" and needs a ${(DRAWER_BOX.w[0]+1).toFixed(0)}" opening.`);
-      if(!boxH) warn && warn(`${n} drawers across ${h.toFixed(0)}" gives ${fh.toFixed(1)}" fronts — too short for the ${DRAWER_BOX.h[0]}" box, the shallowest he stocks. Use fewer drawers.`);
+      if(!boxW) warn && warn(`A ${w.toFixed(0)}" bay is too narrow for a drawer box. The smallest he stocks is ${DRAWER_BOX.w[0]}" and needs a ${(DRAWER_BOX.w[0]+1).toFixed(0)}" opening.`);
+      if(!boxH) warn && warn(`${n} drawers across ${h.toFixed(0)}" gives ${fh.toFixed(1)}" fronts, too short for the ${DRAWER_BOX.h[0]}" box, the shallowest he stocks. Use fewer drawers.`);
 
       parts.push({code:'DRAWER',qty:n,w,h:fh,d:Math.min(d-2,20),style:c.boxStyle,
         note:`${n} drawers, ${fh.toFixed(1)}" fronts` +
@@ -276,7 +276,7 @@ export const MODULES = {
     }
   },
   GLASS_DOOR: {
-    label:'Glass door', hint:'Framed glass front. The frame ships without the glass — glass is sourced locally.',
+    label:'Glass door', hint:'Framed glass front. The frame ships without the glass, which is sourced locally.',
     spec:'Framed glass front · 12\"–84\" tall',
     icon:'M3 2h18v28H3zM6 5h12v22H6zM18 15h2',
     defH:48, minH:12, maxH:84, fill:true,
@@ -312,7 +312,7 @@ export const MODULES = {
    build from scratch — this is a starting point, not a cage. */
 export const PRESETS = [
   { id:'double-hang', name:'Double Hanging',   img:'double-hang',
-    desc:'Two rods — shirts up top, trousers below. The most storage per foot.',
+    desc:'Two rods: shirts up top, trousers below. The most storage per foot.',
     stack:[{m:'DOUBLE_HANG',h:null,o:{}}] },
 
   { id:'long-hang',   name:'Long Hanging',     img:'long-hang',
@@ -451,8 +451,8 @@ export function buildDesign(cfg, cat){
     const local = [];
 
     run.bays.forEach((bay,bi)=>{
-      if(bay.w < SPEC.bayMin) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}" — under the ${SPEC.bayMin}" minimum.`);
-      if(bay.w > SPEC.bayMax) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}" — past ${SPEC.bayMax}" a ¾" shelf sags.`);
+      if(bay.w < SPEC.bayMin) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}", under the ${SPEC.bayMin}" minimum.`);
+      if(bay.w > SPEC.bayMax) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}". Past ${SPEC.bayMax}" a ¾" shelf sags.`);
 
       // left panel of this bay
       parts.push(P(code,1,(panelH*depth)/144,(panelH+depth)/12,`Partition ${bi+1} — ${run.wall}`));
@@ -542,7 +542,7 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
       c = b.cost * p.qty;
       label = `Tilt-out hamper basket ${b.w}×${b.d}×${b.h} ${b.f}`;
     }
-    else if(p.code === 'GLASS_LITE'){ c = (p.w*p.h)/144 * 14.0; label = p.note + ' — local glazier, estimate'; }
+    else if(p.code === 'GLASS_LITE'){ c = (p.w*p.h)/144 * 14.0; label = p.note + ', local glazier, estimate'; }
     else {
       const def = cat.parts[p.code]; if(!def) continue;
       const base = (p.sqft||0) * (F.sq + def.sqft) + (p.edge||0) * F.eb + def.add;
@@ -627,7 +627,7 @@ function orderList(parts, cat, F, DF, pull, pullFin){
   for(const p of parts){
     const def = cat.parts[p.code];
     const name = p.code==='DRAWER' ? `Drawer box + glides (${p.h?.toFixed(1)}"H × ${p.w?.toFixed(1)}"W)`
-      : p.code==='PULL' ? `${pull.name} — ${pullFin.name}`
+      : p.code==='PULL' ? `${pull.name}, ${pullFin.name}`
       : p.code==='BASKET' ? 'Pull-out wire basket'
       : p.code==='HAMPER_BASKET' ? 'Tilt-out hamper basket'
       : p.code==='HANGROD' ? 'Hang rod'
@@ -673,7 +673,7 @@ export const BOX_STYLES = [
   { id:'birch-um', c:'5/8" Solid Birch Dovetail UnderMount', name:'Solid birch dovetail, soft-close undermount',
     note:'Dovetailed solid birch sides. The upgrade you can see when the drawer is open.' },
   { id:'mel-sm',   c:'5/8" HRM Mel Side Mount',           name:'Melamine, side-mount',
-    note:'Epoxy side runners. The budget box — visible runners, no soft close.' }
+    note:'Epoxy side runners. The budget box: visible runners, no soft close.' }
 ];
 export const DEFAULT_BOX_STYLE = 'mel-um';
 
