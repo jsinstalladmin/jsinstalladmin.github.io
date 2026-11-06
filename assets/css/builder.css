@@ -839,3 +839,137 @@ body[data-step="6"] .pacts{margin-top:0}
 }
 .pscroll{min-height:0}
 .pfoot{flex:0 0 auto}
+
+/* ── carcass vs fronts, as a switch at the top ──
+   Two big targets with a live swatch and the name of what is on each, so you
+   can see both choices without scrolling and get to the fronts picker in one
+   click rather than past 79 carcass swatches. */
+.fintabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 .9em}
+.ftab{display:flex;align-items:center;gap:.6em;text-align:left;min-width:0;
+  border:1px solid var(--line);border-radius:12px;padding:.6em .7em;background:var(--card,#fff);
+  cursor:pointer;transition:border-color .25s,box-shadow .25s,opacity .25s}
+.ftab:hover:not(:disabled){border-color:var(--accent,#A8824C)}
+.ftab.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.ftab:disabled{opacity:.5;cursor:not-allowed}
+.ftab .ftc{flex:0 0 auto;width:30px;height:30px;border-radius:8px;
+  box-shadow:inset 0 0 0 1px rgba(23,18,14,.14);background-repeat:no-repeat}
+.ftab i{font-style:normal;font-size:.76rem;color:var(--ink);line-height:1.25;min-width:0}
+.ftab i em{display:block;font-style:normal;font-size:.66rem;color:var(--muted);
+  margin-top:.15em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ftnote{grid-column:1 / -1;font-size:.68rem;line-height:1.5;color:var(--muted);margin:.2em 0 0}
+@media(max-width:480px){ .fintabs{grid-template-columns:1fr} }
+
+/* ── one wall open at a time ──
+   The three walls used to run down the panel in full, so working on the right
+   wall meant scrolling past everything on the back one. The wall you are
+   editing is open; the others fold to a single line that still shows how full
+   they are, and clicking that line opens them. */
+.runblk{border:1px solid var(--line);border-radius:14px;background:var(--paper);
+  overflow:hidden;margin-bottom:10px;transition:border-color .25s}
+.runblk:has(.bay.on){border-color:var(--accent,#A8824C)}
+.runhd{display:flex;align-items:center;justify-content:space-between;gap:.8em;width:100%;
+  padding:.75em .9em;border:0;background:transparent;cursor:pointer;text-align:left}
+.runhd:hover{background:var(--paper-2,rgba(23,18,14,.025))}
+.runname{display:flex;align-items:center;gap:.45em;min-width:0}
+.runname b{font-size:.88rem;font-weight:500;color:var(--ink);white-space:nowrap}
+.runchev{width:14px;height:14px;flex:0 0 auto;fill:none;stroke:var(--muted);stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;transform:rotate(90deg);transition:transform .25s}
+.runblk.folded .runchev{transform:rotate(0deg)}
+.runmeta{display:flex;align-items:center;gap:.6em;min-width:0}
+.runmeta i{font-style:normal;font-family:Archivo,system-ui,sans-serif;font-size:.66rem;
+  color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.runmeta.over i{color:#B4553F}
+.runbar{flex:0 0 46px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.runbar > span{display:block;height:100%;background:var(--accent,#A8824C);border-radius:2px;
+  transition:width .35s var(--ease-out,cubic-bezier(.2,.7,.2,1))}
+.runmeta.over .runbar > span{background:#B4553F}
+.runbody{padding:0 .9em .9em}
+.runblk.folded .runbody{display:none}
+
+/* ── "add a section" that says what the widths are for ── */
+.addrow{margin-top:.85em;border-top:1px solid var(--line);padding-top:.85em}
+.addhd{margin-bottom:.6em}
+.addhd b{display:block;font-size:.8rem;font-weight:500;color:var(--ink)}
+.addhd span{display:block;font-size:.66rem;color:var(--muted);margin-top:.15em;
+  font-variant-numeric:tabular-nums}
+.addhd.full b{color:#B4553F}
+.addgrid{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}
+@media(max-width:420px){ .addgrid{grid-template-columns:1fr} }
+.wcard{display:flex;flex-direction:column;align-items:flex-start;gap:.3em;text-align:left;
+  border:1px solid var(--line);border-radius:11px;padding:.6em .7em;background:var(--card,#fff);
+  cursor:pointer;transition:border-color .22s,transform .22s,box-shadow .22s}
+.wcard:hover{border-color:var(--accent,#A8824C);transform:translateY(-2px);
+  box-shadow:0 6px 18px rgba(23,18,14,.06)}
+.wcard b{font-family:Archivo,system-ui,sans-serif;font-size:1rem;font-weight:600;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1}
+.wcard .wbar{display:block;width:100%;height:3px;border-radius:2px;background:var(--line);
+  overflow:hidden}
+.wcard .wbar > span{display:block;height:100%;background:var(--accent,#A8824C);border-radius:2px}
+.wcard em{font-style:normal;font-size:.63rem;line-height:1.4;color:var(--muted)}
+.wcard.fill{border-style:dashed}
+.wcard.fill b{color:var(--accent,#A8824C)}
+.addutil.one{margin-top:8px}
+.addutil .mini{width:100%;border:1px solid var(--line);border-radius:10px;background:transparent;
+  padding:.5em;font-size:.7rem;color:var(--muted);cursor:pointer}
+.addutil .mini:hover{border-color:var(--ink);color:var(--ink)}
+
+/* ── nothing runs out of its box ──
+   The section header crammed a width stepper, two move arrows, a top-shelf
+   toggle and "Remove section" onto one line in a 448px panel, so the last
+   button hung off the right edge. It wraps onto two rows now, and the docked
+   picker is held to the width of the wall block it sits in. */
+.runblk .stackslot{min-width:0}
+.runblk .stackslot > #stack{box-sizing:border-box;max-width:100%;overflow:hidden}
+#stack, #stack *{min-width:0}
+
+.selhd{display:grid;grid-template-columns:1fr;gap:.55em;align-items:start;margin:-.2em 0 .9em}
+.selhd > b{font-size:.86rem;font-weight:500;color:var(--ink);line-height:1.3}
+.selacts{display:flex;flex-wrap:wrap;align-items:center;gap:.4em;width:100%;min-width:0}
+.selacts .wadj,.selacts .movw{display:inline-flex;align-items:center;gap:.15em;
+  border:1px solid var(--line);border-radius:9px;padding:2px;background:var(--card,#fff)}
+.selacts .wadj i{font-style:normal;font-family:Archivo,system-ui,sans-serif;font-size:.72rem;
+  color:var(--ink);font-variant-numeric:tabular-nums;padding:0 .45em;white-space:nowrap}
+.selacts .wadj button,.selacts .movw button{width:26px;height:26px;border:0;border-radius:7px;
+  background:transparent;color:var(--ink);cursor:pointer;font-size:.9rem;line-height:1;
+  display:grid;place-items:center;padding:0}
+.selacts .wadj button:hover:not(:disabled),
+.selacts .movw button:hover:not(:disabled){background:var(--ink);color:#fff}
+.selacts button:disabled{opacity:.3;cursor:not-allowed}
+.selacts .rmsec{margin-left:auto;border:1px solid var(--line);border-radius:9px;
+  padding:.38em .7em;background:transparent;color:#B4553F;font-size:.7rem;cursor:pointer;
+  white-space:nowrap}
+.selacts .rmsec:hover{background:#B4553F;color:#fff;border-color:#B4553F}
+.toptog{flex:0 0 auto}
+@media(max-width:430px){ .selacts .rmsec{margin-left:0} }
+
+/* a part's name truncates rather than pushing the row's buttons off the edge */
+.srow{grid-template-columns:30px minmax(0,1fr) auto auto}
+.sname{min-width:0}
+.sname b,.sname i{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sacts,.sopt{flex:0 0 auto}
+
+/* ── the designer fits a phone ──
+   A grid item's default min-width:auto is its content's intrinsic size, and
+   the canvas carries a width ATTRIBUTE set by the renderer at whatever size
+   it last drew. On a 390px phone that pushed the grid column out to 424px and
+   the whole page scrolled sideways. Both children are told they may shrink,
+   and the canvas is capped to its box. */
+.bwrap > *{min-width:0}
+.bstage{min-width:0}
+.bstage canvas{max-width:100%;display:block}
+
+/* A two-part layout shown as a stacked pair has to occupy exactly the same
+   frame as a single picture, or its card grows taller than the one beside it
+   and the row goes ragged. One 3:4 frame, split in half. */
+.pcard .pstack{display:grid;grid-template-rows:1fr 1fr;gap:1px;width:100%;
+  aspect-ratio:3/4;background:var(--paper-3);overflow:hidden}
+.pcard .pstack img{width:100%;height:100%;aspect-ratio:auto;object-fit:cover;min-height:0}
+.pcard{align-self:stretch}
+.pgrid{align-items:stretch}
+
+/* the width/height attributes on a card image are there to reserve space
+   before it loads; the frame is set by aspect-ratio, so the attribute must
+   not become a real height */
+.pcard > img, .pcard > .pstack{height:auto}
+.pcard img{height:auto}
+.pcard .pstack img{height:100%}

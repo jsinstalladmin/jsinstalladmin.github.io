@@ -747,3 +747,17 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
 .svcgo svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round;transition:transform .3s var(--ease-out)}
 .svccard:hover .svcgo svg{transform:translateX(3px)}
+
+/* a small reference table inside an article */
+.arttable{width:100%;border-collapse:collapse;margin:0 0 1.6em;font-size:.95rem}
+.arttable th,.arttable td{text-align:left;padding:.62em .7em;border-bottom:1px solid var(--line);
+  vertical-align:top}
+.arttable thead th{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  font-weight:500;border-bottom-width:1px}
+.arttable tbody tr:last-child td{border-bottom:0}
+.arttable td:first-child{font-family:Archivo,system-ui,sans-serif;font-variant-numeric:tabular-nums;
+  white-space:nowrap;color:var(--ink)}
+/* a short aside that is not the main argument */
+.artnote{border-left:2px solid var(--accent,#A8824C);padding:.1em 0 .1em 1.1em;margin:0 0 1.5em;
+  font-size:.98rem;line-height:1.65;color:var(--muted)}
+.artnote b{color:var(--ink);font-weight:500}

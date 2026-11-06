@@ -78,11 +78,8 @@
           <div id="wallpick" class="wallpick"></div>
 
           <h4 class="subh">The room</h4>
-          <div id="dims" class="steps"></div>
-
-          <h4 class="subh">Your floor plan</h4>
-          <p class="note" style="margin:-2px 0 9px">Type a measurement straight onto the plan.
-            Drag anything you add onto the wall it is really on.</p>
+          <p class="note" style="margin:-2px 0 9px">Type your real measurements under the plan and
+            the drawing, the layout and the price all follow them.</p>
           <div id="plan" class="planwrap"></div>
 
           <h4 class="subh">Mounting</h4>
@@ -108,10 +105,17 @@
       </section>
 <section class="tabpanel" id="tp3" role="tabpanel" aria-labelledby="tb3" hidden>
         <div class="accb">
+          <!-- The drawer and door front picker used to sit UNDERNEATH all 79
+               carcass swatches, so with a drawer bank in the design you had to
+               scroll past the whole library to find the one picker that
+               changes the fronts you are looking at. Both are now a switch at
+               the top, with a live chip of each so you can see what you have
+               picked without scrolling at all. -->
+          <div id="fintabs" class="fintabs"></div>
           <div class="srch"><svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.6"/><path d="M13.2 13.2 17 17"/></svg>
             <input id="fq" type="search" placeholder="Search 79 finishes…" aria-label="Search finishes"></div>
-          <h4 class="subh">Carcass</h4><div id="fin1" class="fins"></div><p class="finnote" id="finNote1"></p>
-          <h4 class="subh">Drawer &amp; door fronts</h4><div id="fin2" class="fins"></div><p class="finnote" id="finNote2"></p>
+          <div id="finpane1"><div id="fin1" class="fins"></div><p class="finnote" id="finNote1"></p></div>
+          <div id="finpane2" hidden><div id="fin2" class="fins"></div><p class="finnote" id="finNote2"></p></div>
         </div>
       </section>
 <section class="tabpanel" id="tp4" role="tabpanel" aria-labelledby="tb4" hidden>

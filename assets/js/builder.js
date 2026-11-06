@@ -873,7 +873,7 @@ function rebuild(reframe){
   if(reframe){ resize(); frame(); }
   paintAll();
 }
-function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); markSteps();
+function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps();
   /* steps 3 and 5 look at one section, so changing which one is selected has
      to move the camera too, not just the panel */
   const st = document.body.dataset.step;
@@ -932,7 +932,11 @@ function paintSteps(){
   /* Three stacked rows each with one number in the middle wasted most of the
      panel and you could not type a real measurement into any of them. Three
      columns, and the number is an input: type 103 if the wall is 103. */
-  $('#dims').innerHTML=[['w','Wall width',36,288,6],['d','Depth',12,48,2],['h','Ceiling',84,132,2]]
+  /* The three steppers were removed: the same three numbers are typed under
+     the floor plan, which is the clearer of the two and the one that shows
+     you the shape you are describing. This still runs if the element is put
+     back. */
+  if($('#dims')) $('#dims').innerHTML=[['w','Wall width',36,288,6],['d','Depth',12,48,2],['h','Ceiling',84,132,2]]
     .map(([k,l,mn,mx,st])=>`<div class="dim">
       <span class="dimlbl">${l}</span>
       <div class="dimrow">
@@ -1131,15 +1135,25 @@ function paintBays(){
      click handler bound to it — is destroyed on every repaint. */
   const parked=$('#stack'); if(parked) $('#stackHome').appendChild(parked);
   host.innerHTML='';
-  for(const wall of ['back','left','right']){
-    const r=S.runs[wall]; if(!r||!r.on) continue;
+  const walls = ['back','left','right'].filter(w => S.runs[w]?.on);
+
+  for(const wall of walls){
+    const r=S.runs[wall];
     const len  = wallLength(wall);
     const used = r.bays.reduce((a,b)=>a+b.w,0);
     const left = len - used;
-    const d=document.createElement('div'); d.className='runblk'; d.dataset.wall=wall;
+    /* One wall is open at a time: the one being worked on. The others fold to
+       a single line so you can jump between them without scrolling past
+       everything on the first. A wall with nothing on it stays open, because
+       there is nothing to fold. */
+    const open = (S.sel?.wall === wall) || walls.length === 1 || !r.bays.length;
+    const d=document.createElement('div');
+    d.className='runblk' + (open ? '' : ' folded');
+    d.dataset.wall=wall;
 
     /* which preset widths still fit in what is left of this wall */
     const fits = BAY_PRESETS.filter(w => w <= left + 0.01);
+    const pct  = len ? Math.min(100, (used/len)*100) : 0;
 
     const strip = r.bays.length
       ? `<div class="baystrip">${r.bays.map((b,i)=>`
@@ -1156,31 +1170,61 @@ function paintBays(){
               <span class="gapn">${left.toFixed(0)}" free</span>
               ${left >= SPEC.bayMin ? '<span class="gapadd">+ add here</span>' : ''}</button>` : ''}
         </div>`
-      : `<p class="note emptyrun">Nothing on this wall yet. Add your first section below.</p>`;
+      : `<p class="note emptyrun">Nothing on this wall yet. Pick a width below and it lands in the left corner.</p>`;
 
-    d.innerHTML = `<div class="runhd"><b>${wall[0].toUpperCase()+wall.slice(1)} wall</b>
-      <span class="${left < -0.5 ? 'over' : ''}">${used.toFixed(0)}" of ${len.toFixed(0)}" used${left>0.5?` · ${left.toFixed(0)}" free`:''}</span></div>
-      ${strip}
-      <div class="stackslot"></div>
-      <div class="addrow">
-        ${fits.length || left >= SPEC.bayMin
-          ? `<span class="addlbl">Add a section</span>`
-          : `<span class="addlbl full">Wall is full &middot; ${len.toFixed(0)}" used</span>`}
-        <div class="addgrid">
-          ${fits.map(w=>`<button class="wcard" data-bay="addw" data-wall="${wall}" data-w="${w}">
-            <span class="wbar"><span style="width:${(w/SPEC.bayMax)*100}%"></span></span>
-            <b>${w}"</b></button>`).join('')}
-          ${left >= SPEC.bayMin ? `<button class="wcard fill" data-bay="addfill" data-wall="${wall}">
-            <span class="wbar"><span style="width:100%"></span></span>
-            <b>Rest ${clampBay(left).toFixed(0)}"</b></button>` : ''}
-        </div>
-        ${r.bays.length > 1 ? `<div class="addutil one">
-          <button class="mini" data-bay="even" data-wall="${wall}">Even them up</button>
-        </div>` : ''}
+    /* The width buttons used to be five bare numbers with a little bar, which
+       says nothing about why you would pick one. Each now says what that width
+       is actually for, and the "rest of the wall" option is spelled out. */
+    const WHY = {
+      24:'The narrowest we build. A drawer bank, shoes, or a tight return.',
+      28:'A single hanging section without wasting wall.',
+      30:'The usual drawer and hanging width. Fits a 30" drawer box.',
+      32:'Roomy hanging, or four drawers across.',
+      36:'The widest a ¾" shelf spans without bowing.'
+    };
+    const addBlock = !r.bays.length || left >= SPEC.bayMin
+      ? `<div class="addrow">
+          <div class="addhd">
+            <b>${r.bays.length ? 'Add another section' : 'Add your first section'}</b>
+            <span>${left.toFixed(0)}" of wall still free &middot; sections run ${SPEC.bayMin}&ndash;${SPEC.bayMax}" wide</span>
+          </div>
+          <div class="addgrid">
+            ${fits.map(w=>`<button class="wcard" data-bay="addw" data-wall="${wall}" data-w="${w}">
+              <b>${w}"</b>
+              <span class="wbar"><span style="width:${(w/SPEC.bayMax)*100}%"></span></span>
+              <em>${WHY[w]||''}</em></button>`).join('')}
+            ${left >= SPEC.bayMin ? `<button class="wcard fill" data-bay="addfill" data-wall="${wall}">
+              <b>${clampBay(left).toFixed(0)}"</b>
+              <span class="wbar"><span style="width:100%"></span></span>
+              <em>Fill what is left of the wall in one section.</em></button>` : ''}
+          </div>
+          ${r.bays.length > 1 ? `<div class="addutil one">
+            <button class="mini" data-bay="even" data-wall="${wall}">Make them all the same width</button>
+          </div>` : ''}
+        </div>`
+      : `<div class="addrow"><div class="addhd full">
+          <b>This wall is full</b>
+          <span>All ${len.toFixed(0)}" used. Narrow a section to make room for another, or work on a different wall.</span>
+        </div>${r.bays.length > 1 ? `<div class="addutil one">
+          <button class="mini" data-bay="even" data-wall="${wall}">Make them all the same width</button>
+        </div>` : ''}</div>`;
+
+    d.innerHTML = `<button class="runhd" data-fold="${wall}" aria-expanded="${open}"
+        title="${open ? 'Fold this wall away' : 'Open this wall'}">
+        <span class="runname"><svg class="runchev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+          <b>${wall[0].toUpperCase()+wall.slice(1)} wall</b></span>
+        <span class="runmeta ${left < -0.5 ? 'over' : ''}">
+          <span class="runbar"><span style="width:${pct.toFixed(1)}%"></span></span>
+          <i>${r.bays.length} section${r.bays.length===1?'':'s'} &middot; ${used.toFixed(0)}" of ${len.toFixed(0)}"${left>0.5?` &middot; ${left.toFixed(0)}" free`:''}</i>
+        </span></button>
+      <div class="runbody">
+        ${strip}
+        <div class="stackslot"></div>
+        ${addBlock}
       </div>`;
     host.appendChild(d);
   }
-  $('#bayNote').textContent = `Sections run ${SPEC.bayMin}"–${SPEC.bayMax}" wide. Past ${SPEC.bayMax}" a ¾" shelf sags, so a partition goes in. That is why those are the only widths offered.`;
+  $('#bayNote').textContent = `Past ${SPEC.bayMax}" a ¾" shelf sags under a normal load, so a partition goes in instead. That is why those are the only widths offered.`;
 }
 
 /* ───────── step 2b: what goes in the selected section ─────────
@@ -1203,11 +1247,22 @@ function dockStack(){
   (slot || $('#stackHome')).appendChild(box);
 }
 
+const ART_GONE = new Set();
+window.__artGone = n => ART_GONE.add(n);
+
 function paintStack(){
   const box = $('#stack');
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
-    /* nothing chosen, but something exists: choose it rather than dead-end */
+    /* If the chosen wall exists but has nothing on it yet, STAY on it. This
+       used to jump the selection to whichever wall did have sections, which
+       meant opening an empty wall immediately bounced you back to the full
+       one and the empty wall could never be worked on. */
+    if(run?.on){
+      box.innerHTML = `<p class="note emptysel">Nothing on the ${S.sel.wall} wall yet. Pick a width below and it lands in the left corner.</p>`;
+      dockStack();
+      return;
+    }
     const wall = Object.keys(S.runs).find(k => S.runs[k]?.on && S.runs[k].bays.length);
     if(wall){ S.sel = { wall, i:0 }; return paintStack(); }
     box.innerHTML = `<p class="note emptysel">Add a section above and its parts appear here.</p>`;
@@ -1249,12 +1304,24 @@ function paintStack(){
        not on the server yet the img's own onerror swaps the stacked pair back
        in, so the cards keep working either way and the new pictures light up
        the moment they are dropped into img/parts/. */
-    const stacked = `<span class="pstack">${ids.map(id =>
-        `<img src="${partImg(id)}" alt="" loading="lazy" decoding="async">`).join('')}</span>`;
-    const art = pre.art
+    /* The fallback is only a STACK when the layout really is two parts. A
+       one-module layout such as the open-top double hang falls back to its
+       single picture; putting it in a two-row stack left the bottom half of
+       the card empty. */
+    const single = id => `<img src="${partImg(id)}" alt="" loading="lazy" decoding="async"
+             width="420" height="560">`;
+    const stacked = ids.length > 1
+      ? `<span class="pstack">${ids.map(id =>
+          `<img src="${partImg(id)}" alt="" loading="lazy" decoding="async">`).join('')}</span>`
+      : single(ids[0] || 'OPEN');
+    /* ART_GONE remembers which combined pictures are not on the server yet, so
+       the browser asks for each missing file once rather than on every repaint
+       of the panel. The moment the file is dropped into img/parts/ and the
+       page is reloaded, the card uses it. */
+    const art = (pre.art && !ART_GONE.has(pre.art))
       ? `<img src="${(window.BASE||'')}img/parts/${pre.art}.jpg" alt="" loading="lazy" decoding="async"
              width="420" height="560"
-             onerror="this.outerHTML=${JSON.stringify(stacked).replace(/"/g,'&quot;')}">`
+             onerror="window.__artGone&&window.__artGone('${pre.art}');this.outerHTML=${JSON.stringify(stacked).replace(/"/g,'&quot;')}">`
       : ids.length > 1 ? stacked
       : `<img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async"
              width="420" height="315">`;
@@ -1334,8 +1401,47 @@ const FAMS=[
   {lv:3,n:'Textured',       why:'Grain you can feel, synchronised to the print.'},
   {lv:4,n:'Specialty',      why:'Imported decors. Three to four weeks.'},
   {lv:5,n:'High gloss',     why:'Mirror finish and heavy texture. Longest lead.'}];
+/* Which of the two is open. Carcass by default, but if the design has fronts
+   in it and the customer has not chosen a front finish yet, that is the one
+   worth putting in front of them. */
+let FINTAB = 'carcass';
+const HAS_FRONTS = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER']);
+const designHasFronts = () =>
+  (cur?.bays || []).some(b => (b.stack||[]).some(st => HAS_FRONTS.has(st.m)));
+
+/* The switch between the two, with a live chip of each, so the fronts picker
+   is one click away instead of 79 swatches further down the page. */
+function paintFinTabs(){
+  const host = $('#fintabs'); if(!host) return;
+  const fronts = designHasFronts();
+  if(!fronts && FINTAB === 'fronts') FINTAB = 'carcass';
+  const sw = n => {
+    const f = cat.finishes.find(x => x.n === n) || cat.finishes[0];
+    return `<span class="ftc" style="${swStyle(f)}"></span>`;
+  };
+  const frontNow = S.frontFinish || S.finish;
+  host.innerHTML = `
+    <button class="ftab ${FINTAB==='carcass'?'on':''}" data-fintab="carcass" aria-pressed="${FINTAB==='carcass'}">
+      ${sw(S.finish)}<i>Carcass<em>${S.finish}</em></i></button>
+    <button class="ftab ${FINTAB==='fronts'?'on':''}" data-fintab="fronts"
+      aria-pressed="${FINTAB==='fronts'}" ${fronts?'':'disabled'}
+      title="${fronts?'The finish on your drawer and door fronts':'Add a drawer, a door or a hamper and this turns on'}">
+      ${sw(frontNow)}<i>Drawer &amp; door fronts<em>${
+        !fronts ? 'Nothing with a front yet'
+        : (S.frontFinish ? S.frontFinish : 'Same as the carcass')}</em></i></button>`;
+  $('#finpane1').hidden = FINTAB !== 'carcass';
+  $('#finpane2').hidden = FINTAB !== 'fronts';
+  /* a line that says what you are actually changing */
+  const note = fronts
+    ? (FINTAB === 'fronts'
+        ? 'Only the drawer and door fronts change. The shelves and partitions keep the carcass finish.'
+        : 'This changes the shelves, partitions and top shelf. Your drawer and door fronts are set on the other tab.')
+    : 'Nothing in this design has a front on it yet, so one finish covers the whole closet.';
+  host.insertAdjacentHTML('beforeend', `<p class="ftnote">${note}</p>`);
+}
+
 function paintFin(which){
-  const box=$(which==='carcass'?'#fin1':'#fin2');
+  const box=$(which==='carcass'?'#fin1':'#fin2'); if(!box) return;
   const cur=which==='carcass'?S.finish:(S.frontFinish||S.finish);
   const term=($('#fq').value||'').trim().toLowerCase();
   box.innerHTML=FAMS.map(fam=>{
@@ -1452,18 +1558,18 @@ $('#wallpick').onclick=e=>{const b=e.target.closest('[data-wall-t]');if(!b)retur
   toggleWall(b.dataset.wallT); rebuild(true)};
 /* Clamp when the field is committed, not on every keystroke, or typing "10"
    on the way to "108" snaps to the 36" minimum under your fingers. */
-$('#dims').addEventListener('change', e=>{
+$('#dims')?.addEventListener('change', e=>{
   const i = e.target.closest('input[data-dim]'); if(!i) return;
   const k = i.dataset.dim, mn = +i.min, mx = +i.max;
   const v = Math.round(Number(i.value));
   S.room[k] = Number.isFinite(v) ? Math.min(mx, Math.max(mn, v)) : S.room[k];
   rebuild(true);
 });
-$('#dims').addEventListener('keydown', e=>{
+$('#dims')?.addEventListener('keydown', e=>{
   if(e.key === 'Enter' && e.target.matches('input[data-dim]')){ e.preventDefault(); e.target.blur(); }
 });
 $('#mount').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.mounting=b.dataset.m;rebuild(false)};
-$('#dims').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+if($('#dims')) $('#dims').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   const k=b.dataset.k,s=+b.dataset.s;
   S.room[k]=Math.max(+b.dataset.mn,Math.min(+b.dataset.mx,S.room[k]+s));
   /* trim anything that no longer fits rather than discarding the whole run */
@@ -1574,6 +1680,21 @@ $('#walls').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   /* keep the walls already chosen when stepping into Custom */
   applyShape(b.dataset.shape, SHAPES[b.dataset.shape]?.custom); rebuild(true)};
 $('#bays').onclick=e=>{
+  /* Open a wall by clicking its header. Selecting a section on it is what
+     normally opens it, so this is for looking at a wall you are not editing. */
+  const fold=e.target.closest('[data-fold]');
+  if(fold){
+    const w=fold.dataset.fold, r=S.runs[w];
+    const blk=fold.closest('.runblk');
+    if(blk.classList.contains('folded')){
+      /* opening a wall selects something on it, which folds the others */
+      S.sel = r?.bays.length ? { wall:w, i:0 } : { wall:w, i:0 };
+      rebuild(true);
+    } else {
+      blk.classList.add('folded'); fold.setAttribute('aria-expanded','false');
+    }
+    return;
+  }
   const bay=e.target.closest('[data-bay]');
   if(bay){
     const wall = bay.dataset.wall, r = S.runs[wall], act = bay.dataset.bay;
@@ -1669,11 +1790,21 @@ $('#stack').onclick=e=>{
        3/4" shelf bows past 36". Clamp to what the shop can actually cut. */
     const next = clampBay(bay.w + d);
     const delta = next - bay.w;
-    const others = r.bays.filter(b=>b!==bay);
-    if(others.length){                       // take it from (or give it to) the neighbours
-      const share = delta/others.length;
-      if(others.every(b=>b.w - share >= 18)){ bay.w=next; others.forEach(b=>b.w=+(b.w-share).toFixed(1)); }
-    } else bay.w = next;
+    /* Growing into the free wall beside it is what you mean when you widen a
+       section you have just dropped into a gap. Only once the wall is full
+       does widening have to come out of a neighbour. */
+    const free = freeSpace(S.sel.wall);
+    if(delta <= free + 0.01){ bay.w = next; }
+    else {
+      const others = r.bays.filter(b=>b!==bay);
+      const need = delta - Math.max(0, free);
+      if(others.length){
+        const share = need/others.length;
+        if(others.every(b=>b.w - share >= SPEC.bayMin)){
+          bay.w=next; others.forEach(b=>b.w=+(b.w-share).toFixed(1));
+        }
+      }
+    }
   }
   else if(t.dataset.add){ const d=MODULES[t.dataset.add];
     bay.stack.unshift({m:t.dataset.add, h:d.fill?null:d.defH, o:d.opt?{[d.opt.key]:d.opt.def}:{}}); }
@@ -1691,9 +1822,13 @@ $('#stack').onclick=e=>{
   else return;
   rebuild(false);
 };
+$('#fintabs')?.addEventListener('click', e=>{
+  const t=e.target.closest('[data-fintab]'); if(!t || t.disabled) return;
+  FINTAB=t.dataset.fintab; paintFinTabs();
+});
 const onFin=e=>{const b=e.target.closest('.sw');if(!b)return;
   if(b.dataset.w==='carcass') S.finish=b.dataset.n; else S.frontFinish=b.dataset.n;
-  clearCaches(); rebuild(false); paintFin(b.dataset.w)};
+  clearCaches(); rebuild(false); paintFin(b.dataset.w); paintFinTabs();};
 $('#fin1').onclick=onFin; $('#fin2').onclick=onFin;
 $('#fq').oninput=()=>{paintFin('carcass');paintFin('fronts')};
 $('#pulls').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.pull=b.dataset.pull;paintPulls();rebuild(false)};
