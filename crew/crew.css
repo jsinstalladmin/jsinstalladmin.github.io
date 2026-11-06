@@ -1,0 +1,120 @@
+/* ============================================================
+   crew.css — the week on a phone, in a van, in daylight.
+   Big type, big tap targets, high contrast, one thumb.
+   Every box is its own rounded card, same as the office screen.
+   ============================================================ */
+:root{
+  --bg:#0C0A08; --surf:#15110D; --surf2:#1D1812; --surf3:#2A231B;
+  --fg:#F5F0E8; --muted:#9B8E7E; --brass:#CDA96E; --brass2:#A8824C;
+  --ok:#74C08D; --warn:#E0A94A; --bad:#D9705F; --info:#84A9D6;
+  --line:rgba(245,240,232,.12); --line2:rgba(245,240,232,.06);
+  --r:14px; --r-lg:20px; --ease:cubic-bezier(.22,.61,.36,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:'Archivo',system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2{font-family:'Instrument Serif',serif;font-weight:400;margin:0;line-height:1.05;letter-spacing:-.018em}
+h3{font-weight:500;margin:0;font-size:1rem;letter-spacing:-.005em}
+a{color:inherit}
+button{font:inherit;cursor:pointer}
+.wrap{max-width:720px;margin:0 auto;padding:14px 14px calc(34px + env(safe-area-inset-bottom))}
+.boot{padding:60px 0;text-align:center;color:var(--muted)}
+
+/* ── header card ── */
+.hdr{background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:18px 18px 16px;margin-bottom:12px}
+.hdr .eyebrow{font-size:.64rem;letter-spacing:.2em;text-transform:uppercase;color:var(--brass)}
+.hdr h1{font-size:clamp(1.6rem,7vw,2.1rem);margin:.22em 0 .1em}
+.hdr .range{color:var(--muted);font-size:.88rem}
+.hdr .tot{display:flex;gap:16px;margin-top:14px;padding-top:13px;border-top:1px solid var(--line2)}
+.hdr .tot span{display:flex;flex-direction:column;font-size:.63rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted)}
+.hdr .tot b{font-size:1.3rem;color:var(--fg);letter-spacing:-.02em;text-transform:none;
+  font-variant-numeric:tabular-nums}
+.readonly{display:inline-flex;align-items:center;gap:.45em;margin-top:12px;font-size:.72rem;
+  color:var(--muted);background:var(--surf2);border:1px solid var(--line);
+  border-radius:999px;padding:.34em .8em}
+.readonly svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.9}
+
+/* ── the seven days ── */
+.days{display:grid;gap:10px}
+.day{background:var(--surf);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.day.today{border-color:var(--brass2);box-shadow:0 0 0 1px rgba(205,169,110,.18)}
+.day.none{opacity:.52}
+.dhd{display:flex;align-items:center;gap:12px;width:100%;border:0;background:transparent;
+  color:inherit;text-align:left;padding:15px 16px;transition:background .18s}
+.dhd:hover{background:var(--surf2)}
+.dhd .dnum{display:grid;place-items:center;width:46px;height:46px;border-radius:12px;
+  background:var(--surf2);border:1px solid var(--line);flex:0 0 auto;line-height:1}
+.dhd .dnum b{font-size:1.18rem;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.dhd .dnum i{font-style:normal;font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin-top:2px}
+.day.today .dnum{background:var(--brass);border-color:var(--brass)}
+.day.today .dnum b,.day.today .dnum i{color:#15110D}
+.dhd .dmeta{flex:1;min-width:0}
+.dhd .dmeta b{display:block;font-weight:500;font-size:.98rem}
+.dhd .dmeta span{display:block;color:var(--muted);font-size:.8rem;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dhd .chev{width:11px;height:11px;flex:0 0 auto;border-right:2px solid var(--muted);
+  border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .28s var(--ease);
+  margin-right:4px}
+.day[data-open] .chev{transform:rotate(225deg)}
+.dbody{display:none;padding:0 12px 12px}
+.day[data-open] .dbody{display:block}
+
+/* ── one visit ── */
+.vis{background:var(--surf2);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 15px;margin-top:8px}
+.vis:first-child{margin-top:0}
+.vtop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.kind{display:inline-flex;align-items:center;gap:.45em;font-size:.68rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted)}
+.kind i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.kind.measure i{background:var(--info)}.kind.delivery i{background:var(--warn)}
+.kind.install i{background:var(--ok)}.kind.service i{background:var(--bad)}
+.vis h3{font-size:1.08rem;margin:0 0 2px}
+.vis .who{color:var(--muted);font-size:.86rem;margin-bottom:12px}
+.vrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.vbtn{display:inline-flex;align-items:center;gap:.5em;flex:1 1 auto;justify-content:center;
+  min-height:46px;padding:.6em 1em;border-radius:12px;text-decoration:none;
+  border:1px solid var(--line);background:var(--surf3);color:var(--fg);font-size:.88rem;
+  transition:.18s var(--ease)}
+.vbtn:hover{border-color:var(--brass2)}
+.vbtn.go{background:linear-gradient(180deg,#E0C08A,#CDA96E);color:#15110D;border-color:var(--brass);
+  font-weight:500}
+.vbtn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.addr{display:block;font-size:.88rem;color:var(--fg);background:var(--surf3);
+  border:1px solid var(--line);border-radius:12px;padding:.7em .85em;margin-top:2px;
+  overflow-wrap:anywhere}
+.addr .lbl{display:block;font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.25em}
+.vnote{margin-top:10px;font-size:.86rem;color:var(--fg);background:rgba(224,169,74,.09);
+  border:1px solid rgba(224,169,74,.26);border-radius:12px;padding:.7em .85em;overflow-wrap:anywhere}
+.vnote .lbl{display:block;font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--warn);margin-bottom:.25em}
+.vfin{margin-top:10px;font-size:.82rem;color:var(--muted)}
+.vfin b{color:var(--fg);font-weight:500}
+.nowt{padding:14px 16px 16px;color:var(--muted);font-size:.86rem}
+
+/* ── footer ── */
+.ftr{margin-top:16px;background:var(--surf);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:16px 18px;font-size:.8rem;color:var(--muted)}
+.ftr b{color:var(--fg);font-weight:500}
+.ftr a{color:var(--brass);text-decoration:none}
+.err{background:var(--surf);border:1px solid var(--bad);border-radius:var(--r-lg);
+  padding:22px 20px;color:#F0B5AA}
+.err h1{color:var(--fg);font-size:1.5rem;margin-bottom:.35em}
+.err p{margin:0;color:var(--muted);font-size:.9rem}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* An empty day is a quiet one-line row. It still shows, because knowing a day
+   is clear is information, but it does not take the same room as a day with
+   work in it. */
+.day.none .dhd{padding:11px 16px;cursor:default}
+.day.none .dhd:hover{background:transparent}
+.day.none .dnum{width:38px;height:38px}
+.day.none .dnum b{font-size:1rem}
+.day.none .dmeta b{font-size:.9rem}
+.dhd[disabled]{opacity:1}
