@@ -377,7 +377,7 @@ V.crew = () => {
       <div class="cstat"><span><b>${ahead}</b>booked</span><span><b>${doneM}</b>this month</span></div>
       ${e.active===false?'<span class="pill p-lost offtag">Not active</span>':''}
       <div class="cacts">
-        <button class="btn btn-sm" data-weeklink="${e.id}" data-stop="1">Week link</button>
+        <button class="btn btn-sm btn-p" data-weeklink="${e.id}" data-stop="1">Build the week</button>
         <button class="btn btn-sm" data-emp-edit="${e.id}" data-stop="1">Edit</button>
       </div>
     </article>`;
@@ -388,12 +388,16 @@ V.crew = () => {
   + panel('', '', es.length
       ? `<div class="bd"><div class="crewgrid">${es.map(card).join('')}</div></div>`
       : empty('Nobody on the books in this region yet.'))
-  + panel('What the week link does', '', `<div class="bd"><div class="note">
-      Every person gets their own link. Pin it once in their WhatsApp chat and it opens their week:
-      which day, whose house, the address as a tap-to-navigate button, what is going in and your notes.
-      It is read only. They cannot move a visit, change a price or see anyone else's work.
-      <br><br><b>Regenerate the link when the week changes</b>, because the week travels inside the link itself.
-      That is what lets it work with no login and no app.</div></div>`);
+  + panel('How a crew week works', '', `<div class="bd"><div class="note">
+      <b>Build the week</b> opens that person's seven days. Put a client on a day, say what the
+      visit is, and leave them a note for that morning. Everything you book there is a real
+      visit: it shows up on the <b>Schedule</b> the moment you add it, with their name against it.
+      <br><br>At the bottom of the same window is the link to pin in their WhatsApp. It opens
+      their week on their phone: which day, whose house, the address as a tap-to-navigate
+      button, what is going in, and your notes. It is read only — they cannot move a visit,
+      change a price or see anyone else's work.
+      <br><br><b>Send a fresh link when the week changes</b>, because the week travels inside the
+      link itself. That is what lets it work with no login and no app.</div></div>`);
 };
 
 /* ═══════════════ INBOX ═══════════════
@@ -545,7 +549,11 @@ V.settings = () => {
       <div class="btnrow"><button class="btn btn-p" data-act="savebiz">Save</button></div></div>`)
 
   + panel('Still to connect', 'Three accounts, all free to start', `<div class="bd">
-      <div class="f"><label>Web3Forms key, for the website contact form</label><input id="s-w3f" placeholder="Free at web3forms.com" value="${esc(s.web3forms)}"></div>
+      <div class="f"><label>Where website enquiries are emailed</label>
+        <input id="s-mailto" placeholder="jsinstalladmin@gmail.com" value="${esc(s.officeEmail||'')}">
+        <small>Both emails — yours and the customer's confirmation — are sent by our own
+          mail function. There is no third-party form service any more. Changing this address
+          here is a note to yourself; the live one is the <b>OFFICE_TO</b> secret in Supabase.</small></div>
       <div class="f"><label>Resend API key, for sending quotes from your own address</label><input id="s-resend" type="password" placeholder="re_..." value="${esc(s.resendKey)}"></div>
       <div class="f"><label>Google Maps embed URL, for the contact page</label><input id="s-map" placeholder="Maps → Share → Embed a map → copy the src" value="${esc(s.mapsEmbed)}"></div>
       <div class="btnrow"><button class="btn btn-p" data-act="savebiz">Save</button></div></div>`)
@@ -662,7 +670,7 @@ function doAct(a){
   }
   if(a==='savebiz'){
     DB.setSettings({business:$('#s-biz')?.value, phone:$('#s-phone')?.value, email:$('#s-email')?.value,
-      markup:+($('#s-markup')?.value||2.8), web3forms:$('#s-w3f')?.value,
+      markup:+($('#s-markup')?.value||2.8), officeEmail:$('#s-mailto')?.value,
       resendKey:$('#s-resend')?.value, mapsEmbed:$('#s-map')?.value,
       installPerFt:+($('#s-ipf')?.value||0), installMin:+($('#s-imin')?.value||0),
       taxRate:+($('#s-tax')?.value||0), depositPct:+($('#s-dep')?.value||50)});
@@ -1061,48 +1069,172 @@ function buildWeek(empId, offset){
                  finish:j.finish && j.finish !== 'n/a' ? j.finish : '',
                  notes:j.notes || '' };
       });
-    days.push({ date:iso, items });
+    days.push({ date:iso, items, note: DB.crewNote(empId, iso) });
   }
   return { v:1, crew:e?.name || 'Crew', role:e?.role || '',
            biz:s.business || 'JS Installations & Closets', bizPhone:s.phone || '',
            start, made:new Date().toISOString(), days };
 }
+/* ═══════════════ BUILDING A CREW'S WEEK ═══════════════
+   Copying a link was never the job. The job is "who is Luis seeing on
+   Thursday and what does he need to know". So this is the week itself:
+   seven days, a visit goes on a day, a note goes on a day, and the link
+   to pin in their WhatsApp sits underneath it rather than being the
+   whole point. Anything booked here is a real visit on the Schedule the
+   moment it is added, with their name against it.                     */
 function openWeekLink(empId){
   WEEK_OFFSET = 0;
+  let openDay = null;                       // which day's "add" form is showing
+
   const paint = () => {
+    const e  = DB.employee(empId);
     const wk = buildWeek(empId, WEEK_OFFSET);
     const total = wk.days.reduce((a,d)=>a+d.items.length,0);
     const url = location.origin + location.pathname.replace(/admin\/.*$/,'') + 'crew/#' + packWeek(wk);
-    const label = `${fmtFull(wk.start)} to ${fmtFull(addDays(wk.start,6))}`;
+    const label = `${fmtD(wk.start)} to ${fmtD(addDays(wk.start,6))}`;
+    const clients = DB.clients('all').sort((a,b)=>a.name.localeCompare(b.name));
+
+    const dayBlock = (d, i) => {
+      const iso  = d.date;
+      const jobs = DB.jobs('all').filter(j =>
+        j.date === iso && (j.crewIds||[]).includes(empId) && j.stage !== 'lost');
+      const isToday = iso === today();
+      const adding = openDay === iso;
+      return `<section class="wkday${isToday?' now':''}${jobs.length?' has':''}">
+        <header>
+          <b>${fmtFull(iso)}${isToday?' · today':''}</b>
+          <span>${jobs.length ? `${jobs.length} visit${jobs.length===1?'':'s'}` : 'Nothing booked'}</span>
+        </header>
+
+        ${jobs.map(j => `<div class="wkvisit">
+            <span class="kdot k-${j.kind}"></span>
+            <span class="wkv">
+              <b>${esc(DB.clientName(j.client))}</b>
+              <i>${esc(j.kind)}${j.title && j.title!=='Untitled' ? ' · '+esc(j.title) : ''}</i>
+            </span>
+            <button class="lnkbtn" data-wkedit="${j.id}" title="Open this visit">Open</button>
+            <button class="lnkbtn danger" data-wkoff="${j.id}" title="Take ${esc(e?.name||'them')} off this visit">Remove</button>
+          </div>`).join('')}
+
+        ${adding ? `<div class="wkadd">
+            <label>Which client?</label>
+            <select data-wkclient>
+              ${clients.length
+                ? clients.map(c=>`<option value="${c.id}">${esc(c.name)}${c.addr?' — '+esc(c.addr.split(',')[0]):''}</option>`).join('')
+                : '<option value="">No clients yet</option>'}
+            </select>
+            <label>What is the visit?</label>
+            <div class="pickrow" data-wkkind data-pick="measure">
+              ${KINDS.map(k=>`<button type="button" data-kindpick="${k}" class="${k==='measure'?'on':''}">
+                <span class="kdot k-${k}"></span>${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}
+            </div>
+            <div class="btnrow">
+              <button class="btn btn-sm btn-p" data-wkbook="${iso}" ${clients.length?'':'disabled'}>Book it</button>
+              <button class="btn btn-sm" data-wkcancel="1">Cancel</button>
+              <button class="btn btn-sm" data-wknewclient="1">The client is not on the system yet</button>
+            </div>
+          </div>`
+        : `<button class="wkplus" data-wkopen="${iso}">+ Put someone on this day</button>`}
+
+        <label class="wknote">
+          <em>A note for ${esc((e?.name||'them').split(' ')[0])} on this day</em>
+          <textarea data-wknote="${iso}" rows="2"
+            placeholder="Gate code, who has the key, park on the street…">${esc(DB.crewNote(empId, iso))}</textarea>
+        </label>
+      </section>`;
+    };
+
     dlg.innerHTML = `<h2>${esc(wk.crew)}&rsquo;s week</h2>
-      <p class="sub dlgsub">${esc(label)} · ${total} visit${total===1?'':'s'}</p>
+      <p class="sub dlgsub">${esc(label)} · ${total} visit${total===1?'':'s'} booked</p>
       <div class="btnrow wkbar">
         <button class="btn btn-sm" id="wk-prev">&larr; Week before</button>
         <button class="btn btn-sm" id="wk-now">This week</button>
         <button class="btn btn-sm" id="wk-next">Week after &rarr;</button></div>
-      ${total ? `<div class="dlglist">${wk.days.filter(d=>d.items.length).map(d=>
-        `<div class="dlrow"><span class="mono">${fmtFull(d.date)}</span>
-           <b>${d.items.map(i=>esc(i.client)).join(', ')}</b>
-           <span class="sub">${d.items.map(i=>esc(i.kind)).join(', ')}</span></div>`).join('')}</div>`
-        : `<div class="note warn">Nothing is assigned to ${esc(wk.crew)} that week. The link still works, it just opens an empty week. Assign them to a visit first under Jobs.</div>`}
-      <div class="f"><label>The link to pin in their WhatsApp</label>
-        <textarea id="wk-url" rows="3" readonly>${esc(url)}</textarea></div>
-      <div class="note">Send this once and it stays pinned. <b>Send a fresh one when the week changes</b>, because the week is inside the link. Nothing on that page can be edited, and it shows only this person's work.</div>
-      <div class="dlgacts">
-        <button class="btn" value="cancel">Close</button>
-        <button class="btn" id="wk-open">Open it myself</button>
-        <button class="btn btn-p" id="wk-copy">Copy the link</button></div>`;
+
+      <div class="wkgrid">${wk.days.map(dayBlock).join('')}</div>
+
+      <details class="wklink">
+        <summary>The link to pin in their WhatsApp</summary>
+        <div class="f"><textarea id="wk-url" rows="3" readonly>${esc(url)}</textarea></div>
+        <p class="note">Send a fresh one whenever the week changes, because the week travels
+          inside the link. Nothing on that page can be edited and it shows only this person&rsquo;s work.</p>
+        <div class="btnrow">
+          <button class="btn btn-sm" id="wk-open">Open it myself</button>
+          <button class="btn btn-sm btn-p" id="wk-copy">Copy the link</button></div>
+      </details>
+
+      <div class="dlgacts"><button class="btn btn-p" value="cancel">Done</button></div>`;
+
     if(!dlg.open) dlg.showModal();
     wireCancel();
-    $('#wk-prev').onclick = () => { WEEK_OFFSET--; paint(); };
-    $('#wk-next').onclick = () => { WEEK_OFFSET++; paint(); };
-    $('#wk-now').onclick  = () => { WEEK_OFFSET=0;  paint(); };
+    $('#wk-prev').onclick = () => { WEEK_OFFSET--; openDay=null; paint(); };
+    $('#wk-next').onclick = () => { WEEK_OFFSET++; openDay=null; paint(); };
+    $('#wk-now').onclick  = () => { WEEK_OFFSET=0;  openDay=null; paint(); };
     $('#wk-open').onclick = () => window.open(url,'_blank','noopener');
     $('#wk-copy').onclick = async () => {
       const b = $('#wk-copy');
       try{ await navigator.clipboard.writeText(url); b.textContent='Copied'; }
       catch(err){ $('#wk-url').select(); b.textContent='Press ⌘C'; }
       setTimeout(()=>{ b.textContent='Copy the link'; }, 2200);
+    };
+
+    /* the kind picker inside the add form */
+    dlg.querySelectorAll('[data-wkkind]').forEach(row => {
+      row.addEventListener('click', ev => {
+        const b = ev.target.closest('button'); if(!b) return;
+        ev.preventDefault();
+        row.dataset.pick = b.dataset.kindpick;
+        row.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      });
+    });
+
+    /* a note is saved when they leave the box, not on every keystroke, so
+       the panel is never redrawn out from under what they are typing */
+    dlg.querySelectorAll('[data-wknote]').forEach(t => {
+      t.addEventListener('change', () => DB.setCrewNote(empId, t.dataset.wknote, t.value));
+    });
+
+    dlg.onclick = ev => {
+      const t = ev.target.closest('button'); if(!t) return;
+
+      if(t.dataset.wkopen !== undefined){ openDay = t.dataset.wkopen; paint(); return; }
+      if(t.dataset.wkcancel !== undefined){ openDay = null; paint(); return; }
+
+      if(t.dataset.wknewclient !== undefined){
+        /* Straight to the client form. When it saves, we come back here. */
+        const day = openDay;
+        close();
+        openClient(null);
+        const ok = $('#m-ok'); const was = ok?.onclick;
+        if(ok) ok.onclick = () => { was?.(); openDay = day; openWeekLink(empId); };
+        return;
+      }
+
+      if(t.dataset.wkbook !== undefined){
+        const iso = t.dataset.wkbook;
+        const cid = dlg.querySelector('[data-wkclient]')?.value;
+        const kind = dlg.querySelector('[data-wkkind]')?.dataset.pick || 'measure';
+        if(!cid){ toast('Pick a client first, or add one.', true); return; }
+        const c = DB.client(cid);
+        DB.addJob({ region:c?.region || DB.region(), client:cid,
+                    title:`${kind[0].toUpperCase()+kind.slice(1)} — ${c?.name||''}`.trim(),
+                    kind, date:iso, stage:'lead', crewIds:[empId] });
+        /* a booked measure means the client has moved along the board */
+        if(kind === 'measure' && c && ['new','contacted'].includes(c.stage)) DB.setClientStage(cid, 'measure');
+        openDay = null; paint(); render();
+        toast(`${c?.name || 'Booked'} on ${fmtD(iso)} — it is on the schedule.`);
+        return;
+      }
+
+      if(t.dataset.wkedit !== undefined){ const id=t.dataset.wkedit; close(); return openJob(id); }
+
+      if(t.dataset.wkoff !== undefined){
+        const j = DB.job(t.dataset.wkoff); if(!j) return;
+        DB.updateJob(j.id, { crewIds:(j.crewIds||[]).filter(x=>x!==empId) });
+        paint(); render();
+        toast('Taken off that visit. The visit itself is still booked.');
+        return;
+      }
     };
   };
   paint();

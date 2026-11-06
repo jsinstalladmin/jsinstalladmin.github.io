@@ -44,16 +44,18 @@ function day(d, open){
   const n = d.items.length;
   /* The same household twice in one day is one name in the summary line. */
   const names = [...new Set(d.items.map(i=>i.client || i.title).filter(Boolean))];
-  const sum = n ? names.join(', ') + (n>names.length ? ` · ${n} visits` : '') : 'Nothing booked';
+  const sum = n ? names.join(', ') + (n>names.length ? ` · ${n} visits` : '')
+          : (d.note ? 'A note from the office' : 'Nothing booked');
   /* An empty day is one quiet line, not a card with a paragraph in it saying
      the same thing twice. Seven full-height empty cards buried the one day
      that mattered under a scroll. */
-  return `<section class="day${d.date===today()?' today':''}${n?'':' none'}"${open&&n?' data-open=""':''}>
-    <button class="dhd" type="button" data-day="${esc(d.date)}"${n?` aria-expanded="${open?'true':'false'}"`:' disabled'}>
+  return `<section class="day${d.date===today()?' today':''}${(n||d.note)?'':' none'}"${open&&(n||d.note)?' data-open=""':''}>
+    <button class="dhd" type="button" data-day="${esc(d.date)}"${(n||d.note)?` aria-expanded="${open?'true':'false'}"`:' disabled'}>
       <span class="dnum"><b>${dayNum(d.date)}</b><i>${esc(dayShort(d.date))}</i></span>
       <span class="dmeta"><b>${esc(dayName(d.date))}${d.date===today()?' · today':''}</b><span>${esc(sum)}</span></span>
       ${n?'<span class="chev"></span>':''}
     </button>
+    ${d.note ? `<div class="dnote"><span class="lbl">From the office</span>${esc(d.note)}</div>` : ''}
     ${n ? `<div class="dbody">${d.items.map(visit).join('')}</div>` : ''}
   </section>`;
 }

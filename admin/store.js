@@ -285,6 +285,20 @@ export const DB = {
      Shared business details live in the database. The Anthropic key and the
      chosen model are per browser and never leave it. */
   settings: () => ({ ...db.settings, anthropicKey:prefs.anthropicKey, model:prefs.model }),
+
+  /* ── A note for one crew member on one day ──────────────────────────
+     Not a property of a job: it is what the boss wants that person to
+     know that morning, whether or not there is a visit booked. It rides
+     in the settings blob keyed by person and date, so it needs no table
+     of its own and it travels into the week link with everything else. */
+  crewNote: (empId, iso) => (db.settings.crewNotes || {})[empId + '|' + iso] || '',
+  setCrewNote: (empId, iso, text) => {
+    const notes = { ...(db.settings.crewNotes || {}) };
+    const key = empId + '|' + iso;
+    if(String(text||'').trim()) notes[key] = String(text).trim(); else delete notes[key];
+    db.settings.crewNotes = notes;
+    DB.setSettings({ crewNotes: notes });
+  },
   setSettings: s => {
     if('anthropicKey' in s){ prefs.anthropicKey = s.anthropicKey; savePrefs(); delete s.anthropicKey; }
     if('model' in s){ prefs.model = s.model; savePrefs(); delete s.model; }

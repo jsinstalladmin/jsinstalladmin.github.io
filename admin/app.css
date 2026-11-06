@@ -609,3 +609,45 @@ button.backlink:hover{opacity:1}
 .stagetag{display:inline-flex;align-items:center;gap:.4em;font-size:.76rem;
   padding:.2em .6em;border-radius:999px;white-space:nowrap;
   color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent)}
+
+/* ═══════════ Building a crew member's week ═══════════ */
+.wkgrid{display:flex;flex-direction:column;gap:9px;margin:4px 0 14px}
+.wkday{border:1px solid var(--line);border-radius:11px;padding:11px 12px;
+  background:var(--panel-2,rgba(255,255,255,.02))}
+.wkday.now{border-color:color-mix(in srgb,#3F7A4D 55%,var(--line))}
+.wkday.has{background:rgba(255,255,255,.035)}
+.wkday > header{display:flex;align-items:baseline;gap:.6em;margin-bottom:.5em}
+.wkday > header b{font-size:.86rem}
+.wkday > header span{margin-left:auto;font-size:.74rem;color:var(--muted)}
+.wkvisit{display:flex;align-items:center;gap:.6em;padding:.45em 0;
+  border-top:1px solid var(--line)}
+.wkv{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
+.wkv b{font-size:.83rem}
+.wkv i{font-style:normal;font-size:.73rem;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lnkbtn{flex:0 0 auto;border:0;background:none;cursor:pointer;font:inherit;
+  font-size:.74rem;color:var(--muted);text-decoration:underline;
+  text-underline-offset:2px;padding:.2em .25em}
+.lnkbtn:hover{color:var(--ink)}
+.lnkbtn.danger:hover{color:#D08A6E}
+.wkplus{display:block;width:100%;margin-top:.45em;padding:.5em;cursor:pointer;
+  border:1px dashed var(--line);border-radius:8px;background:none;
+  font:inherit;font-size:.78rem;color:var(--muted)}
+.wkplus:hover{border-color:var(--muted);color:var(--ink)}
+.wkadd{margin-top:.5em;padding:10px;border:1px solid var(--line);border-radius:9px;
+  background:var(--panel)}
+.wkadd label{display:block;font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);margin:.55em 0 .3em}
+.wkadd label:first-child{margin-top:0}
+.wkadd select{width:100%}
+.wkadd .btnrow{margin-top:.7em;flex-wrap:wrap}
+.wknote{display:block;margin-top:.6em}
+.wknote em{display:block;font-style:normal;font-size:.72rem;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:.3em}
+.wknote textarea{width:100%}
+.wklink{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;padding:0 12px}
+.wklink > summary{cursor:pointer;padding:.7em 0;font-size:.82rem;list-style:none}
+.wklink > summary::-webkit-details-marker{display:none}
+.wklink > summary::before{content:'▸ ';color:var(--muted)}
+.wklink[open] > summary::before{content:'▾ '}
+.wklink > *:last-child{margin-bottom:.8em}

@@ -118,3 +118,12 @@ button{font:inherit;cursor:pointer}
 .day.none .dnum b{font-size:1rem}
 .day.none .dmeta b{font-size:.9rem}
 .dhd[disabled]{opacity:1}
+
+/* A note from the office for that day. Not attached to a visit, because it
+   is often the reason there is no visit: a day off, a delivery to wait in
+   for, the key is with the neighbour. */
+.dnote{margin:0 0 10px;padding:12px 14px;border-radius:10px;
+  background:rgba(214,173,106,.12);border:1px solid rgba(214,173,106,.3);
+  font-size:.95rem;line-height:1.55}
+.dnote .lbl{display:block;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;
+  opacity:.72;margin-bottom:.3em}

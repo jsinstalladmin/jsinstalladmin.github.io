@@ -1,4 +1,4 @@
-import { regionFor, describe, fullText } from './enquiry.js';
+import { regionFor } from './enquiry.js';
 import { SUPA_REST, SUPA_KEY } from './supa-config.js';
 
 const f    = document.getElementById('leadform');
@@ -54,11 +54,20 @@ function gather(){
    backup for a system that does not need one is not reassurance, it is
    homework. It is gone. They get a confirmation email instead. */
 function showSent(pkg){
-  if(!out) return;
-  out.hidden = false;
-  out.className = 'sentbox';
+  /* The old #refbox was removed with the reference code, which left this
+     with nowhere to draw. It makes its own box now rather than silently
+     doing nothing — the one thing a confirmation must never do. */
+  let box = out || document.getElementById('sentbox');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'sentbox';
+    (f?.parentNode || document.body).appendChild(box);
+  }
+  box.hidden = false;
+  box.className = 'sentbox';
+  const outEl = box;
   const c = pkg.contact || {};
-  out.innerHTML =
+  outEl.innerHTML =
     `<h3>That is with us.</h3>
      <p>We reply the same working day${c.email ? `, and a confirmation is on its way to <b>${esc(c.email)}</b>` : ''}.</p>
      <dl class="sentlist">
@@ -69,7 +78,7 @@ function showSent(pkg){
        ${pkg.design ? `<div><dt>Your design</dt><dd>${esc(pkg.design.summary || 'attached')}</dd></div>` : ''}
      </dl>
      <p class="dim">If anything above is wrong, call <a href="tel:+16466679572">(646) 667-9572</a> and we will fix it.</p>`;
-  out.scrollIntoView({behavior:'smooth', block:'nearest'});
+  outEl.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -98,81 +107,54 @@ async function fileWithTheOffice(pkg){
 
 f?.addEventListener('submit', async ev => {
   ev.preventDefault();
-  if(!f.reportValidity()) return;
+  /* novalidate is on the form so this is the only validation gate */
+  if(!f.checkValidity()){ f.reportValidity(); return; }
 
   const pkg = gather();
-  const filed = fileWithTheOffice(pkg);          // runs alongside, never blocks
-
-  /* The email to the office carries the whole enquiry in plain words, right
-     down to the height of every outlet. Nothing is encoded and nothing has
-     to be decoded at the other end. */
-  if(f.elements.enquiry_summary) f.elements.enquiry_summary.value = describe(pkg);
-  if(f.elements.enquiry_detail)  f.elements.enquiry_detail.value  = fullText(pkg);
-  /* Reply in the inbox should reach the customer, not the form service */
-  if(f.elements.replyto) f.elements.replyto.value = pkg.contact.email || '';
-
-  const key = f.elements.access_key.value;
-  if(!key || key === 'WEB3FORMS_KEY_HERE'){
-    /* Not connected yet. Nothing is silently dropped: it still goes into the
-       office database, and the enquiry opens in their own mail client too. */
-    msg.innerHTML = '<b>Sent.</b> Your enquiry is with us. You can also call <a href="tel:+16466679572">(646) 667-9572</a>.';
-    const body = [
-      `Name: ${pkg.contact.name}`, `Phone: ${pkg.contact.phone}`, `Email: ${pkg.contact.email}`,
-      `Area: ${pkg.contact.region}`, `Town or ZIP: ${pkg.contact.location}`,
-      `Address: ${pkg.contact.address || 'not given'}`, `Project: ${pkg.contact.project}`,
-      '', pkg.contact.message || '', '', fullText(pkg)
-    ].join('\n');
-    location.href = 'mailto:jsinstallationsclosets@gmail.com?subject='
-      + encodeURIComponent('Closet enquiry from the website')
-      + '&body=' + encodeURIComponent(body);
-    showSent(pkg);
-    return;
-  }
-
-  msg.textContent = 'Sending…';
   const btn = f.querySelector('button[type="submit"]');
   if(btn){ btn.disabled = true; btn.dataset.was = btn.textContent; btn.textContent = 'Sending…'; }
-  const done = () => { if(btn){ btn.disabled = false; btn.textContent = btn.dataset.was || 'Request my free measure'; } };
+  msg.textContent = 'Sending…';
 
-  try{
-    const r = await fetch(f.action, { method:'POST', body:new FormData(f) });
-    if(r.ok){
-      msg.textContent = '';
-      try{ localStorage.removeItem('js_quote'); }catch(e){}
-      filed.then(ok => { if(ok) console.info('[contact] enquiry is in the office system'); });
-      /* the customer's own copy, sent by the office rather than by this page,
-         because an email key in a public page is an email key anyone can use */
-      sendConfirmation(pkg);
-      showSent(pkg);
-      f.reset();
-    } else {
-      /* It is already in the office database by this point, so the customer is
-         not asked to do anything about it. */
-      msg.innerHTML = '<b>Sent.</b> The email relay had a problem, but your enquiry is in our system and we have it. If you would rather be sure, call <a href="tel:+16466679572">(646) 667-9572</a>.';
-      showSent(pkg);
-      f.reset();
-    }
-  }catch(e){
-    msg.innerHTML = '<b>Sent.</b> Your enquiry is in our system. If you would rather be sure, call <a href="tel:+16466679572">(646) 667-9572</a>.';
+  /* Two things happen, and the enquiry is safe if either one of them does.
+     The database write is what the office actually works from; the emails
+     are the notification. Neither is a third-party form relay any more. */
+  const filed  = fileWithTheOffice(pkg);
+  const mailed = sendMail(pkg);
+
+  const okFiled = await filed;
+  const mail = await mailed;
+
+  if(btn){ btn.disabled = false; btn.textContent = btn.dataset.was || 'Request my free measure'; }
+
+  if(okFiled || mail?.office?.ok){
+    msg.textContent = '';
+    try{ localStorage.removeItem('js_quote'); }catch(e){}
     showSent(pkg);
+    f.reset();
+  } else {
+    /* Nothing got through. Say so plainly and give them the phone number
+       rather than pretending it is fine. */
+    msg.innerHTML = '<b>That did not go through.</b> Please call us on '
+      + '<a href="tel:+16466679572">(646) 667-9572</a> and we will take it down over the phone. '
+      + 'Nothing you typed has been lost from this page.';
   }
-  done();
 });
 
-/* ── the customer's automatic reply ─────────────────────────────────────
-   Web3Forms will only send one of these on a paid plan, so it is sent by
-   the office instead: a tiny function sitting next to the database, which
-   holds the mail key where the public cannot read it. If it is not
-   deployed yet this quietly does nothing and the customer still has the
-   confirmation on screen — it never blocks the form. */
-async function sendConfirmation(pkg){
+/* ── both emails, sent by the office's own function ─────────────────────
+   Web3Forms used to send Joseph his copy and could not send the customer
+   one at all without paying. Both now come from the same function sitting
+   next to the database, which holds the mail key where the public cannot
+   read it — and because we write the email ourselves, what Joseph opens is
+   laid out the way the job actually reads. */
+async function sendMail(pkg){
   try{
     const base = SUPA_REST.replace(/\/rest\/v1\/?$/, '');
-    await fetch(base + '/functions/v1/confirm-enquiry', {
+    const r = await fetch(base + '/functions/v1/confirm-enquiry', {
       method:'POST',
       headers:{ 'Content-Type':'application/json', apikey:SUPA_KEY,
                 Authorization:'Bearer ' + SUPA_KEY },
       body: JSON.stringify({ contact: pkg.contact, design: pkg.design || null })
     });
-  }catch(e){ /* the office still has the enquiry */ }
+    return r.ok ? await r.json().catch(()=>({})) : null;
+  }catch(e){ return null; }
 }

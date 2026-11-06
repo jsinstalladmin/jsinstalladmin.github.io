@@ -65,13 +65,10 @@
 <section class="sec"><div class="shell">
 <div style="display:grid;gap:clamp(30px,5vw,76px);grid-template-columns:1.25fr 1fr" class="contact-wrap">
   <div data-rv="up">
-    <form id="leadform" action="https://api.web3forms.com/submit" method="POST">
-      <input type="hidden" name="access_key" value="4616458a-98e6-4df7-9898-7eb460a7299a">
-      <input type="hidden" name="subject" value="New closet enquiry from the JS Closets website">
-      <input type="hidden" name="from_name" value="JS Closets website">
-      <!-- So hitting Reply in the inbox goes straight to the customer rather
-           than to Web3Forms. Filled in from the email field on submit. -->
-      <input type="hidden" name="replyto" id="replyto">
+    <!-- No third-party form service. The enquiry is written into the office
+         database and both emails are sent by our own function, so the layout
+         of what Joseph reads is ours and nothing is relayed through anyone. -->
+    <form id="leadform" novalidate>
       <input type="checkbox" name="botcheck" style="display:none" tabindex="-1" autocomplete="off">
       <fieldset class="fgrp"><legend><i>1</i>Who are you?</legend>
       <div class="grid2">
@@ -121,8 +118,6 @@
       <div class="fld"><label for="m">Anything we should know</label>
         <textarea id="m" name="message" placeholder="Room size if you know it, timing, anything in the way…"></textarea></div>
       </fieldset>
-      <input type="hidden" name="enquiry_summary" id="enquiry_summary">
-      <input type="hidden" name="enquiry_detail" id="enquiry_detail">
       <div id="quoteNote" hidden style="margin:-.3em 0 1.2em;padding:.9em 1.1em;border:1px solid var(--rule);border-radius:var(--r-sm);background:var(--paper-2);font-size:.9rem"></div>
       <button class="btn btn-fill" type="submit" style="width:100%;justify-content:center">Request my free measure</button>
       <p class="dim" style="font-size:.82rem;margin-top:1em">We reply the same working day, and you get a confirmation by email straight away. We do not sell your details and we do not put you on a list.</p>
@@ -165,11 +160,11 @@
       <p class="dim" style="max-width:44ch">Pick your state to see the towns that crew covers. If you are near the edge of one of them, ask anyway: the measure is free either way, and if the job is big enough we travel for it.</p>
       <div class="regions">
         <button type="button" class="rgx" data-r="fl" aria-describedby="rgdetail">
-          <b>FL</b><span>South Florida</span><em>Since 2016</em></button>
+          <b>FL</b><span>South Florida</span><em>Since 2024</em></button>
         <button type="button" class="rgx" data-r="nj" aria-describedby="rgdetail">
           <b>NJ</b><span>New Jersey</span><em>Since 2021</em></button>
         <button type="button" class="rgx" data-r="ny" aria-describedby="rgdetail">
-          <b>NY</b><span>New York</span><em>Since 2022</em></button>
+          <b>NY</b><span>New York</span><em>Since 2016</em></button>
         <button type="button" class="rgx" data-r="ct" aria-describedby="rgdetail">
           <b>CT</b><span>Connecticut</span><em>Since 2023</em></button>
         <button type="button" class="rgx" data-r="pa" aria-describedby="rgdetail">
@@ -177,13 +172,13 @@
       </div>
       <div class="rgdetail" id="rgdetail" aria-live="polite">
         <div class="rgd" data-rd="fl" data-on="1">
-          <b>South Florida</b><span>Out of Boca Raton &middot; since 2016</span>
+          <b>South Florida</b><span>Out of Boca Raton &middot; since 2024</span>
           <p>Miami · Fort Lauderdale · West Palm Beach · Boca Raton · Delray Beach · Boynton Beach · Hollywood · Pompano Beach · Aventura · Parkland · Coral Springs · Jupiter</p></div>
         <div class="rgd" data-rd="nj">
           <b>New Jersey</b><span>Out of Paramus &middot; since 2021</span>
           <p>Bergen County · Essex County · Morris County · Hudson County · Monmouth County · Somerset County</p></div>
         <div class="rgd" data-rd="ny">
-          <b>New York</b><span>Out of Westchester &middot; since 2022</span>
+          <b>New York</b><span>Out of Westchester &middot; since 2016</span>
           <p>Westchester · Long Island · Rockland · Brooklyn · Queens · Putnam</p></div>
         <div class="rgd" data-rd="ct">
           <b>Connecticut</b><span>Out of Stamford &middot; since 2023</span>

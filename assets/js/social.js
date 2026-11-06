@@ -42,9 +42,11 @@ const card = r => `<article class="rcard">
 export function mountReviews(base=''){
   const host = document.getElementById('reviews');
   if(!host) return;
-  /* Two rows travelling opposite ways. Each row's content is repeated so the
-     loop has no seam: the animation translates by exactly one copy width. */
-  const a = REVIEWS.filter((_,i)=>i%2===0), b = REVIEWS.filter((_,i)=>i%2===1);
+  /* ONE row, not two. Two rows travelling opposite ways meant the shorter of
+     them ran out and left a band of empty paper down the middle, and the eye
+     had two things to follow instead of one. Every review is in a single
+     track now, repeated so the loop has no seam: the animation translates by
+     exactly one copy width. */
   const row = (list, dir) => `<div class="rrow ${dir}">
       <div class="rtrack">${[...list,...list,...list,...list].map(card).join('')}</div>
     </div>`;
@@ -60,8 +62,7 @@ export function mountReviews(base=''){
         <div><b>Top Pro</b><span>2024 and 2025</span></div>
       </div>
     </div>
-    ${row(a,'left')}
-    ${row(b,'right')}
+    ${row(REVIEWS,'left')}
     <p class="rsrc">Every review above is from the
       <a href="${TT_URL}" target="_blank" rel="noopener">JS Installations &amp; Closets Thumbtack profile</a>,
       shown with the reviewer's name as Thumbtack publishes it.</p>`;

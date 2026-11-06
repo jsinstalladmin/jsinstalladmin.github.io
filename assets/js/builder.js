@@ -115,6 +115,10 @@ const S = {
   /* A back on every section. Off, because a built-in closet's back is the
      wall and that is what gets installed. */
   backs:false,
+  /* Where two runs meet. 'into' gives the corner to the back wall and starts
+     the side run clear of it; 'stop' holds both runs back so the corner stays
+     a bare square. Both get built; they are different closets. */
+  corner:'into',
   /* When you ask to change ONE part of a section, this is which one. Null
      means the picker is showing everything, the way it always did. */
   swap:null,
@@ -311,14 +315,20 @@ function cfg(){
   const runs=[];
   for(const wall of ['back','left','right']){
     const r=S.runs[wall]; if(!r||!r.on) continue;
-    const start = wall==='back' ? (S.runs.left?.on?SPEC.hangDepth:0) : SPEC.hangDepth;
+    /* The back run takes the corner unless they asked for it to stop short.
+       The side runs always begin clear of the back run's depth, because two
+       boxes cannot occupy the same cubic foot. */
+    const backDepth = Math.min(S.runs.back?.depth ?? SPEC.hangDepth, wallDepthCap('back'));
+    const start = wall==='back'
+      ? ((S.runs.left?.on && S.corner==='stop') ? SPEC.hangDepth : 0)
+      : backDepth;
     /* clamp here, not only inside buildDesign, so the plan drawing, the click
        volumes and the quote are all reading the same depth */
     runs.push({wall, start, depth:Math.min(r.depth, wallDepthCap(wall)), bays:withGaps(wall)});
   }
   return { room:S.room, mounting:S.mounting, finish:S.finish,
            frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
-           door:S.door, base:S.base, backs:S.backs,
+           door:S.door, base:S.base, backs:S.backs, corner:S.corner,
            fittings:S.fittings.filter(f=>f.placed), runs };
 }
 
@@ -1340,6 +1350,14 @@ function paintPlan(){
         <button type="button" data-bmeas="wall" class="${S.base.measured==='wall'?'on':''}">Wall to wall</button>
         <button type="button" data-bmeas="baseboard" class="${S.base.measured==='baseboard'?'on':''}">Baseboard to baseboard</button>
       </div>
+      ${Object.values(S.runs).filter(r=>r?.on).length > 1 ? `
+      <em class="baseq">Where two walls meet, what happens in the corner?</em>
+      <div class="segrow col">
+        <button type="button" data-corner="into" class="${S.corner==='into'?'on':''}">
+          <b>Run the back wall into the corner</b><span>Nothing is wasted, but the last foot of that section is deep and awkward to reach. Shelves there, not drawers.</span></button>
+        <button type="button" data-corner="stop" class="${S.corner==='stop'?'on':''}">
+          <b>Stop both runs at the corner</b><span>The side panel meets the back panel and the corner is left bare. You lose the square, and every inch you keep is easy to reach.</span></button>
+      </div>` : ''}
       <em class="baseq">Do the sections need a back?</em>
       <div class="segrow col">
         <button type="button" data-backs="0" class="${S.backs?'':'on'}">
@@ -2100,7 +2118,9 @@ $('#fitlist').addEventListener('change', e=>{
     const h=e.target.closest('[data-bhand]');
     if(h){ S.base.handling=h.dataset.bhand; rebuild(true); return; }
     const bk=e.target.closest('[data-backs]');
-    if(bk){ S.backs = bk.dataset.backs === '1'; rebuild(true); }
+    if(bk){ S.backs = bk.dataset.backs === '1'; rebuild(true); return; }
+    const cn=e.target.closest('[data-corner]');
+    if(cn){ S.corner = cn.dataset.corner; rebuild(true); }
   });
 })();
 
@@ -2393,6 +2413,11 @@ function quotePackage(){
     typeLabel: S.type==='reach-in'?'Reach-In Closets':S.type==='walk-in'?'Walk-In Closets':S.type==='pantry'?'Pantries':S.type==='garage'?'Garage Storage':'Laundry Rooms',
     room:S.room, mounting:S.mounting,
     backs: S.backs ? 'A back panel on every section' : 'No backs — the wall is the back',
+    corner: Object.values(S.runs).filter(r=>r?.on).length > 1
+      ? (S.corner === 'into'
+          ? 'The back wall runs into the corner; the side run starts clear of it'
+          : 'Both runs stop at the corner and the corner square is left bare')
+      : null,
     baseboard:{ height:S.base.h, thickness:S.base.t,
                 measuredFrom:S.base.measured,
                 handling: S.base.handling==='scribe' ? 'Panels notched round the baseboard on site'
@@ -2438,6 +2463,7 @@ $('#send').onclick=()=>{
     + line('Hardware', `${q.pull} in ${q.pullFinish}`)
     + line('Doors', q.door)
     + line('Backs', q.backs)
+    + (q.corner ? line('The corner', q.corner) : '')
     + line('Baseboard', `${q.baseboard.height}" tall, ${q.baseboard.thickness}" thick · `
         + `measured ${q.baseboard.measuredFrom === 'wall' ? 'wall to wall' : 'baseboard to baseboard'} · `
         + q.baseboard.handling)
