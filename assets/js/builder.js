@@ -300,7 +300,7 @@ if(qPre){
   const wall = Object.keys(S.runs).find(w => S.runs[w]?.on);
   if(pre && wall){
     const nb = makeBay(clampBay(Math.min(32, wallLength(wall))),
-                       structuredClone(pre.stack), pre.top !== false);
+                       structuredClone(pre.stack), true);
     nb.at = 0;
     S.runs[wall].bays.push(nb);
     S.sel = { wall, i:0 };
@@ -702,10 +702,41 @@ function drawRoom(){
     b.position.set(px, BASE_H/2, pz); b.rotation.y = ry;
     b.castShadow = false; b.receiveShadow = true; shell.add(b);
   };
-  baseboard(W, X0 + W/2,          BASE_T/2,   0);
-  baseboard(D, X0 + BASE_T/2,     D/2,        Math.PI/2);
-  baseboard(D, X0 + W - BASE_T/2, D/2,        Math.PI/2);
-  baseboard(W, X0 + W/2,          D - BASE_T/2, 0);
+  /* ── Where the cabinetry covers it, the baseboard is NOT drawn ──────────
+     This is the whole "it is not up to the wall" problem, and it was the
+     drawing's fault rather than the geometry's: the run's back face has
+     always been exactly on the wall, but the baseboard was drawn straight
+     through it, full length. Because the sections are open at the back and
+     the base is 4.5" against a 3.75" toe kick, three quarters of an inch of
+     white baseboard showed INSIDE every section, right at floor level. A
+     white strip behind the cabinetry is the exact thing your eye reads as
+     "that is standing off the wall".
+
+     Notched or removed, the base is behind the run and you cannot see it,
+     so it is not drawn there. Standing in FRONT of it, you can see it and
+     it stays, because then it really is there. */
+  const covered = wall => {
+    if(S.base.handling === 'front') return [];      // it is genuinely visible
+    const r = S.runs[wall]; if(!r?.on || !r.bays?.length) return [];
+    const off = wall === 'back' ? 0 : SPEC.hangDepth;
+    return layout(wall)
+      .map(sb => [off + sb.at, off + sb.at + sb.w])
+      .sort((a, b) => a[0] - b[0]);
+  };
+  /* one length of base, minus the stretches the cabinetry sits on */
+  const baseRun = (len, gaps, place) => {
+    let at = 0;
+    for(const [from, to] of gaps){
+      if(from > at + 0.02) place(at, Math.min(from, len));
+      at = Math.max(at, Math.min(to, len));
+    }
+    if(at < len - 0.02) place(at, len);
+  };
+
+  baseRun(W, covered('back'),  (a, b) => baseboard(b - a, X0 + (a + b) / 2, BASE_T / 2, 0));
+  baseRun(D, covered('left'),  (a, b) => baseboard(b - a, X0 + BASE_T / 2, (a + b) / 2, Math.PI / 2));
+  baseRun(D, covered('right'), (a, b) => baseboard(b - a, X0 + W - BASE_T / 2, (a + b) / 2, Math.PI / 2));
+  baseboard(W, X0 + W/2, D - BASE_T/2, 0);          // the near wall, never built on
 }
 
 function drawCloset(res){
@@ -1624,7 +1655,7 @@ function paintStack(){
   const sig = st => st.map(x => x.m).join('>');
   const nowSig = sig(bay.stack);
   const matched = PRESETS.find(p => sig(p.stack) === nowSig
-                                 && (p.top !== false) === (bay.top !== false));
+                                 && p.top !== false);
   const presetCards = PRESETS.map(pre => {
     const price = presetDelta(pre, bay.w, usable, cat, S.finish);
     const delta = (price != null && cheapest != null) ? Math.round(price - cheapest) : null;
@@ -1717,13 +1748,6 @@ function paintStack(){
           <button data-move="-1" ${S.sel.i===0?'disabled':''} title="Move left along the wall">&#9664;</button>
           <button data-move="1" ${S.sel.i>=S.runs[S.sel.wall].bays.length-1?'disabled':''} title="Move right along the wall">&#9654;</button>
         </span>
-        <button class="toptog ${bay.top === false ? '' : 'on'}" data-toptog="1"
-          aria-pressed="${bay.top !== false}"
-          title="${bay.top === false
-            ? 'No shelf over this section. The hanging runs clear to the top.'
-            : 'A shelf caps this section at the top. Turn it off to run the hanging full height.'}">
-          <svg viewBox="0 0 24 16" aria-hidden="true"><path d="M2 4h20"/><path d="M4 8v6M20 8v6"/></svg>
-          <i>Top shelf</i></button>
         <button class="rmsec" data-rmsec="1" title="Remove this section">Remove section</button>
       </span></div>
 
@@ -2223,11 +2247,12 @@ $('#stack').onclick=e=>{
   }
   if(t.dataset.preset){
     const pre = PRESETS.find(p=>p.id===t.dataset.preset);
-    if(pre){ bay.stack = structuredClone(pre.stack); bay.top = pre.top !== false; rebuild(true); }
+    if(pre){ bay.stack = structuredClone(pre.stack); bay.top = true; rebuild(true); }
     return;
   }
   /* the top shelf is a choice per section, not a law */
-  if(t.dataset.toptog){ bay.top = bay.top === false; rebuild(false); return; }
+  /* The top deck is what ties the partitions together and squares the box.
+     It was offered as a choice; it is not one. Every section gets one. */
   if(t.dataset.move){
     /* Slide it along the wall. Held against a neighbour it swaps with it, so
        the arrows still reorder when there is no room to simply move. */

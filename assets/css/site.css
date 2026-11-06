@@ -1124,3 +1124,11 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
   background:var(--ink);color:var(--paper);font-size:.71rem;font-weight:600}
 .ctsteps li b{display:block;font-size:.93rem;font-weight:500;color:var(--ink);line-height:1.35}
 .ctsteps li span{display:block;font-size:.85rem;color:var(--muted);line-height:1.55;margin-top:.15em}
+
+
+/* ── One review row, not two ───────────────────────────────────────────────
+   Two rows scrolling opposite ways left a band of empty paper down the
+   middle whenever one row was shorter than the other, and the eye had two
+   things to follow instead of one. Every review is now in a single track. */
+.rrow.left .rtrack{animation-duration:104s}
+.rrow + .rrow{margin-top:0}

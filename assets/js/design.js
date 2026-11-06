@@ -626,10 +626,6 @@ export const PRESETS = [
     desc:'Two rods: shirts up top, trousers below. The most storage per foot.',
     stack:[{m:'DOUBLE_HANG',h:null,o:{}}] },
 
-  { id:'double-open', name:'Double Hanging, Open Top', img:'double-hang', art:'double-open', top:false,
-    desc:'The same two rods, run clear to the top with no shelf capping it. Taller hanging, nothing sitting above your head.',
-    stack:[{m:'DOUBLE_HANG',h:null,o:{}}] },
-
   { id:'long-hang',   name:'Long Hanging',     img:'long-hang',
     desc:'One full-height rod for dresses and coats.',
     stack:[{m:'LONG_HANG',h:null,o:{}}] },
@@ -810,7 +806,7 @@ export function buildDesign(cfg, cat){
   if(cfg.base?.handling === 'remove') warnings.push(
     'The baseboard behind the run is to be taken off so the cabinetry goes back to bare wall. It is not refitted afterwards.');
   if(cfg.base?.handling === 'scribe') warnings.push(
-    `The panels are notched round the ${(+cfg.base.h||0).toFixed(0)}" baseboard on site so the run sits back to the wall.`);
+    `The panels are notched round the ${(+(+cfg.base.h||0).toFixed(2))}" baseboard on site so the run sits back to the wall.`);
 
   const bayIndex = [];     // flat list so the UI can address every bay
 
@@ -847,7 +843,13 @@ export function buildDesign(cfg, cat){
       if(span > 0.01){
         const endH = lastTop - floorY + SPEC.panel;
         parts.push(P(code,1,(endH*depth)/144,(endH+depth)/12,`End panel — ${run.wall}`));
-        local.push({k:'panel', p:[x, floorY+endH/2, 0], s:[SPEC.panel,endH,depth], m:'carcass'});
+        /* Drawn INSIDE the island, not centred on its edge. A panel centred on
+           x spans x±0.375, so the end panel of a run that reached the corner
+           had 0.375" of itself standing inside the wall. You could see it
+           through the plaster. The island's outer face now lands exactly on
+           the measurement, which is also what gets built. */
+        local.push({k:'panel', p:[x - SPEC.panel/2, floorY+endH/2, 0],
+                    s:[SPEC.panel,endH,depth], m:'carcass'});
         parts.push(P('CLEAT',1,(span*4)/144,span/12,`Hang cleat — ${run.wall}`));
         if(cfg.mounting!=='wall' && !liftedByHeat){
           parts.push(P('TK',1,(span*SPEC.toeKick)/144,span/12,`Toe kick — ${run.wall}`));
@@ -882,9 +884,12 @@ export function buildDesign(cfg, cat){
       for(const { sp, over } of bayClips(fittings, run.wall, a, b)) warnings.push(
         `Section ${bi+1} on the ${run.wall} wall clips the ${(sp.label||'').toLowerCase()} by ${over.toFixed(0)}". That is scribed to the casing on site rather than dropping the whole section, so it is built full height.`);
 
-      // left panel of this bay
+      // left panel of this bay — pushed inboard when it is the island's first,
+      // for the same reason as the end panel above
       parts.push(P(code,1,(panelH*depth)/144,(panelH+depth)/12,`Partition ${bi+1} — ${run.wall}`));
-      local.push({k:'panel', p:[x, floorY+panelH/2, 0], s:[SPEC.panel,panelH,depth], m:'carcass'});
+      const firstOfIsland = Math.abs(x - islandStart) < 0.01;
+      local.push({k:'panel', p:[x + (firstOfIsland ? SPEC.panel/2 : 0), floorY+panelH/2, 0],
+                  s:[SPEC.panel,panelH,depth], m:'carcass'});
 
       const inner = bay.w - SPEC.panel;
       const cx = x + bay.w/2;
