@@ -20,16 +20,24 @@ const io = new IntersectionObserver((es)=>{
 },{rootMargin:'0px 0px -8% 0px', threshold:.08});
 
 const REVEAL = [
-  '.sec > .shell > h2', '.sec-tight > .shell > h2', '.sec .lede', '.sec-tight .lede',
-  '.ed > div > p', '.ed > div > ul', '.infobox', '.stepbox', '.svccard', '.relcard',
-  '.faqitem', '.dcard', '.rg', '.inc', '.gcell', '.statrow', '.cta-band'
+  '.sec > .shell > h2', '.sec-tight > .shell > h2', '.sec-dark > .shell > h2',
+  '.sec .lede', '.sec-tight .lede', '.ed > div > p', '.ed > div > ul',
+  '.infobox', '.stepbox', '.svccard', '.relcard', '.faqitem', '.dcard', '.rg',
+  '.inc', '.gcell', '.statrow', '.cta-band', '.fswatch', '.lvrow', '.artfig',
+  '.finhd > div', '.rmeta div', '.arttable', '.artnote', '.article > h2',
+  '.article > p', '.article > .artlist'
 ];
 document.querySelectorAll(REVEAL.join(',')).forEach(el=>{
   if(!el.hasAttribute('data-rv')) el.setAttribute('data-rv','up');
 });
 /* a card in a row waits its turn, so a grid lands like a hand of cards */
-document.querySelectorAll('.svcgrid, .relgrid, .designs, .stepgrid, .regions, .incs').forEach(g=>{
-  [...g.children].forEach((c,i)=>c.style.setProperty('--rvd', (Math.min(i,7)*70)+'ms'));
+document.querySelectorAll('.svcgrid, .relgrid, .designs, .stepgrid, .regions, .incs, .finwall, .lvgrid, .ggrid, .faqlist')
+  .forEach(g=>{
+    [...g.children].forEach((c,i)=>c.style.setProperty('--rvd', (Math.min(i,11)*55)+'ms'));
+  });
+/* paragraphs inside an article arrive in sequence rather than together */
+document.querySelectorAll('.article').forEach(a=>{
+  [...a.children].forEach((c,i)=>c.style.setProperty('--rvd', (Math.min(i,6)*45)+'ms'));
 });
 document.querySelectorAll('[data-rv]').forEach(el=>io.observe(el));
 

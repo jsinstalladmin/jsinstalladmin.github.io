@@ -213,10 +213,57 @@ const fit = (list, max) => { const ok = list.filter(v => v <= max); return ok.le
    LIMIT  = how many of this module belong in one bay
    GROUP  = modules in the same group are mutually exclusive (one front only) */
 export const LIMIT = {
-  LONG_HANG:1, DOUBLE_HANG:1, DOOR:1, GLASS_DOOR:1, HAMPER:1, COUNTER:2,
+  LONG_HANG:1, DOUBLE_HANG:1, SHORT_HANG:1, DOOR:1, GLASS_DOOR:1, HAMPER:1, COUNTER:2,
   DRAWERS:2, BASKETS:2, SHOES:2, SHOE_SLANT:2, SHELVES:3, CUBBIES:2, OPEN:2
 };
 const GROUP = { DOOR:'front', GLASS_DOOR:'front' };
+
+/* ══════════════════════════════════════════════════════════════════════
+   WHAT CAN GO WITH WHAT
+
+   Every rule below is a real constraint from building these, not a UI
+   preference. Before this, the picker would let you put a tilt-out hamper
+   and a bank of pull-out baskets in the same 24" section, or three fillers
+   in one bay, and then quietly build something that cannot exist.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* A module that fills whatever height is left. Two of them in one section
+   means neither is the height it is supposed to be, so: one. */
+const FILLS = id => !!MODULES[id]?.fill;
+
+/* Pull-out hardware that needs the front of the section to itself while it
+   is open. A tilt-out hamper swings its whole front DOWN and OUT, straight
+   through the path a basket above it would pull along. */
+const PULLS_OUT = new Set(['HAMPER','BASKETS','DRAWERS']);
+
+/* Pairs that genuinely cannot share one section, with the reason. */
+const CLASH = [
+  { a:'HAMPER', b:'BASKETS',
+    why:'A tilt-out hamper swings its front down and out, straight through where a pull-out basket would slide. One or the other in a section, not both.' },
+  { a:'COUNTER', b:'HAMPER',
+    why:'A counter top is a fixed work surface and a hamper has to tilt out from under it. They need separate sections.' },
+];
+
+/* Modules with a front that opens: a drawer pulls out, a door swings. Put
+   one of these in the section at an inside corner and it opens straight into
+   the run returning along the next wall. This is the reason closet companies
+   put shelving in a corner, never drawers. */
+export const OPENING_FRONT = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER','BASKETS']);
+
+/* Is this section the one sitting in an inside corner? A run on a side wall
+   starts clear of the back run's depth, so the back run's FIRST section is
+   the one the side run returns across. */
+export function cornerBlocked(cfg, wall, bayIndex, bayStart, bayWidth){
+  if(!cfg || !cfg.runs) return null;
+  const on = w => cfg.runs.some(r => r.wall === w && r.bays.length);
+  const dep = cfg.runs.find(r => r.wall === wall)?.depth || SPEC.hangDepth;
+  if(wall === 'back'){
+    if(on('left')  && bayStart < dep - 0.01)  return 'left';
+    const backW = cfg.room.w;
+    if(on('right') && bayStart + bayWidth > backW - dep + 0.01) return 'right';
+  }
+  return null;
+}
 
 /* The real constraint is vertical: everything in the bay has to fit between
    the toe kick and the top shelf at its own minimum height. */
@@ -233,6 +280,20 @@ export function canAdd(stack, id, usableH){
 
   if(GROUP[id] && stack.some(s => GROUP[s.m] === GROUP[id]))
     return { ok:false, why:'This section already has a front on it.' };
+
+  /* one filler per section */
+  if(FILLS(id) && stack.some(st => FILLS(st.m)))
+    return { ok:false, why:`This section already has ${MODULES[stack.find(st=>FILLS(st.m)).m].label.toLowerCase()} filling the space left. Take that out first, or pick a part with a fixed height.` };
+
+  /* pairs that cannot physically share a section */
+  for(const c of CLASH){
+    if((id===c.a && stack.some(st=>st.m===c.b)) || (id===c.b && stack.some(st=>st.m===c.a)))
+      return { ok:false, why:c.why };
+  }
+
+  /* a section is not a chest of drawers with a hamper in it as well */
+  if(PULLS_OUT.has(id) && stack.filter(st => PULLS_OUT.has(st.m)).length >= 2)
+    return { ok:false, why:'Two runs of pull-out hardware is already as much as one section takes. A third would leave nothing to hang or fold on.' };
 
   const need = stack.reduce((a,s) => a + MODULES[s.m].minH, 0) + def.minH;
   if(need > usableH + 0.5)
@@ -271,6 +332,25 @@ export const MODULES = {
       hang(G, 0, mid-5,  Math.min(h/2-8, 32), w, d);
     }
   },
+  /* A hamper is 28" tall and a closet is 80" of usable height, which leaves
+     52" over it. A long hang needs 62" and a double hang needs 70", so
+     neither of them fits — which is why "hamper + hanging" could not be built
+     and was being drawn hanging through the top shelf. A short hang is the
+     real product for that gap: one rod, 38" to 52" of clear drop, shirts and
+     folded trousers. Closet companies sell it as its own thing. */
+  SHORT_HANG: {
+    label:'Short hang', hint:'One rod over something else. Shirts, jackets, folded trousers.',
+    spec:'One rod · 38"–54" of drop',
+    icon:'M2 5h20M6 9h12M7 9v8M11 9v9M15 9v8M19 9v9',
+    defH:46, minH:38, maxH:54, fill:true,
+    build(c){
+      const {w,d,y,h,G,parts} = c;
+      parts.push(P('HANGROD',1,0,0,'Hang rod'));
+      G.push({k:'rod', p:[0, y+h-5, 0], s:[w-1,1.4,1.4], m:'metal'});
+      hang(G, 0, y+h-5, Math.min(h-9, 34), w, d);
+    }
+  },
+
   SHELVES: {
     label:'Adjustable shelves', hint:'Folded knits, bags, boxes. Moves on 32mm centres.',
     spec:'Adjustable on 32mm centres · 12\"–84\"',
@@ -357,8 +437,28 @@ export const MODULES = {
       const {w,d,y,h,G,parts,pull} = c;
       parts.push({code:'HAMPER',qty:1,note:'Tilt-down hamper'});
       parts.push({code:'HAMPER_BASKET',qty:1,w,d,finish:c.basketFinish,note:'Tilt-out hamper basket'});
-      G.push({k:'front', p:[0, y+h/2, d/2-0.4], s:[w-0.2, h-1, 0.8], m:'front'});
-      addPull(G, pull, 0, y+h/2, d/2, w, h);
+      /* It was a flat slab with a pull on it, indistinguishable from a door.
+         A tilt-out is drawn tilted: the front pivots at its bottom edge and
+         leans out, and the wire basket it carries is visible behind it. */
+      const TILT = 0.22;                                   // about 13 degrees
+      G.push({k:'front', p:[0, y+h/2, d/2 - 0.4 + Math.sin(TILT)*h*0.18],
+              s:[w-0.2, h-1, 0.8], m:'front', tilt:-TILT});
+      addPull(G, pull, 0, y + h*0.78, d/2 + Math.sin(TILT)*h*0.18, w, h);
+      /* the wire basket inside it */
+      const HW_ = 0.22, hw = w - 3, hd = d - 5;
+      const hb = y + 2.5, ht = y + h - 3;
+      const bar = (px,py,pz,sx,sy,sz) => G.push({k:'wire', p:[px,py,pz], s:[sx,sy,sz], m:'metal'});
+      const fN = Math.max(4, Math.round(hw/2.4));
+      for(let k=0;k<fN;k++) bar(-hw/2 + (hw/(fN-1))*k, hb, -1, HW_, HW_, hd);
+      bar(0, ht, -hd/2-1, hw, HW_*1.5, HW_*1.5);
+      bar(0, ht,  hd/2-1, hw, HW_*1.5, HW_*1.5);
+      for(const sx of [-1,1]) bar(sx*(hw/2), (hb+ht)/2, -1, HW_*1.4, ht-hb, HW_*1.4);
+      const vN2 = Math.max(5, Math.round(hw/2.6));
+      for(let k=1;k<vN2;k++){
+        const px = -hw/2 + (hw/vN2)*k;
+        bar(px, (hb+ht)/2, -hd/2-1, HW_, ht-hb, HW_);
+        bar(px, (hb+ht)/2,  hd/2-1, HW_, ht-hb, HW_);
+      }
       if(pull && pull.id!=='none') parts.push({code:'PULL',qty:1,note:`1 × ${pull.name}`});
     }
   },
@@ -371,7 +471,46 @@ export const MODULES = {
       const {w,d,y,h,G,parts,o} = c;
       const n = clamp(o.n ?? 3, 1, 6);
       parts.push({code:'BASKET',qty:n,w,d,bh:h/n,finish:c.basketFinish,note:`${n} pull-out baskets`});
-      for(let i=0;i<n;i++) G.push({k:'basket', p:[0, y+(h/n)*i+(h/n)/2, 0], s:[w-2, (h/n)-2, d-3], m:'metal'});
+      /* A chrome wire basket was being drawn as one solid metal block, which
+         read as a painted drawer rather than the wire basket it is. It is now
+         built the way the real thing is: a wire floor, a perimeter rail top
+         and bottom, corner posts, and vertical wires down the front and sides.
+         At card size that reads as wire; close up it reads as the product. */
+      const BW = 0.22;                       // wire diameter, about 5.5mm
+      const bw = w - 2, bd = d - 3;          // basket inside the opening
+      for(let i=0;i<n;i++){
+        const bh = h/n, cy = y + bh*i, top = cy + bh - 1.2, bot = cy + 0.8;
+        const rail = (px,py,pz,sx,sy,sz) => G.push({k:'wire', p:[px,py,pz], s:[sx,sy,sz], m:'metal'});
+        // floor: a grid of wires running front to back
+        const floorN = Math.max(4, Math.round(bw/2.2));
+        for(let k=0;k<floorN;k++)
+          rail(-bw/2 + (bw/(floorN-1))*k, bot, 0, BW, BW, bd);
+        rail(0, bot, -bd/2+BW, bw, BW, BW);  rail(0, bot, bd/2-BW, bw, BW, BW);
+        // top rail, all four sides
+        rail(0, top, -bd/2+BW, bw, BW*1.4, BW*1.4);
+        rail(0, top,  bd/2-BW, bw, BW*1.4, BW*1.4);
+        rail(-bw/2+BW, top, 0, BW*1.4, BW*1.4, bd);
+        rail( bw/2-BW, top, 0, BW*1.4, BW*1.4, bd);
+        // corner posts
+        for(const sx of [-1,1]) for(const sz of [-1,1])
+          rail(sx*(bw/2-BW), (bot+top)/2, sz*(bd/2-BW), BW*1.3, top-bot, BW*1.3);
+        // vertical wires: front and back faces, then the two ends
+        const vN = Math.max(5, Math.round(bw/2.4));
+        for(let k=1;k<vN;k++){
+          const px = -bw/2 + (bw/vN)*k;
+          rail(px, (bot+top)/2, -bd/2+BW, BW, top-bot, BW);
+          rail(px, (bot+top)/2,  bd/2-BW, BW, top-bot, BW);
+        }
+        const eN = Math.max(3, Math.round(bd/3));
+        for(let k=1;k<eN;k++){
+          const pz = -bd/2 + (bd/eN)*k;
+          rail(-bw/2+BW, (bot+top)/2, pz, BW, top-bot, BW);
+          rail( bw/2-BW, (bot+top)/2, pz, BW, top-bot, BW);
+        }
+        // the full-extension runner the basket rides on
+        for(const sx of [-1,1])
+          G.push({k:'glide', p:[sx*(w/2-0.5), cy + 1.6, 0], s:[0.5, 0.9, d-2], m:'metal'});
+      }
       /* same as the drawer bank — the runners mount to a fixed top */
       G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
       parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the basket run'));
@@ -388,6 +527,11 @@ export const MODULES = {
       parts.push(P('CUBBY',rows*cols,(w*d)/144*rows + (h*d)/144*(cols-1), (w/12)*rows + (h/12)*(cols-1), `${rows}×${cols} cubby grid`));
       for(let r=1;r<rows;r++) G.push({k:'shelf', p:[0, y+(h/rows)*r, 0], s:[w, SPEC.panel, d], m:'carcass'});
       for(let cI=1;cI<cols;cI++) G.push({k:'panel', p:[-w/2 + (w/cols)*cI, y+h/2, 0], s:[SPEC.panel, h, d], m:'carcass'});
+      /* The grid had no lid, so the top row of cubbies opened straight into
+         whatever was above it and the block read as unfinished. A cubby grid
+         is a box: it gets a top. */
+      G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
+      parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the cubby grid'));
     }
   },
   COUNTER: {
@@ -474,9 +618,12 @@ export const PRESETS = [
     desc:'A bank of soft-close drawers with shelving over it.',
     stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'SHELVES',h:null,o:{n:3}}] },
 
+  /* A double hang needs 70" of its own, so over a 34" drawer bank it asked
+     for 104" in an 80" section and was drawn hanging through the top shelf.
+     Drawers under a short hang is what this actually is, and what gets built. */
   { id:'hang-drawers',name:'Hanging + Drawers', img:'drawers', art:'hang-drawers',
     desc:'Drawers at the bottom, a hanging rod above. The usual bedroom answer.',
-    stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'DOUBLE_HANG',h:null,o:{}}] },
+    stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'SHORT_HANG',h:null,o:{}}] },
 
   { id:'baskets',     name:'Pull-Out Baskets',  img:'baskets', art:'basket-shelf',
     desc:'Chrome wire on full-extension glides, shelving above.',
@@ -487,8 +634,12 @@ export const PRESETS = [
     stack:[{m:'SHOE_SLANT',h:null,o:{}}] },
 
   { id:'hamper',      name:'Hamper + Hanging',  img:'hamper', art:'hamper-hang',
-    desc:'Tilt-out laundry hamper under a hanging rod.',
-    stack:[{m:'HAMPER',h:28,o:{}},{m:'DOUBLE_HANG',h:null,o:{}}] },
+    desc:'Tilt-out laundry hamper with a hanging rod over it. The rod is a short hang, because a hamper takes the bottom 28".',
+    stack:[{m:'HAMPER',h:28,o:{}},{m:'SHORT_HANG',h:null,o:{}}] },
+
+  { id:'hamper-shelf', name:'Hamper + Shelves',  img:'hamper',
+    desc:'The same tilt-out hamper with folded storage above it instead of hanging.',
+    stack:[{m:'HAMPER',h:28,o:{}},{m:'SHELVES',h:null,o:{n:4}}] },
 
   { id:'cubbies',     name:'Cubbies',           img:'cubbies',
     desc:'A grid of open compartments for bags, hats and folded knits.',
@@ -500,6 +651,14 @@ export const PRESETS = [
 /* The open-top variant builds no top shelf, so it is genuinely cheaper. The
    card used to quote both at the same number because this only looked at the
    stack. */
+/* Does this ready-made layout physically fit the section it is being offered
+   for? Single parts were already checked by canAdd; the ready-made ones were
+   not, so one could be clicked into a section too short to hold it. */
+export function presetFits(preset, usableH){
+  const need = preset.stack.reduce((a,x) => a + (x.h ?? MODULES[x.m].minH), 0);
+  return { ok: need <= usableH + 0.5, need };
+}
+
 export function presetDelta(preset, bayW, usableH, cat, finish){
   try{
     const mk = (st, top) => buildDesign({ room:{w:bayW+1.5,d:24,h:96}, mounting:'floor',
@@ -568,12 +727,25 @@ function resolveHeights(stack, total){
   const left = Math.max(0, total - used);
   if(fillers.length){
     /* Give each filler its minimum first, then share whatever is genuinely
-       spare. Clamping a slice back up to minH — which is what this used to do
-       — invented height that the bay does not have. */
-    const floor = fillers.reduce((a,s) => a + s.def.minH, 0);
-    const spare = Math.max(0, left - floor);
-    const bonus = spare / fillers.length;
-    fillers.forEach(s => s.H = Math.min(s.def.maxH, s.def.minH + bonus));
+       spare. The old version still invented height: with nothing spare it
+       handed every filler its FULL minH, so a double hang (70" minimum) over
+       a 28" hamper was drawn 70" tall inside a 52" gap and its garments hung
+       straight out through the top shelf. A filler now gets its fair share of
+       what is actually there, and `short` records by how much it is under its
+       own minimum so buildDesign can say so. */
+    const share = left / fillers.length;
+    fillers.forEach(s => {
+      s.H = Math.max(0, Math.min(s.def.maxH, Math.min(s.def.minH, share)));
+      s.short = s.def.minH - s.H;
+    });
+    /* anything still spare after every filler hit its minimum is shared out */
+    const usedByFillers = fillers.reduce((a,s) => a + s.H, 0);
+    let spare = Math.max(0, left - usedByFillers);
+    if(spare > 0.01){
+      const room = fillers.filter(s => s.H < s.def.maxH - 0.01);
+      const bonus = spare / (room.length || 1);
+      room.forEach(s => { s.H = Math.min(s.def.maxH, s.H + bonus); s.short = Math.max(0, s.def.minH - s.H); });
+    }
   }
   return mods;
 }
@@ -650,6 +822,16 @@ export function buildDesign(cfg, cat){
         local.push({k:'shelf', p:[cx, myTop, 0], s:[inner, SPEC.panel, depth], m:'carcass'});
       }
 
+      /* A section in an inside corner has the next run returning across its
+         front. A drawer, a door or a hamper there opens into that run and
+         cannot be used, which is why a corner gets shelving in a real closet. */
+      const corner = cornerBlocked(cfg, run.wall, bi, a, bay.w);
+      if(corner){
+        const blocked = bay.stack.filter(st => OPENING_FRONT.has(st.m));
+        if(blocked.length) warnings.push(
+          `Section ${bi+1} is in the corner where the ${corner} wall returns, so ${blocked.map(st=>MODULES[st.m].label.toLowerCase()).join(' and ')} there would open straight into that run. A corner section wants shelving or hanging instead.`);
+      }
+
       /* access checks, all tied to this bay by number so the installer and the
          customer are reading the same sheet */
       const opens = bay.stack.some(st => OPENS.has(st.m));
@@ -682,6 +864,8 @@ export function buildDesign(cfg, cat){
            review panel can say "Drawer bank  $1,240" instead of listing forty
            panels. Parts pushed by the carcass code below carry no stamp and
            fall into the base system, which is how closet companies quote. */
+        if(s.short > 0.5) warnings.push(
+          `Section ${bi+1} on the ${run.wall} wall: ${MODULES[s.m].label.toLowerCase()} needs ${MODULES[s.m].minH}" and only ${s.H.toFixed(0)}" is left after everything else in that section. Take something out, make the section taller, or pick a part that fits.`);
         const mark = parts.length;
         MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull,
                               boxStyle: cfg.boxStyle || DEFAULT_BOX_STYLE,

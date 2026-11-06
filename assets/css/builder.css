@@ -973,3 +973,7 @@ body[data-step="6"] .pacts{margin-top:0}
 .pcard > img, .pcard > .pstack{height:auto}
 .pcard img{height:auto}
 .pcard .pstack img{height:100%}
+/* an empty picker takes up no room at all */
+#stack:empty{display:none}
+.runblk .stackslot > #stack:empty{border:0;padding:0}
+.stackslot:has(> #stack:empty){display:none}

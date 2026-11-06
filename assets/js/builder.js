@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS,
-         presetDelta, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit,
+         presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit,
          baseHeight } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, makeComposer } from './render.js';
@@ -524,7 +524,9 @@ function drawCloset(res){
   const baseC=finishMaterial(res.finish,shared,'carcass');
   const baseF=finishMaterial(res.frontFinish,shared,'front');
   res.geo.forEach((g,i)=>{
-    const [sx,sy,sz]=g.s.map(v=>Math.max(0.3,v));
+    /* The floor was 0.3", which is thicker than a basket wire. Wire is drawn
+       at about 0.22" and was being fattened into a bar. */
+    const [sx,sy,sz]=g.s.map(v=>Math.max(0.1,v));
     let mat;
     if(g.m==='metal') mat=HW;
     else if(g.m==='pullmat') mat=PULLMAT;
@@ -1259,7 +1261,10 @@ function paintStack(){
        meant opening an empty wall immediately bounced you back to the full
        one and the empty wall could never be worked on. */
     if(run?.on){
-      box.innerHTML = `<p class="note emptysel">Nothing on the ${S.sel.wall} wall yet. Pick a width below and it lands in the left corner.</p>`;
+      /* The wall's own strip already says "Nothing on this wall yet. Pick a
+         width below" right above this, so printing it again here was the same
+         sentence twice in the same box. The picker just stays empty. */
+      box.innerHTML = '';
       dockStack();
       return;
     }
@@ -1326,11 +1331,14 @@ function paintStack(){
       : `<img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async"
              width="420" height="315">`;
     const on = matched?.id === pre.id;
+    const fit = presetFits(pre, usable);
     return `<button class="pcard ready" data-preset="${pre.id}" aria-pressed="${on}"
-                    title="${pre.desc.replace(/"/g,'&quot;')}">
+                    ${fit.ok ? '' : 'disabled'}
+                    title="${(fit.ok ? pre.desc : `${pre.name} needs ${fit.need}" and this section only has ${usable.toFixed(0)}". Make the section taller or pick something shorter.`).replace(/"/g,'&quot;')}">
       ${art}<i>${pre.name}</i>
-      <span class="phov"><em>${pre.desc}</em></span>
-      <span class="pbadge">${on ? 'Current' : 'Ready-made'}</span>${tag ? `<u>${tag}</u>` : ''}</button>`;
+      <span class="phov"><em>${fit.ok ? pre.desc : `Needs ${fit.need}", this section has ${usable.toFixed(0)}".`}</em></span>
+      <span class="pbadge">${on ? 'Current' : 'Ready-made'}</span>${
+        fit.ok ? (tag ? `<u>${tag}</u>` : '') : '<u class="full">Too tall</u>'}</button>`;
   }).join('');
 
   const partCards = MODULE_IDS.map(id => {
@@ -1807,7 +1815,22 @@ $('#stack').onclick=e=>{
     }
   }
   else if(t.dataset.add){ const d=MODULES[t.dataset.add];
-    bay.stack.unshift({m:t.dataset.add, h:d.fill?null:d.defH, o:d.opt?{[d.opt.key]:d.opt.def}:{}}); }
+    bay.stack.unshift({m:t.dataset.add, h:d.fill?null:d.defH, o:d.opt?{[d.opt.key]:d.opt.def}:{}});
+    /* Dropping a drawer bank into an empty section used to leave 46" of
+       nothing above it — not a closet, just a chest with air over it. If what
+       was added has a fixed height and nothing is filling the space left, the
+       section is completed with whatever still fits, so every section you can
+       build is a section we could install. */
+    if(!bay.stack.some(st => MODULES[st.m].fill)){
+      const floorY = baseHeight(S.mounting, placedFittings());
+      const room = (cur?.bays?.find(x=>x.wall===S.sel.wall&&x.bay===S.sel.i)?.h
+                    ?? (Math.min(SPEC.topShelf, S.room.h-6) - floorY))
+                   - bay.stack.reduce((a,st)=>a+(st.h ?? MODULES[st.m].defH),0);
+      const top = ['SHORT_HANG','SHELVES','OPEN'].find(id =>
+        MODULES[id].minH <= room + 0.5 && canAdd(bay.stack, id, room + bay.stack.reduce((a,st)=>a+(st.h??MODULES[st.m].defH),0)).ok);
+      if(top) bay.stack.push({ m:top, h:null, o:MODULES[top].opt?{[MODULES[top].opt.key]:MODULES[top].opt.def}:{} });
+    }
+  }
   /* An empty section is a perfectly good state — it is what you get the moment
      you add one — so the last part can be deleted like any other. Refusing to
      delete it meant the only way out of a wrong choice was deleting the whole
