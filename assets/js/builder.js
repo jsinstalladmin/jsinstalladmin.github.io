@@ -156,6 +156,83 @@ function freeSpace(wall){
   const r = S.runs[wall]; if(!r) return 0;
   return wallLength(wall) - r.bays.reduce((a,b)=>a+b.w, 0);
 }
+
+/* ═══════════ WHERE A SECTION SITS ON THE WALL ═══════════
+   A section used to have a width and nothing else: the run was one unbroken
+   line starting in the corner, and the only thing you could do was reorder.
+   Real walls are not like that. A radiator, a door swing, a window, or simply
+   where the customer wants it, all mean a run may start part way along and
+   may have a genuine hole in the middle.
+
+   So every section now carries `at`: inches from the LEFT CORNER of its wall.
+   Sections are kept sorted by `at`, so the index of a section in this array is
+   still the index the 3D drawing and the quote use. Gaps are not stored; they
+   are worked out from the spaces between, which means a gap can never drift
+   out of agreement with the sections either side of it. */
+
+/* every section's position, filling in anything that predates `at` */
+function layout(wall){
+  const r = S.runs[wall]; if(!r) return [];
+  let run = 0;
+  const out = r.bays.map((b,i) => {
+    const at = (typeof b.at === 'number' && isFinite(b.at)) ? b.at : run;
+    run = at + b.w;
+    return { bay:b, i, at, w:b.w, end:at + b.w };
+  });
+  out.sort((a,b) => a.at - b.at);
+  return out;
+}
+/* keep the array in wall order, because index IS position everywhere else */
+function sortRun(wall){
+  const r = S.runs[wall]; if(!r) return;
+  const L = layout(wall);
+  L.forEach(s => { s.bay.at = s.at; });
+  r.bays = L.map(s => s.bay);
+}
+/* the stretches of bare wall, in order, including the two ends */
+function gapsOn(wall){
+  const len = wallLength(wall), L = layout(wall), out = [];
+  let cur = 0;
+  for(const s of L){
+    if(s.at - cur > 0.05) out.push({ at:cur, w:s.at - cur, before:s.i });
+    cur = Math.max(cur, s.end);
+  }
+  if(len - cur > 0.05) out.push({ at:cur, w:len - cur, before:null });
+  return out;
+}
+/* the first stretch of bare wall a section this wide would fit in */
+function firstFit(wall, w){
+  for(const g of gapsOn(wall)) if(g.w >= w - 0.01) return g.at;
+  return null;
+}
+/* how far a section can travel without crossing its neighbours or the corners */
+function travelRange(wall, index){
+  const len = wallLength(wall), L = layout(wall);
+  const k = L.findIndex(s => s.i === index);
+  if(k < 0) return { lo:0, hi:Math.max(0, len) };
+  const me = L[k];
+  return { lo: k > 0 ? L[k-1].end : 0,
+           hi: (k < L.length-1 ? L[k+1].at : len) - me.w };
+}
+/* put a section at a given distance from the corner, clamped to what is free */
+function moveSection(wall, index, at){
+  const { lo, hi } = travelRange(wall, index);
+  const b = S.runs[wall].bays[index]; if(!b) return null;
+  b.at = Math.max(lo, Math.min(hi, Math.round(at * 2) / 2));   // nearest ½"
+  sortRun(wall);
+  return b.at;
+}
+/* what design.js needs: sections with the bare wall between them spelled out */
+function withGaps(wall){
+  const len = wallLength(wall), out = [];
+  let cur = 0;
+  for(const s of layout(wall)){
+    if(s.at - cur > 0.05) out.push({ w:+(s.at - cur).toFixed(2), gap:true });
+    out.push(s.bay);
+    cur = s.end;
+  }
+  return out;
+}
 /* keep a run's bays summing to the wall. Called whenever a bay is added or
    removed, so the drawing can never run past the wall it sits on. */
 function fitRun(wall){
@@ -205,8 +282,10 @@ if(qPre){
   const pre = PRESETS.find(p => p.id === qPre);
   const wall = Object.keys(S.runs).find(w => S.runs[w]?.on);
   if(pre && wall){
-    S.runs[wall].bays.push(makeBay(clampBay(Math.min(32, wallLength(wall))),
-                                   structuredClone(pre.stack), pre.top !== false));
+    const nb = makeBay(clampBay(Math.min(32, wallLength(wall))),
+                       structuredClone(pre.stack), pre.top !== false);
+    nb.at = 0;
+    S.runs[wall].bays.push(nb);
     S.sel = { wall, i:0 };
   }
 }
@@ -218,7 +297,7 @@ function cfg(){
     const start = wall==='back' ? (S.runs.left?.on?SPEC.hangDepth:0) : SPEC.hangDepth;
     /* clamp here, not only inside buildDesign, so the plan drawing, the click
        volumes and the quote are all reading the same depth */
-    runs.push({wall, start, depth:Math.min(r.depth, wallDepthCap(wall)), bays:r.bays});
+    runs.push({wall, start, depth:Math.min(r.depth, wallDepthCap(wall)), bays:withGaps(wall)});
   }
   return { room:S.room, mounting:S.mounting, finish:S.finish,
            frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
@@ -724,8 +803,9 @@ canvas.addEventListener('pointerdown', e=>{
   const hit = ray.intersectObjects(picks.children, false)[0];
   if(!hit) return;
   const { wall, i } = hit.object.userData;
-  const bays = S.runs[wall]?.bays; if(!bays || bays.length < 2) return;
-  SDRAG = { wall, i, from:i, axis:runAxisScreen(wall), x0:e.clientX, y0:e.clientY, moved:false };
+  const bays = S.runs[wall]?.bays; if(!bays || !bays[i]) return;
+  SDRAG = { wall, i, axis:runAxisScreen(wall), x0:e.clientX, y0:e.clientY,
+            at0: bays[i].at ?? 0, moved:false };
   ctl.enabled = false;
   canvas.setPointerCapture?.(e.pointerId);
   canvas.style.cursor = 'grabbing';
@@ -733,28 +813,41 @@ canvas.addEventListener('pointerdown', e=>{
 
 canvas.addEventListener('pointermove', e=>{
   if(!SDRAG) return;
-  const bays = S.runs[SDRAG.wall].bays;
   /* how far along the wall, in inches, has the pointer travelled */
   const dx = e.clientX - SDRAG.x0, dy = e.clientY - SDRAG.y0;
   const along = (dx * SDRAG.axis.x + dy * SDRAG.axis.y) / Math.max(1, SDRAG.axis.pxPerInch);
-  if(Math.abs(along) > 1) SDRAG.moved = true;
+  if(Math.abs(along) > 0.75) SDRAG.moved = true;
+  if(!SDRAG.moved) return;
 
-  /* walk past a neighbour once you have travelled half its width */
-  let i = SDRAG.i, moved = true;
-  while(moved){
-    moved = false;
-    const travelled = along - offsetOf(bays, SDRAG.from, i);
-    if(travelled > 0 && i < bays.length - 1 && travelled > bays[i+1].w / 2){
-      [bays[i], bays[i+1]] = [bays[i+1], bays[i]]; i++; moved = true;
-    } else if(travelled < 0 && i > 0 && -travelled > bays[i-1].w / 2){
-      [bays[i], bays[i-1]] = [bays[i-1], bays[i]]; i--; moved = true;
-    }
-  }
-  if(i !== SDRAG.i){
-    SDRAG.i = i; S.sel = { wall:SDRAG.wall, i };
-    rebuild(false);                       // redraw with the new order
-  }
+  const at = moveSection(SDRAG.wall, SDRAG.i, SDRAG.at0 + along);
+  SDRAG.i = S.runs[SDRAG.wall].bays.findIndex(b => (b.at ?? 0) === at && b.w);
+  if(SDRAG.i < 0) SDRAG.i = 0;
+  S.sel = { wall:SDRAG.wall, i:SDRAG.i };
+  showAtTip(SDRAG.wall, SDRAG.i, e.clientX, e.clientY);
+  rebuild(false);
 });
+
+/* ---- the running measurement -------------------------------------------
+   While a section is being moved, the one number that matters is how far it
+   now sits from the corner of the wall. It follows the pointer, in the 3D
+   view and on the strip alike, and disappears the moment you let go. */
+function showAtTip(wall, i, px, py){
+  let tip = $('#attip');
+  if(!tip){
+    tip = document.createElement('div'); tip.id = 'attip';
+    document.body.appendChild(tip);
+  }
+  const L = layout(wall), me = L.find(x => x.i === i);
+  if(!me) return;
+  const len = wallLength(wall);
+  const right = Math.max(0, len - me.end);
+  tip.innerHTML = `<b>${me.at.toFixed(1).replace(/\.0$/,'')}"</b> from the left corner`
+    + `<span>${me.w.toFixed(0)}" section &middot; ${right.toFixed(1).replace(/\.0$/,'')}" to the right corner</span>`;
+  tip.style.left = px + 'px';
+  tip.style.top  = py + 'px';
+  tip.dataset.on = '1';
+}
+const hideAtTip = () => { const t = $('#attip'); if(t) delete t.dataset.on; };
 
 /* inches between where the section started and where it sits now */
 function offsetOf(bays, from, now){
@@ -768,6 +861,7 @@ const endSectionDrag = () => {
   if(!SDRAG) return;
   const wasMove = SDRAG.moved;
   SDRAG = null; ctl.enabled = true; canvas.style.cursor = 'grab';
+  hideAtTip();
   if(wasMove) rebuild(true);              // reprice once, at the end
 };
 canvas.addEventListener('pointerup', endSectionDrag);
@@ -1248,22 +1342,36 @@ function paintBays(){
     const fits = BAY_PRESETS.filter(w => w <= left + 0.01);
     const pct  = len ? Math.min(100, (used/len)*100) : 0;
 
+    /* ---- the wall, drawn to scale ---------------------------------------
+       Every section sits at its real distance from the left corner and can be
+       dragged anywhere along the wall, corner to corner, with the inches
+       shown while you move it. The bare wall between sections is drawn as a
+       gap you can click to drop a section straight into. */
+    const pc = v => ((v / Math.max(1, len)) * 100).toFixed(3) + '%';
     const strip = r.bays.length
-      ? `<div class="baystrip">${r.bays.map((b,i)=>`
-          <button class="bay ${S.sel?.wall===wall&&S.sel?.i===i?'on':''}"
-            draggable="true" data-wall="${wall}" data-i="${i}" style="flex:${b.w}"
-            title="${b.stack.length?b.stack.length+' item'+(b.stack.length===1?'':'s')+', drag to move it along the wall':'empty, click to fill it or drag to move it'}">
-            <span class="bstack">${miniStack(b)}</span>
-            <span class="bw">${b.w.toFixed(0)}"</span></button>`).join('')}
-          ${left > 2 ? `<button class="bay gap ${left >= SPEC.bayMin ? 'can' : ''}" style="flex:${left}"
-              data-bay="${left >= SPEC.bayMin ? 'addgap' : 'nofit'}" data-wall="${wall}"
-              title="${left >= SPEC.bayMin
-                ? `${left.toFixed(0)}" of free wall. Click to put a section here, next to the one before it.`
-                : `${left.toFixed(0)}" left, under the ${SPEC.bayMin}" minimum for a section.`}">
-              <span class="gapn">${left.toFixed(0)}" free</span>
-              ${left >= SPEC.bayMin ? '<span class="gapadd">+ add here</span>' : ''}</button>` : ''}
-        </div>`
-      : `<p class="note emptyrun">Nothing on this wall yet. Pick a width below and it lands in the left corner.</p>`;
+      ? `<div class="baytrack" data-track="${wall}">
+          ${gapsOn(wall).filter(g => g.w > 1.5).map(g => {
+            const fits = g.w >= SPEC.bayMin - 0.01;
+            return `<button class="gapslot ${fits ? 'can' : ''}"
+              style="left:${pc(g.at)};width:${pc(g.w)}"
+              data-bay="${fits ? 'addgap' : 'nofit'}" data-wall="${wall}"
+              data-at="${g.at.toFixed(1)}" data-gw="${g.w.toFixed(1)}"
+              title="${fits
+                ? `${g.w.toFixed(0)}&quot; of bare wall at ${g.at.toFixed(0)}&quot; from the corner. Click to put a section here.`
+                : `${g.w.toFixed(0)}&quot; of wall, under the ${SPEC.bayMin}&quot; minimum for a section.`}">
+              <span class="gapn">${g.w.toFixed(0)}"</span>
+              ${fits ? '<span class="gapadd">+</span>' : ''}</button>`;
+          }).join('')}
+          ${layout(wall).map(sb => `<button class="bay ${S.sel?.wall===wall&&S.sel?.i===sb.i?'on':''}"
+            style="left:${pc(sb.at)};width:${pc(sb.w)}"
+            data-wall="${wall}" data-i="${sb.i}" data-drag="1"
+            title="${sb.bay.stack.length ? sb.bay.stack.length+' item'+(sb.bay.stack.length===1?'':'s') : 'empty'} &middot; ${sb.at.toFixed(0)}&quot; from the corner. Drag it anywhere along the wall.">
+            <span class="bstack">${miniStack(sb.bay)}</span>
+            <span class="bw">${sb.w.toFixed(0)}"</span>
+            <span class="bat">${sb.at.toFixed(0)}"</span></button>`).join('')}
+        </div>
+        <div class="bruler"><span>0"</span><span>${len.toFixed(0)}"</span></div>`
+      : `<p class="note emptyrun">Nothing on this wall yet. Pick a width below and it lands in the left corner, where you can drag it anywhere along the wall.</p>`;
 
     /* The width buttons used to be five bare numbers with a little bar, which
        says nothing about why you would pick one. Each now says what that width
@@ -1312,6 +1420,13 @@ function paintBays(){
         </span></button>
       <div class="runbody">
         ${strip}
+        ${r.bays.length > 0 ? `<div class="trackacts">
+          <span class="tahint">Drag any section along the wall. The gaps are real bare wall.</span>
+          <button class="btn-mini" data-bay="tidy" data-wall="${wall}"
+            title="Push every section back into the left corner, shoulder to shoulder">Into the corner</button>
+          ${r.bays.length > 1 ? `<button class="btn-mini" data-bay="even" data-wall="${wall}"
+            title="Equal sections with equal air between them, across the whole wall">Space them evenly</button>` : ''}
+        </div>` : ''}
         <div class="stackslot"></div>
         ${addBlock}
       </div>`;
@@ -1542,7 +1657,7 @@ function paintFinTabs(){
 function paintFin(which){
   const box=$(which==='carcass'?'#fin1':'#fin2'); if(!box) return;
   const cur=which==='carcass'?S.finish:(S.frontFinish||S.finish);
-  const term=($('#fq').value||'').trim().toLowerCase();
+  const term=($('#fq')?.value||'').trim().toLowerCase();
   box.innerHTML=FAMS.map(fam=>{
     const l=cat.finishes.filter(f=>f.lv===fam.lv&&(!term||f.n.toLowerCase().includes(term)));
     if(!l.length) return '';
@@ -1802,23 +1917,49 @@ $('#bays').onclick=e=>{
       /* "addgap" is the empty stretch of wall drawn beside the sections that
          are already there. Clicking it means "put one HERE, next to that one",
          which is what the gap looks like it should do. It fills the gap. */
-      const want = act==='addw' ? +bay.dataset.w : clampBay(freeSpace(wall));
-      /* never let a section run past the wall it sits on */
-      const w = Math.min(want, freeSpace(wall));
+      /* A section goes into a real stretch of bare wall. If the gap that was
+         clicked is known, it goes there; otherwise it takes the first stretch
+         it fits in, which is normally the corner. */
+      const atHint = bay.dataset.at !== undefined ? +bay.dataset.at : null;
+      const room   = bay.dataset.gw !== undefined ? +bay.dataset.gw
+                   : (atHint !== null ? 0 : Math.max(...gapsOn(wall).map(g=>g.w), 0));
+      const want = act==='addw' ? +bay.dataset.w : clampBay(room || freeSpace(wall));
+      const w = Math.min(want, atHint !== null ? room : Math.max(...gapsOn(wall).map(g=>g.w), 0));
       if(w >= SPEC.bayMin - 0.01){
-        r.bays.push(makeBay(+w.toFixed(1), []));
-        S.sel = { wall, i: r.bays.length - 1 };      // select it so they can fill it
+        const at = atHint !== null ? atHint : firstFit(wall, w);
+        if(at === null) return;
+        const nb = makeBay(+w.toFixed(1), []); nb.at = at;
+        r.bays.push(nb); sortRun(wall);
+        S.sel = { wall, i: r.bays.findIndex(b => b === nb) };
         /* adding an empty section and leaving you on the "divide" tab means the
            next thing you want is one tab away and not obvious. Go there. */
         /* no tab jump: you are already looking at the right panel */
       }
     }
     if(act==='del' && r.bays.length){
-      r.bays.pop();
+      const k = (S.sel?.wall===wall && r.bays[S.sel.i]) ? S.sel.i : r.bays.length-1;
+      r.bays.splice(k,1);
       if(S.sel?.wall===wall && S.sel.i >= r.bays.length) S.sel.i = r.bays.length - 1;
       if(!r.bays.length) S.sel = null;
     }
-    if(act==='even') fitRun(wall);
+    if(act==='even'){
+      /* Spread evenly across the whole wall rather than squashing them into
+         the corner: equal sections, equal air between them. */
+      const n = r.bays.length;
+      if(n){
+        const len = wallLength(wall), each = clampBay(len / n);
+        r.bays.forEach(b => b.w = each);
+        const slack = Math.max(0, len - each * n), step = n > 1 ? slack / (n - 1) : 0;
+        r.bays.forEach((b, k) => b.at = +(k * (each + step)).toFixed(1));
+        sortRun(wall);
+      }
+    }
+    if(act==='tidy'){
+      /* push every section back into the corner, shoulder to shoulder */
+      let run = 0;
+      for(const b of layout(wall).map(s=>s.bay)){ b.at = run; run += b.w; }
+      sortRun(wall);
+    }
     rebuild(true); return; }
   const b=e.target.closest('.bay');
   if(b){ S.sel={wall:b.dataset.wall,i:+b.dataset.i}; rebuild(false); }
@@ -1827,37 +1968,50 @@ $('#bays').onclick=e=>{
    A run is an ordered list, so moving a section is a splice. Dropping onto a
    bay puts the dragged one in front of it; dropping past the end appends. */
 let DRAG = null;
-$('#bays').addEventListener('dragstart', e=>{
-  const b = e.target.closest('.bay[data-wall]'); if(!b) return;
-  DRAG = { wall:b.dataset.wall, i:+b.dataset.i };
+/* ---- dragging a section along the wall, on the strip --------------------
+   Pointer events rather than HTML5 drag and drop: HTML5 drag can only tell
+   you what you dropped ON, which is enough to swap two things over and no
+   use at all for saying "put it 37 inches from the corner". This reads the
+   pointer against the track, which is drawn to scale, so the strip and the
+   wall are the same measurement. */
+let TDRAG = null;
+
+$('#bays').addEventListener('pointerdown', e => {
+  const b = e.target.closest('.bay[data-drag]'); if(!b) return;
+  const track = b.closest('.baytrack'); if(!track) return;
+  const wall = track.dataset.track, i = +b.dataset.i;
+  const bay = S.runs[wall]?.bays[i]; if(!bay) return;
+  TDRAG = { wall, i, el:b, x0:e.clientX, at0:bay.at ?? 0,
+            px:track.getBoundingClientRect().width, len:wallLength(wall), moved:false };
+  b.setPointerCapture?.(e.pointerId);
   b.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  try{ e.dataTransfer.setData('text/plain', b.dataset.i); }catch(_){}
 });
-$('#bays').addEventListener('dragend', ()=>{
-  DRAG = null;
-  document.querySelectorAll('.bay.dragging,.bay.over').forEach(x=>x.classList.remove('dragging','over'));
+
+$('#bays').addEventListener('pointermove', e => {
+  if(!TDRAG) return;
+  const inches = ((e.clientX - TDRAG.x0) / Math.max(1, TDRAG.px)) * TDRAG.len;
+  if(Math.abs(inches) > 0.4) TDRAG.moved = true;
+  if(!TDRAG.moved) return;
+  const at = moveSection(TDRAG.wall, TDRAG.i, TDRAG.at0 + inches);
+  /* move the element itself rather than repainting the panel on every frame:
+     a repaint would destroy the node the pointer is captured on */
+  TDRAG.el.style.left = ((at / Math.max(1, TDRAG.len)) * 100).toFixed(3) + '%';
+  const lbl = TDRAG.el.querySelector('.bat');
+  if(lbl) lbl.textContent = at.toFixed(0) + '"';
+  TDRAG.i = S.runs[TDRAG.wall].bays.findIndex(b2 => b2 === S.runs[TDRAG.wall].bays[TDRAG.i]);
+  showAtTip(TDRAG.wall, TDRAG.i, e.clientX, e.clientY);
+  rebuild(false);
 });
-$('#bays').addEventListener('dragover', e=>{
-  const b = e.target.closest('.bay[data-wall]');
-  if(!b || !DRAG || b.dataset.wall !== DRAG.wall) return;
-  e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('.bay.over').forEach(x=>x.classList.remove('over'));
-  b.classList.add('over');
-});
-$('#bays').addEventListener('drop', e=>{
-  const b = e.target.closest('.bay[data-wall]');
-  if(!b || !DRAG || b.dataset.wall !== DRAG.wall) return;
-  e.preventDefault();
-  const from = DRAG.i, to = +b.dataset.i;
-  if(from === to) return;
-  const bays = S.runs[DRAG.wall].bays;
-  const [moved] = bays.splice(from, 1);
-  bays.splice(to, 0, moved);
-  S.sel = { wall: DRAG.wall, i: to };
-  DRAG = null;
-  rebuild(true);
-});
+
+const endTrackDrag = () => {
+  if(!TDRAG) return;
+  const { moved, wall, el } = TDRAG;
+  el.classList.remove('dragging');
+  TDRAG = null; hideAtTip();
+  if(moved){ sortRun(wall); rebuild(true); }      // reprice once, at the end
+};
+$('#bays').addEventListener('pointerup', endTrackDrag);
+$('#bays').addEventListener('pointercancel', endTrackDrag);
 
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
@@ -1878,9 +2032,25 @@ $('#stack').onclick=e=>{
   /* the top shelf is a choice per section, not a law */
   if(t.dataset.toptog){ bay.top = bay.top === false; rebuild(false); return; }
   if(t.dataset.move){
-    const d=+t.dataset.move, bays=S.runs[S.sel.wall].bays, i=S.sel.i, j=i+d;
-    if(j>=0 && j<bays.length){ const [m]=bays.splice(i,1); bays.splice(j,0,m); S.sel.i=j; rebuild(true); }
-    return;
+    /* Slide it along the wall. Held against a neighbour it swaps with it, so
+       the arrows still reorder when there is no room to simply move. */
+    const d = +t.dataset.move, wall = S.sel.wall, i = S.sel.i;
+    const { lo, hi } = travelRange(wall, i);
+    const here = bay.at ?? 0;
+    const want = here + d * 6;                       // 6" a press
+    if((d < 0 && here > lo + 0.01) || (d > 0 && here < hi - 0.01)){
+      moveSection(wall, i, want);
+    } else {
+      const bays = S.runs[wall].bays, j = i + d;
+      if(j >= 0 && j < bays.length){                 // nothing between them: swap
+        const a = bays[i], b2 = bays[j], aAt = a.at ?? 0, bAt = b2.at ?? 0;
+        if(d > 0){ a.at = bAt + b2.w - a.w; b2.at = aAt; }
+        else      { a.at = bAt;             b2.at = aAt + a.w - b2.w; }
+        sortRun(wall);
+      }
+    }
+    S.sel.i = S.runs[wall].bays.findIndex(b => b === bay);
+    rebuild(true); return;
   }
   if(t.dataset.bw){
     const d=+t.dataset.bw, r=S.runs[S.sel.wall];
@@ -1892,18 +2062,25 @@ $('#stack').onclick=e=>{
     /* Growing into the free wall beside it is what you mean when you widen a
        section you have just dropped into a gap. Only once the wall is full
        does widening have to come out of a neighbour. */
-    const free = freeSpace(S.sel.wall);
-    if(delta <= free + 0.01){ bay.w = next; }
+    /* It grows into the bare wall on its right, then into the bare wall on its
+       left by sliding back, and it never grows through a neighbour. */
+    const wall = S.sel.wall, i = S.sel.i;
+    if(delta <= 0){ bay.w = next; }
     else {
-      const others = r.bays.filter(b=>b!==bay);
-      const need = delta - Math.max(0, free);
-      if(others.length){
-        const share = need/others.length;
-        if(others.every(b=>b.w - share >= SPEC.bayMin)){
-          bay.w=next; others.forEach(b=>b.w=+(b.w-share).toFixed(1));
+      const { hi } = travelRange(wall, i);
+      const at = bay.at ?? 0;
+      const rightRoom = (hi - at);                   // free wall on its right
+      if(rightRoom >= delta - 0.01){ bay.w = next; }
+      else {
+        const { lo } = travelRange(wall, i);
+        const leftRoom = at - lo;
+        if(rightRoom + leftRoom >= delta - 0.01){
+          bay.at = +(at - (delta - rightRoom)).toFixed(1);
+          bay.w = next;
         }
       }
     }
+    sortRun(wall); S.sel.i = S.runs[wall].bays.findIndex(b => b === bay);
   }
   else if(t.dataset.add){ const d=MODULES[t.dataset.add];
     bay.stack.unshift({m:t.dataset.add, h:d.fill?null:d.defH, o:d.opt?{[d.opt.key]:d.opt.def}:{}});
@@ -2022,12 +2199,36 @@ $('#breakdown').onclick=()=>{
 };
 
 /* ───────── go ───────── */
-/* 160 KB of finish photography. Nothing on the first screen needs it: the
-   carcass renders from the catalogue colour until it lands, and the swatch
-   grid is two tabs away. Low priority keeps it out of the way of the model. */
-const sheet=new Image(); sheet.crossOrigin='anonymous'; sheet.fetchPriority='low'; sheet.loading='lazy';
-sheet.onload=()=>{ initSheet(sheet,cat.meta); clearCaches();
-  paintFin('carcass'); paintFin('fronts'); rebuild(true); };
-sheet.onerror=()=>{ paintFin('carcass'); paintFin('fronts'); rebuild(true); };
-sheet.src=(window.BASE||"")+'img/finishes/sprite.jpg';
-paintPulls(); rebuild(true); resize();
+/* ---- the finish sheet -------------------------------------------------
+   This is 160 KB of finish photography used to colour the 3D model. Nothing
+   on the first screen needs it, so it is fetched at low priority.
+
+   TWO BUGS LIVED HERE AND BOTH ARE FIXED BELOW.
+
+   1. It carried loading='lazy'. An Image that is never put into the document
+      is never "in view", so a lazy one never loads at all. onload therefore
+      never fired, and because the swatch list was painted from inside onload,
+      step 3 showed an EMPTY finish picker on the live site. Lazy loading only
+      ever means anything for an <img> in the page, so it is gone.
+
+   2. Painting the swatch list from inside onload was wrong anyway. The list
+      is built from catalog.json, which is already in hand; only the 3D
+      material colours need the photography. So the list is painted straight
+      away, and the sheet landing just repaints it with the real swatches. If
+      the sheet 404s, the picker still works. */
+paintPulls();
+paintFin('carcass'); paintFin('fronts');
+rebuild(true); resize();
+
+const sheet = new Image();
+sheet.crossOrigin = 'anonymous';
+sheet.fetchPriority = 'low';
+sheet.onload = () => {
+  initSheet(sheet, cat.meta); clearCaches();
+  paintFin('carcass'); paintFin('fronts');
+  rebuild(false);
+};
+sheet.onerror = () => {
+  console.warn('[builder] finish photography did not load; swatches fall back to flat colour');
+};
+sheet.src = (window.BASE||"") + 'img/finishes/sprite.jpg';

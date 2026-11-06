@@ -1,12 +1,21 @@
 /* ============================================================
-   store.js: all CRM data.
-   Multi-region: every client, job and quote belongs to a region.
-   Storage is this browser. To go multi-device, every read/write
-   goes through DB.* below. Swap the bodies for Supabase calls
-   and nothing else in the app changes.
+   store.js — all CRM data, now in a real database.
+
+   HOW THIS WORKS, because it matters if anyone touches it later.
+
+   Everything is loaded once at sign-in into an in-memory copy. Every
+   read below is synchronous and answers from that copy, which is why
+   the application is instant and why none of the screens had to be
+   rewritten. Every write updates the copy first so the screen redraws
+   at once, then persists to Postgres in the background. If a write
+   fails, onError fires, the screen says so, and the copy is refreshed
+   from the database so what you see is never a lie.
+
+   The Anthropic key is deliberately NOT in here. It is a billing
+   credential, so it stays in the browser that typed it and is never
+   sent anywhere, including to this database.
    ============================================================ */
-const K = 'js_crm_v2';
-const d = n => { const t=new Date(); t.setDate(t.getDate()+n); return t.toISOString().slice(0,10); };
+import { sb } from './supa.js';
 
 export const REGIONS = [
   { id:'fl', name:'South Florida', short:'FL', base:'Boca Raton, FL',
@@ -26,83 +35,114 @@ export const STAGE_LABEL = {lead:'Lead',quoted:'Quoted',won:'Won',ordered:'Order
 export const KINDS = ['measure','delivery','install','service'];
 export const ROLES = ['Installer','Lead installer','Measurer','Shop','Driver','Office'];
 
-const SEED = {
-  activeRegion:'fl',
-  enquiries:[],
-  employees:[
-    {id:'e1',region:'fl',name:'Luis Ortega',  role:'Lead installer',phone:'(561) 555-0210',email:'',active:true,started:'2022-04-11',notes:'Runs the Boca crew.'},
-    {id:'e2',region:'fl',name:'Marco Pineda', role:'Installer',     phone:'(561) 555-0233',email:'',active:true,started:'2023-01-09',notes:''},
-    {id:'e3',region:'nj',name:'Tomas Reyes',  role:'Lead installer',phone:'(201) 555-0144',email:'',active:true,started:'2021-08-02',notes:'Also covers New York.'},
-    {id:'e4',region:'nj',name:'Ray Dunham',   role:'Installer',     phone:'(201) 555-0166',email:'',active:true,started:'2024-03-18',notes:''},
-    {id:'e5',region:'ny',name:'Andre Silva',  role:'Measurer',      phone:'(914) 555-0177',email:'',active:true,started:'2023-06-05',notes:''}
-  ],
-  clients:[
-    {id:'c1',region:'fl',name:'Marisol Vega',phone:'(561) 555-0142',email:'marisol.vega@example.com',addr:'418 NW 7th Ave, Boca Raton, FL 33486',source:'Website',notes:'',created:d(-26)},
-    {id:'c2',region:'fl',name:'Daniel Okafor',phone:'(561) 555-0188',email:'d.okafor@example.com',addr:'2210 Spanish River Rd, Boca Raton, FL 33432',source:'Referral',notes:'',created:d(-19)},
-    {id:'c3',region:'fl',name:'The Ferrante Residence',phone:'(954) 555-0109',email:'ferrante.home@example.com',addr:'7712 NW 52nd Ct, Parkland, FL 33076',source:'Houzz',notes:'',created:d(-12)},
-    {id:'c4',region:'nj',name:'Alicia Brandt',phone:'(201) 555-0171',email:'abrandt@example.com',addr:'88 Ridgewood Ave, Paramus, NJ 07652',source:'Website',notes:'',created:d(-9)},
-    {id:'c5',region:'nj',name:'Hoffman Builders',phone:'(201) 555-0133',email:'ops@hoffmanbuilt.example',addr:'15 Industrial Way, Teterboro, NJ 07608',source:'Trade',notes:'Builder account, four units this quarter.',created:d(-34)},
-    {id:'c6',region:'ny',name:'Priya Raghunathan',phone:'(914) 555-0188',email:'praghu@example.com',addr:'62 Larchmont Ave, Larchmont, NY 10538',source:'Google',notes:'',created:d(-7)},
-    {id:'c7',region:'ny',name:'Sandra Whitlock',phone:'(516) 555-0120',email:'swhitlock@example.com',addr:'310 Shore Rd, Port Washington, NY 11050',source:'Referral',notes:'',created:d(-3)},
-    {id:'c8',region:'ct',name:'Gareth Ellison',phone:'(203) 555-0164',email:'g.ellison@example.com',addr:'44 Hoyt St, Stamford, CT 06905',source:'Website',notes:'',created:d(-15)},
-    {id:'c9',region:'pa',name:'The Marchetti Family',phone:'(215) 555-0147',email:'marchetti@example.com',addr:'920 Yardley Rd, Newtown, PA 18940',source:'Referral',notes:'',created:d(-5)}
-  ],
-  jobs:[
-    {id:'j1',region:'fl',client:'c1',title:'Primary walk-in, U-shape',type:'Walk-In Closets',stage:'done',value:6480,date:d(-9),kind:'install',finish:'Acacia Honey L591',crew:'Luis + Marco',notes:'Installed in one day. Asked about a quote for the guest room.',crewIds:['e1','e2']},
-    {id:'j2',region:'fl',client:'c2',title:'Guest reach-in ×2',type:'Reach-In Closets',stage:'scheduled',value:3120,date:d(2),kind:'install',finish:'After Hours M2010',crew:'Luis + Marco',notes:'Two 6ft openings. Double hang + drawers both.',crewIds:['e1','e2']},
-    {id:'j3',region:'fl',client:'c3',title:'Garage storage wall',type:'Garage Storage',stage:'ordered',value:5240,date:d(10),kind:'delivery',finish:'White Brava M175B',crew:'',notes:'Wall-hung throughout. Confirm water heater clearance.',crewIds:[]},
-    {id:'j4',region:'fl',client:'c1',title:'Guest room reach-in',type:'Reach-In Closets',stage:'lead',value:0,date:d(1),kind:'measure',finish:'n/a',crew:'',notes:'Repeat client.',crewIds:[]},
-    {id:'j5',region:'nj',client:'c4',title:'Primary walk-in',type:'Walk-In Closets',stage:'quoted',value:7890,date:d(3),kind:'measure',finish:'n/a',crew:'',notes:'Quote sent Tuesday. Deciding between Level 2 and 3.',crewIds:[]},
-    {id:'j6',region:'nj',client:'c5',title:'Unit 12, reach-ins ×4',type:'Reach-In Closets',stage:'ordered',value:9600,date:d(8),kind:'delivery',finish:'White Fineline H3195',crew:'Tomas + Ray',notes:'Builder account. Site access 7am only.',crewIds:['e3','e4']},
-    {id:'j7',region:'nj',client:'c5',title:'Unit 14, reach-ins ×4',type:'Reach-In Closets',stage:'won',value:9600,date:d(21),kind:'measure',finish:'n/a',crew:'',notes:'Same spec as Unit 12.',crewIds:[]},
-    {id:'j8',region:'ny',client:'c6',title:'Walk-in with island',type:'Walk-In Closets',stage:'lead',value:0,date:d(4),kind:'measure',finish:'n/a',crew:'',notes:'Came through the 3D builder. Her layout is on the quote.',crewIds:[]},
-    {id:'j9',region:'ny',client:'c7',title:'Pantry + laundry',type:'Pantries',stage:'scheduled',value:4390,date:d(6),kind:'install',finish:'White Brava M175B',crew:'Tomas + Ray',notes:'',crewIds:['e3','e4']},
-    {id:'j10',region:'ct',client:'c8',title:'Primary + guest walk-ins',type:'Walk-In Closets',stage:'ordered',value:11250,date:d(14),kind:'delivery',finish:'Carte blanche PM115 Lummia',crew:'',notes:'Gloss finish, 6 week lead, ordered three weeks ago.',crewIds:[]},
-    {id:'j11',region:'pa',client:'c9',title:'Mudroom + laundry',type:'Laundry Rooms',stage:'won',value:5120,date:d(5),kind:'measure',finish:'n/a',crew:'',notes:'Deposit taken. Confirm machine heights at measure.'}
-  ],
-  quotes:[
-    {id:'q1',region:'nj',client:'c4',title:'Primary walk-in, Level 2',total:7890,status:'sent',created:d(-5),summary:'U-shape · 108"×120"×96" · 8 sections · Acacia Honey L591',crewIds:[]},
-    {id:'q2',region:'ny',client:'c6',title:'Walk-in island (from builder)',total:11240,status:'draft',created:d(-1),summary:'Island · 132"×132"×96" · 11 sections · Carte blanche PM115 Lummia'},
-    {id:'q3',region:'fl',client:'c3',title:'Garage storage wall',total:5240,status:'accepted',created:d(-18),summary:'One wall · 144"×24"×96" · 5 sections · White Brava M175B'},
-    {id:'q4',region:'pa',client:'c9',title:'Mudroom + laundry',total:5120,status:'accepted',created:d(-11),summary:'Two walls · counter + lockers · White Fineline H3195'}
-  ],
-  settings:{
-    business:'JS Installations & Closets', email:'jsinstallationsclosets@gmail.com',
-    phone:'(646) 667-9572', markup:2.8,
-    anthropicKey:'', model:'claude-sonnet-4-6',
-    web3forms:'', resendKey:'', mapsEmbed:''
-  }
-};
+const LOCAL = 'js_crm_v2';          // the old browser-only store, kept for the one-time move
+const PREFS = 'js_crm_prefs';       // this browser's own preferences, never shared
 
-function load(){
-  try{ const r=localStorage.getItem(K); if(r) return JSON.parse(r); }catch(e){}
-  try{ localStorage.setItem(K, JSON.stringify(SEED)); }catch(e){}
-  return structuredClone(SEED);
-}
-let db = load();
-/* A store saved before crew existed has no employees array. Rather than make
-   everyone reset their data, anything the seed has and the saved copy does
-   not is filled in on load. */
-for(const k of ['employees','enquiries','clients','jobs','quotes']) if(!Array.isArray(db[k])) db[k] = structuredClone(SEED[k] || []);
-if(!db.settings) db.settings = structuredClone(SEED.settings);
-const save = () => { try{ localStorage.setItem(K, JSON.stringify(db)); }catch(e){
-  console.warn('[store] could not save; storage may be full or blocked', e); } };
-const uid = p => p + Math.random().toString(36).slice(2,8);
 const today = () => new Date().toISOString().slice(0,10);
+
+/* ───────── the in-memory copy ───────── */
+let db = { clients:[], jobs:[], quotes:[], employees:[], leads:[], settings:{} };
+let prefs = { activeRegion:'fl', anthropicKey:'', model:'claude-sonnet-4-6' };
+try{ Object.assign(prefs, JSON.parse(localStorage.getItem(PREFS) || '{}')); }catch(e){}
+const savePrefs = () => { try{ localStorage.setItem(PREFS, JSON.stringify(prefs)); }catch(e){} };
+
+let errHandler = () => {};
+export const onError = fn => { errHandler = fn; };
+const fail = (what, err) => { console.error('[store]', what, err); errHandler(what, err); };
+
+/* A new record is shown at once with a temporary id so the screen never waits
+   on the network. The database then answers with the real id. Until the screen
+   is redrawn, every button on that row is still carrying the temporary one,
+   which means editing or deleting something you have only just added silently
+   does nothing. So the moment an id is swapped, the screen is told to redraw. */
+let savedHandler = () => {};
+export const onSaved = fn => { savedHandler = fn; };
+
+/* ───────── row shapes: the database uses snake_case, the app does not ───────── */
+const jobIn  = r => ({ id:r.id, region:r.region, client:r.client_id, title:r.title, type:r.type,
+  stage:r.stage, value:Number(r.value)||0, date:r.date, kind:r.kind, finish:r.finish,
+  crewIds:r.crew_ids||[], crew:'', notes:r.notes||'' });
+const jobOut = j => ({ region:j.region, client_id:j.client||null, title:j.title, type:j.type||'',
+  stage:j.stage, value:j.value||0, date:j.date, kind:j.kind, finish:j.finish||'n/a',
+  crew_ids:j.crewIds||[], notes:j.notes||'' });
+
+const quoteIn  = r => ({ id:r.id, region:r.region, client:r.client_id, title:r.title,
+  total:Number(r.total)||0, status:r.status, summary:r.summary||'', design:r.design||null,
+  created:(r.created||'').slice(0,10) });
+const quoteOut = q => ({ region:q.region, client_id:q.client||null, title:q.title,
+  total:q.total||0, status:q.status||'draft', summary:q.summary||'', design:q.design||null });
+
+const empIn  = r => ({ id:r.id, region:r.region, name:r.name, role:r.role, phone:r.phone||'',
+  email:r.email||'', active:r.active!==false, started:r.started||'', notes:r.notes||'' });
+const empOut = e => ({ region:e.region, name:e.name, role:e.role||'Installer', phone:e.phone||'',
+  email:e.email||'', active:e.active!==false, started:e.started||today(), notes:e.notes||'' });
+
+const cliIn  = r => ({ id:r.id, region:r.region, name:r.name, phone:r.phone||'', email:r.email||'',
+  addr:r.addr||'', source:r.source||'Website', notes:r.notes||'', created:(r.created||'').slice(0,10) });
+const cliOut = c => ({ region:c.region, name:c.name, phone:c.phone||'', email:c.email||'',
+  addr:c.addr||'', source:c.source||'Website', notes:c.notes||'' });
+
+/* the crew names on a job, derived rather than stored twice */
+const stampCrew = j => { j.crew = (j.crewIds||[]).map(id=>(db.employees.find(e=>e.id===id)||{}).name)
+  .filter(Boolean).join(' + '); return j; };
+
+/* ───────── load ───────── */
+export async function hydrate(){
+  const [c,e,j,q,l,s] = await Promise.all([
+    sb.from('clients').select('*'),
+    sb.from('employees').select('*'),
+    sb.from('jobs').select('*'),
+    sb.from('quotes').select('*'),
+    sb.from('leads').select('*').order('created',{ascending:false}).limit(500),
+    sb.from('settings').select('data').eq('id',1).maybeSingle(),
+  ]);
+  for(const r of [c,e,j,q,l,s]) if(r.error) throw r.error;
+  db.clients   = (c.data||[]).map(cliIn);
+  db.employees = (e.data||[]).map(empIn);
+  db.jobs      = (j.data||[]).map(jobIn).map(stampCrew);
+  db.quotes    = (q.data||[]).map(quoteIn);
+  db.leads     = l.data||[];
+  db.settings  = (s.data?.data) || {};
+  return db;
+}
+
+/* ───────── writes: cache first so the screen is instant, then persist ───────── */
+async function push(table, row, local){
+  const { data, error } = await sb.from(table).insert(row).select().single();
+  if(error){ fail('could not save that', error); await hydrate(); savedHandler(); return null; }
+  if(local && data){
+    local.id = data.id;                           // swap the temporary id for the real one
+    if(data.created) local.created = String(data.created).slice(0,10);
+    savedHandler();                               // redraw, so the buttons carry the real id
+  }
+  return data;
+}
+async function patch(table, id, row, what){
+  const { error } = await sb.from(table).update(row).eq('id', id);
+  if(error){ fail(what || 'could not save that change', error); await hydrate(); }
+}
+async function drop(table, id, what){
+  const { error } = await sb.from(table).delete().eq('id', id);
+  if(error){ fail(what || 'could not delete that', error); await hydrate(); }
+}
+const tmpId = () => 'tmp_' + Math.random().toString(36).slice(2,10);
 
 export const DB = {
   all: () => db,
-  region: () => db.activeRegion,
-  setRegion: r => { db.activeRegion = r; save(); return r; },
-  regionMeta: id => REGIONS.find(r=>r.id===(id||db.activeRegion)) || REGIONS[0],
+  ready: () => !!db.clients,
 
-  /* pass region:'all' to cross every region */
-  clients: (region) => { const r = region||db.activeRegion;
+  region: () => prefs.activeRegion,
+  setRegion: r => { prefs.activeRegion = r; savePrefs(); return r; },
+  regionMeta: id => REGIONS.find(r=>r.id===(id||prefs.activeRegion)) || REGIONS[0],
+
+  clients: region => { const r = region||prefs.activeRegion;
     return r==='all' ? db.clients : db.clients.filter(c=>c.region===r); },
-  jobs: (region) => { const r = region||db.activeRegion;
+  jobs: region => { const r = region||prefs.activeRegion;
     return r==='all' ? db.jobs : db.jobs.filter(j=>j.region===r); },
-  quotes: (region) => { const r = region||db.activeRegion;
+  quotes: region => { const r = region||prefs.activeRegion;
     return r==='all' ? db.quotes : db.quotes.filter(q=>q.region===r); },
+  employees: region => { const r = region||prefs.activeRegion;
+    return r==='all' ? db.employees : db.employees.filter(e=>e.region===r); },
 
   client: id => db.clients.find(c=>c.id===id),
   clientName: id => (db.clients.find(c=>c.id===id)||{}).name || 'Unknown',
@@ -110,73 +150,131 @@ export const DB = {
     return db.clients.find(c=>c.name.toLowerCase()===n)
         || db.clients.find(c=>c.name.toLowerCase().includes(n))
         || db.clients.find(c=>n.includes(c.name.toLowerCase().split(' ')[0])) || null; },
+  clientLoad: id => ({ jobs: db.jobs.filter(j=>j.client===id).length,
+                       quotes: db.quotes.filter(q=>q.client===id).length }),
 
-  addClient: c => { c.id=uid('c'); c.region=c.region||db.activeRegion;
-    c.created=today(); db.clients.push(c); save(); return c; },
-  updateClient: (id,p) => { const c=DB.client(id); if(!c) return null; Object.assign(c,p); save(); return c; },
-
-  job: id => db.jobs.find(j=>j.id===id),
-  findJob: t => { const n=String(t||'').toLowerCase().trim(); if(!n) return null;
-    return db.jobs.find(j=>j.title.toLowerCase()===n) || db.jobs.find(j=>j.title.toLowerCase().includes(n)) || null; },
-  addJob: j => { j.id=uid('j'); j.region=j.region||db.activeRegion; db.jobs.push(j); save(); return j; },
-  updateJob: (id,p) => { const j=DB.job(id); if(!j) return null; Object.assign(j,p); save(); return j; },
-  removeJob: id => { const i=db.jobs.findIndex(j=>j.id===id); if(i<0) return false;
-    db.jobs.splice(i,1); save(); return true; },
-
-  addQuote: q => { q.id=uid('q'); q.region=q.region||db.activeRegion;
-    q.created=today(); db.quotes.push(q); save(); return q; },
-  updateQuote: (id,p) => { const q=db.quotes.find(x=>x.id===id); if(!q) return null; Object.assign(q,p); save(); return q; },
-
-  /* leads that came in from the website, filed through Admin -> Inbox */
-  enquiries: () => (db.enquiries = db.enquiries || []),
-  addEnquiry: e => { db.enquiries = db.enquiries || [];
-    e.id = uid('e'); e.filed = new Date().toISOString();
-    db.enquiries.push(e); save(); return e; },
-
-  /* ───── crew ─────
-     Region scoped like everything else, so switching to New Jersey shows the
-     New Jersey crew and nobody else. */
-  employees: (region) => { const r = region || db.activeRegion;
-    db.employees = db.employees || [];
-    return r==='all' ? db.employees : db.employees.filter(e=>e.region===r); },
-  employee: id => (db.employees||[]).find(e=>e.id===id),
-  employeeName: id => (DB.employee(id)||{}).name || '',
-  addEmployee: e => { db.employees = db.employees || [];
-    e.id = uid('e'); e.region = e.region || db.activeRegion;
-    e.active = e.active !== false; e.started = e.started || today();
-    db.employees.push(e); save(); return e; },
-  updateEmployee: (id,p) => { const e = DB.employee(id); if(!e) return null;
-    Object.assign(e,p); save(); return e; },
-  removeEmployee: id => { const i=(db.employees||[]).findIndex(e=>e.id===id); if(i<0) return false;
-    const gone = db.employees[i].id;
-    db.employees.splice(i,1);
-    /* a deleted person must not stay assigned to next week's visits */
-    for(const j of db.jobs) if(j.crewIds) j.crewIds = j.crewIds.filter(x=>x!==gone);
-    save(); return true; },
-
-  /* Deleting a client takes their jobs and quotes with them, because a job
-     with no client is a row nobody can act on. The caller shows the count
-     first and asks. */
-  clientLoad: id => ({
-    jobs: db.jobs.filter(j=>j.client===id).length,
-    quotes: db.quotes.filter(q=>q.client===id).length }),
+  addClient: c => { const row = { id:tmpId(), created:today(),
+      region:c.region||prefs.activeRegion, name:c.name, phone:c.phone||'', email:c.email||'',
+      addr:c.addr||'', source:c.source||'Website', notes:c.notes||'' };
+    db.clients.push(row); push('clients', cliOut(row), row); return row; },
+  updateClient: (id,p) => { const c = DB.client(id); if(!c) return null;
+    Object.assign(c,p); patch('clients', id, cliOut(c)); return c; },
   removeClient: id => { const i=db.clients.findIndex(c=>c.id===id); if(i<0) return false;
     db.clients.splice(i,1);
     db.jobs   = db.jobs.filter(j=>j.client!==id);
     db.quotes = db.quotes.filter(q=>q.client!==id);
-    save(); return true; },
+    drop('clients', id);                      /* the database cascades the rest */
+    return true; },
+
+  job: id => db.jobs.find(j=>j.id===id),
+  findJob: t => { const n=String(t||'').toLowerCase().trim(); if(!n) return null;
+    return db.jobs.find(j=>j.title.toLowerCase()===n)
+        || db.jobs.find(j=>j.title.toLowerCase().includes(n)) || null; },
+  addJob: j => { const row = stampCrew({ id:tmpId(), region:j.region||prefs.activeRegion,
+      client:j.client, title:j.title||'Untitled', type:j.type||'', stage:j.stage||'lead',
+      value:+j.value||0, date:j.date||today(), kind:j.kind||'measure',
+      finish:j.finish||'n/a', crewIds:j.crewIds||[], notes:j.notes||'' });
+    db.jobs.push(row); push('jobs', jobOut(row), row); return row; },
+  updateJob: (id,p) => { const j = DB.job(id); if(!j) return null;
+    Object.assign(j,p); stampCrew(j); patch('jobs', id, jobOut(j)); return j; },
+  removeJob: id => { const i=db.jobs.findIndex(j=>j.id===id); if(i<0) return false;
+    db.jobs.splice(i,1); drop('jobs', id); return true; },
+
+  quote: id => db.quotes.find(q=>q.id===id),
+  addQuote: q => { const row = { id:tmpId(), created:today(), region:q.region||prefs.activeRegion,
+      client:q.client, title:q.title||'Untitled quote', total:+q.total||0,
+      status:q.status||'draft', summary:q.summary||'', design:q.design||null };
+    db.quotes.push(row); push('quotes', quoteOut(row), row); return row; },
+  updateQuote: (id,p) => { const q = db.quotes.find(x=>x.id===id); if(!q) return null;
+    Object.assign(q,p); patch('quotes', id, quoteOut(q)); return q; },
   removeQuote: id => { const i=db.quotes.findIndex(q=>q.id===id); if(i<0) return false;
-    db.quotes.splice(i,1); save(); return true; },
-  removeEnquiry: id => { db.enquiries = db.enquiries || [];
-    const i=db.enquiries.findIndex(e=>e.id===id); if(i<0) return false;
-    db.enquiries.splice(i,1); save(); return true; },
+    db.quotes.splice(i,1); drop('quotes', id); return true; },
 
-  settings: () => db.settings,
-  setSettings: s => { Object.assign(db.settings,s); save(); return db.settings; },
+  employee: id => db.employees.find(e=>e.id===id),
+  employeeName: id => (DB.employee(id)||{}).name || '',
+  addEmployee: e => { const row = { id:tmpId(), region:e.region||prefs.activeRegion,
+      name:e.name, role:e.role||'Installer', phone:e.phone||'', email:e.email||'',
+      active:e.active!==false, started:e.started||today(), notes:e.notes||'' };
+    db.employees.push(row); push('employees', empOut(row), row); return row; },
+  updateEmployee: (id,p) => { const e = DB.employee(id); if(!e) return null;
+    Object.assign(e,p); patch('employees', id, empOut(e));
+    db.jobs.forEach(stampCrew); return e; },
+  removeEmployee: id => { const i=db.employees.findIndex(e=>e.id===id); if(i<0) return false;
+    db.employees.splice(i,1);
+    /* the database has a trigger that takes them off every visit; mirror it here
+       so the screen agrees with the database without waiting for a round trip */
+    for(const j of db.jobs) if(j.crewIds?.includes(id)){
+      j.crewIds = j.crewIds.filter(x=>x!==id); stampCrew(j);
+    }
+    drop('employees', id); return true; },
 
-  export: () => JSON.stringify(db,null,2),
-  import: json => { const next=JSON.parse(json);
-    if(!next.clients||!next.jobs) throw new Error('That file is not a JS Closets backup.');
-    db=next; save(); return db; },
-  reset: () => { try{ localStorage.removeItem(K); }catch(e){} db=load(); return db; }
+  /* ───────── leads from the website ───────── */
+  leads: () => db.leads,
+  newLeads: () => db.leads.filter(l => !l.handled),
+  enquiries: () => db.leads.filter(l => l.handled),
+  lead: id => db.leads.find(l=>l.id===id),
+  addEnquiry: e => { const row = { id:tmpId(), created:new Date().toISOString(), handled:true,
+      region_id:e.regionId||null, source:e.source||'Website', contact:e.contact,
+      design:e.design||null, client_id:e.clientId||null };
+    db.leads.unshift(row);
+    push('leads', { handled:true, region_id:row.region_id, source:row.source,
+      contact:row.contact, design:row.design, client_id:row.client_id }, row);
+    return row; },
+  markLeadHandled: (id, clientId, regionId) => { const l = DB.lead(id); if(!l) return null;
+    l.handled = true; l.client_id = clientId || l.client_id; l.region_id = regionId || l.region_id;
+    patch('leads', id, { handled:true, client_id:l.client_id, region_id:l.region_id });
+    return l; },
+  removeEnquiry: id => { const i=db.leads.findIndex(l=>l.id===id); if(i<0) return false;
+    db.leads.splice(i,1); drop('leads', id); return true; },
+
+  /* ───────── settings ─────────
+     Shared business details live in the database. The Anthropic key and the
+     chosen model are per browser and never leave it. */
+  settings: () => ({ ...db.settings, anthropicKey:prefs.anthropicKey, model:prefs.model }),
+  setSettings: s => {
+    if('anthropicKey' in s){ prefs.anthropicKey = s.anthropicKey; savePrefs(); delete s.anthropicKey; }
+    if('model' in s){ prefs.model = s.model; savePrefs(); delete s.model; }
+    if(Object.keys(s).length){
+      Object.assign(db.settings, s);
+      sb.from('settings').update({ data: db.settings }).eq('id',1)
+        .then(({error}) => { if(error) fail('could not save the business settings', error); });
+    }
+    return DB.settings();
+  },
+
+  refresh: hydrate,
+  export: () => JSON.stringify({ ...db, exportedAt:new Date().toISOString() }, null, 2),
+
+  /* ───────── the one-time move from the old browser-only store ───────── */
+  localBackup: () => { try{ return JSON.parse(localStorage.getItem(LOCAL) || 'null'); }catch(e){ return null; } },
+  async importLocal(old){
+    if(!old) return { clients:0, employees:0, jobs:0, quotes:0 };
+    const idmap = new Map();
+    const count = { clients:0, employees:0, jobs:0, quotes:0 };
+
+    for(const e of (old.employees||[])){
+      const { data, error } = await sb.from('employees').insert(empOut(e)).select().single();
+      if(error) throw error; idmap.set(e.id, data.id); count.employees++;
+    }
+    for(const c of (old.clients||[])){
+      const { data, error } = await sb.from('clients').insert(cliOut(c)).select().single();
+      if(error) throw error; idmap.set(c.id, data.id); count.clients++;
+    }
+    for(const j of (old.jobs||[])){
+      const row = jobOut({ ...j, client: idmap.get(j.client) || null,
+        crewIds: (j.crewIds||[]).map(x=>idmap.get(x)).filter(Boolean) });
+      const { error } = await sb.from('jobs').insert(row);
+      if(error) throw error; count.jobs++;
+    }
+    for(const q of (old.quotes||[])){
+      const { error } = await sb.from('quotes').insert(quoteOut({ ...q, client: idmap.get(q.client) || null }));
+      if(error) throw error; count.quotes++;
+    }
+    if(old.settings){
+      const { anthropicKey, model, ...rest } = old.settings;
+      await sb.from('settings').update({ data: rest }).eq('id',1);
+    }
+    await hydrate();
+    return count;
+  },
 };

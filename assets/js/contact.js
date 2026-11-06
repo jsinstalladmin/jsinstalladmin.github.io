@@ -1,4 +1,5 @@
 import { pack, regionFor, describe } from './enquiry.js';
+import { SUPA_REST, SUPA_KEY } from './supa-config.js';
 
 const f    = document.getElementById('leadform');
 const msg  = document.getElementById('formmsg');
@@ -67,12 +68,35 @@ function showCode(code, sent){
   out.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
+/* ── straight into the office ──
+   The enquiry is written into the database the moment it is sent, so it is
+   sitting in the Inbox before the email even arrives. The key used here can
+   only insert into this one table, so nothing about a customer can be read
+   back out of the website.
+
+   This never blocks the customer. If it fails, the email and the reference
+   code still carry the whole enquiry, and the office loses nothing. */
+async function fileWithTheOffice(pkg){
+  try{
+    const r = await fetch(SUPA_REST + '/leads', {
+      method:'POST',
+      headers:{ apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY,
+                'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({
+        region_id: pkg.regionId, source: pkg.source,
+        contact: pkg.contact, design: pkg.design })
+    });
+    return r.ok;
+  }catch(e){ return false; }
+}
+
 f?.addEventListener('submit', async ev => {
   ev.preventDefault();
   if(!f.reportValidity()) return;
 
   const pkg  = gather();
   const code = pack(pkg);
+  const filed = fileWithTheOffice(pkg);          // runs alongside, never blocks
 
   /* The code rides along with the email, and so does a readable summary, so
      whoever opens it can act on it without decoding anything. */
@@ -104,6 +128,7 @@ f?.addEventListener('submit', async ev => {
     if(r.ok){
       msg.innerHTML = '<b>Thank you, that is with us.</b> We reply the same working day.';
       try{ localStorage.removeItem('js_quote'); }catch(e){}
+      filed.then(ok => { if(ok) console.info('[contact] enquiry is in the office system'); });
       showCode(code, true);
       f.reset();
     } else {

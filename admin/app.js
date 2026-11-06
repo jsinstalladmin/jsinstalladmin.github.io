@@ -15,6 +15,7 @@ import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS, ROLES } from './store.js';
 import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
 import { unpack, describe } from '../assets/js/enquiry.js';
 import { packWeek, mondayOf, addDays } from '../assets/js/crewlink.js';
+import { quoteDoc, quoteNumbers, linearFeet } from './quote.js';
 
 const cat = await (await fetch((window.BASE||"")+'assets/data/catalog.json')).json();
 const $  = s => document.querySelector(s);
@@ -277,12 +278,42 @@ V.crew = () => {
 let INBOX_DRAFT = null;
 
 V.inbox = () => {
-  const saved = DB.enquiries();
-  const mine = DB.region()==='all' ? saved : saved.filter(e=>e.regionId===DB.region());
+  const asEnq = l => ({ ...l, regionId: l.region_id });
+  const fresh = DB.newLeads().map(asEnq)
+    .filter(l => DB.region()==='all' || !l.regionId || l.regionId===DB.region());
+  const filed = DB.enquiries().map(asEnq)
+    .filter(l => DB.region()==='all' || l.regionId===DB.region());
+  const when = l => fmtD((l.created||today()).slice(0,10));
+
   return head('Incoming leads',
-      `${mine.length} filed${DB.region()==='all'?' across every region':' in '+DB.regionMeta().name} · paste a reference code to add one`,
-      '')
-  + panel('Add a web enquiry', 'Paste the code from the email', `<div class="bd">
+      `${fresh.length} waiting${fresh.length?'':' — all clear'} · ${filed.length} filed${DB.region()==='all'?' across every region':' in '+DB.regionMeta().name}`,
+      `<button class="btn btn-sm" data-act="inbox-sync">Check for new ones</button>`)
+
+  + panel('Waiting on you', fresh.length ? `${fresh.length} new` : '', fresh.length
+      ? scroll(`<table><thead><tr><th>Came in</th><th>Customer</th><th>What they drew</th><th class="mono">Estimate</th><th></th></tr></thead><tbody>
+        ${fresh.map(l=>`<tr>
+          <td class="mono">${when(l)}</td>
+          <td><b>${esc(l.contact?.name||'Unknown')}</b><br><span class="sub">${esc(l.contact?.phone||'')} ${esc(l.contact?.email||'')}</span></td>
+          <td class="sub">${esc(describe(l))}<br><span class="sub">${esc([l.contact?.address,l.contact?.location].filter(Boolean).join(', '))}</span></td>
+          <td class="mono">${money(l.design?.price||0)}</td>
+          <td class="rowact"><button class="btn btn-p btn-sm" data-leadopen="${esc(l.id)}" data-stop="1">Open it</button></td></tr>`).join('')}
+      </tbody></table>`)
+      : empty('Nothing waiting. New enquiries from the website land here by themselves.'),
+      fresh.length ? 'accent' : '')
+
+  + panel('Filed', `${filed.length}`, filed.length
+      ? scroll(`<table><thead><tr><th>Came in</th><th>Customer</th><th>What they drew</th>${DB.region()==='all'?'<th>Region</th>':''}<th class="mono">Estimate</th><th></th></tr></thead><tbody>
+        ${filed.map(l=>`<tr>
+          <td class="mono">${when(l)}</td>
+          <td><b>${esc(l.contact?.name||'Unknown')}</b><br><span class="sub">${esc(l.contact?.phone||'')}</span></td>
+          <td class="sub">${esc(describe(l))}</td>
+          ${DB.region()==='all'?`<td><span class="rtag">${esc((l.regionId||'').toUpperCase()||'—')}</span></td>`:''}
+          <td class="mono">${money(l.design?.price||0)}</td>
+          <td class="rowact">${l.client_id?`<button class="btn btn-sm" data-lead-open="${esc(l.client_id)}" data-stop="1">Open client</button>`:''}</td></tr>`).join('')}
+      </tbody></table>`)
+      : empty('Nothing filed yet.'))
+
+  + panel('Paste a reference code', 'Only needed if an enquiry arrived by email alone', `<div class="bd">
       <div class="f"><label>Reference code</label>
         <textarea id="inbox-code" rows="3" placeholder="JSC1...."></textarea></div>
       <div class="btnrow">
@@ -291,22 +322,10 @@ V.inbox = () => {
       </div>
       <div id="inbox-out"></div></div>`)
 
-  + panel('Filed from the website', `${mine.length}`, mine.length
-      ? scroll(`<table><thead><tr><th>Received</th><th>Customer</th><th>What they drew</th>${DB.region()==='all'?'<th>Region</th>':''}<th class="mono">Estimate</th><th></th></tr></thead><tbody>
-        ${mine.slice().reverse().map(e=>`<tr data-lead="${esc(e.id||'')}">
-          <td class="mono">${fmtD((e.sent||e.filed||today()).slice(0,10))}</td>
-          <td><b>${esc(e.contact?.name||'Unknown')}</b><br><span class="sub">${esc(e.contact?.phone||'')} ${esc(e.contact?.email||'')}</span></td>
-          <td class="sub">${esc(describe(e))}</td>
-          ${DB.region()==='all'?`<td><span class="rtag">${esc((e.regionId||'').toUpperCase()||'—')}</span></td>`:''}
-          <td class="mono">${money(e.design?.price||0)}</td>
-          <td class="rowact"><button class="btn btn-sm" data-lead-open="${esc(e.clientId||'')}" data-stop="1">Open client</button></td></tr>`).join('')}
-      </tbody></table>`)
-      : empty('Nothing filed yet. Paste the first code above.'))
-
   + panel('How a lead gets here', '', `<div class="bd"><div class="note">
-      <b>1.</b> The customer draws their closet at <b>/design/</b> and presses &ldquo;Send this to us&rdquo;. They see exactly what is being sent, then fill in their name, phone, email, town and address.<br><br>
-      <b>2.</b> That enquiry emails you with a readable summary and a reference code. Your Web3Forms key goes in Settings; until it is in, the enquiry opens in the customer&rsquo;s own mail client instead, so nothing is lost either way.<br><br>
-      <b>3.</b> You paste the code above. The client, a measure visit and a draft quote are created in the region the ZIP belongs to, with the whole parts list on the quote.</div></div>`);
+      <b>1.</b> The customer draws their closet at <b>/design/</b>, presses &ldquo;Send this to us&rdquo;, then fills in their name, phone, email, town and address.<br><br>
+      <b>2.</b> It is written straight into this Inbox the moment they press send, and you also get an email. Nothing to copy, nothing to paste.<br><br>
+      <b>3.</b> You press <b>Open it</b>, check it, and file it. The client, a measure visit and a draft quote are created in the region the ZIP belongs to, with the whole parts list on the quote.</div></div>`);
 };
 
 function inboxPreview(e){
@@ -365,7 +384,10 @@ function inboxFile(){
   let quote = null;
   if(d) quote = DB.addQuote({ region, client:client.id, title, total:Math.round(d.price||0),
       status:'draft', summary:d.summary, design:d });
-  DB.addEnquiry({ ...e, regionId:region, clientId:client.id, jobId:job.id, quoteId:quote?.id });
+  /* A lead that came from the website is already a row; it just gets marked
+     handled. One that was pasted in from an email has to be created. */
+  if(e.id && DB.lead(e.id)) DB.markLeadHandled(e.id, client.id, region);
+  else DB.addEnquiry({ ...e, regionId:region, clientId:client.id });
   INBOX_DRAFT = null;
   render();
   toast(`Filed. ${client.name} is in ${REGIONS.find(r=>r.id===region).name}, with a measure visit today${quote?' and a draft quote of '+money(quote.total):''}.`);
@@ -383,6 +405,19 @@ V.settings = () => {
       <div class="btnrow"><button class="btn btn-p" data-act="savekey">Save key</button>
         <span id="keymsg" class="inline-msg"></span></div></div>`)
 
+  + panel('What you charge for installation', 'Used on every quote sheet', `<div class="bd">
+      <div class="note">The builder prices <b>cabinetry</b>. A customer is buying a finished closet, so the quote sheet adds installation on top. Put your rate here and every quote works it out from the real linear feet of the design. Leave it empty and the quote says installation is confirmed at the measure, which is honest but means you have to fill it in by hand each time.</div>
+      <div class="f3">
+        <div class="f"><label>Rate per linear foot ($)</label><input id="s-ipf" type="number" step="1" value="${esc(s.installPerFt||'')}" placeholder="e.g. 45"></div>
+        <div class="f"><label>Minimum charge ($)</label><input id="s-imin" type="number" step="1" value="${esc(s.installMin||'')}" placeholder="e.g. 350"></div>
+        <div class="f"><label>Sales tax (%)</label><input id="s-tax" type="number" step="0.1" value="${esc(s.taxRate||'')}" placeholder="0 for none"></div>
+      </div>
+      <div class="f2">
+        <div class="f"><label>Deposit to book (%)</label><input id="s-dep" type="number" step="1" value="${esc(s.depositPct ?? 50)}"></div>
+        <div class="f"></div>
+      </div>
+      <div class="btnrow"><button class="btn btn-p" data-act="savebiz">Save</button></div></div>`)
+
   + panel('Business', '', `<div class="bd">
       <div class="f2"><div class="f"><label>Business name</label><input id="s-biz" value="${esc(s.business)}"></div>
         <div class="f"><label>Phone</label><input id="s-phone" value="${esc(s.phone)}"></div></div>
@@ -396,15 +431,35 @@ V.settings = () => {
       <div class="f"><label>Google Maps embed URL, for the contact page</label><input id="s-map" placeholder="Maps → Share → Embed a map → copy the src" value="${esc(s.mapsEmbed)}"></div>
       <div class="btnrow"><button class="btn btn-p" data-act="savebiz">Save</button></div></div>`)
 
-  + panel('Your data', '', `<div class="bd">
-      <div class="note">Everything you add here is saved in this browser the moment you save it, and it stays until you delete it. It does not expire. What it does not do is follow you to another computer or another phone, because there is no shared database behind it yet. <b>Download a backup weekly</b>, and keep the file. Restoring it puts everything back exactly as it was.</div>
-      <div class="btnrow">
-        <button class="btn" data-act="export">Download backup</button>
-        <button class="btn" data-act="import">Restore from backup</button>
-        <button class="btn danger" data-act="reset">Reset to demo data</button>
+  + panel('Your data', 'Stored in your own Postgres database', `<div class="bd">
+      <div class="note ok">Everything you add is written to the database the moment you save it. It is the same on every computer and phone you sign in from, it survives clearing your browsing data, and <b>there is nothing you need to remember to back up</b>. It is removed only when you delete it.</div>
+      <div class="f2">
+        <div class="f"><label>Where it lives</label><input value="dbcumsbssqjuowioaqqj.supabase.co" readonly></div>
+        <div class="f"><label>Signed in as</label><input id="s-who" value="" readonly></div>
       </div>
-      <input type="file" id="importFile" accept="application/json" hidden></div>`);
+      <div class="btnrow">
+        <button class="btn" data-act="export">Download a copy anyway</button>
+        <button class="btn" data-act="refresh">Reload from the database</button>
+      </div>
+    </div>`)
+
+  + migratePanel();
 };
+
+/* Anything still sitting in this browser from before the database existed is
+   offered as a one-time move, with the real counts so he can check it after. */
+function migratePanel(){
+  const old = DB.localBackup();
+  if(!old) return '';
+  const c=(old.clients||[]).length, j=(old.jobs||[]).length,
+        q=(old.quotes||[]).length, e=(old.employees||[]).length;
+  const n = c+j+q+e;
+  if(!n) return '';
+  return panel('Move your old records up', 'One time only', `<div class="bd">
+    <div class="note warn">This browser still has <b>${n} record${n===1?'':'s'}</b> saved from before the database existed: ${c} client${c===1?'':'s'}, ${j} job${j===1?'':'s'}, ${q} quote${q===1?'':'s'}, ${e} crew. Press the button and they are copied into the database, with every job and quote reconnected to the right client. Nothing in this browser is deleted, so it is safe to run and safe to check afterwards.</div>
+    <div class="btnrow"><button class="btn btn-p" data-act="migrate">Copy them into the database</button></div>
+    <div id="migmsg"></div></div>`);
+}
 
 /* ═══════════════ ROUTER ═══════════════ */
 let view = 'today';
@@ -414,6 +469,7 @@ function render(){
   $('#main').scrollTop = 0;
   paintRegions();
   if(view==='quotes') wireCalc();
+  const who = $('#s-who'); if(who) who.value = document.getElementById('whoami')?.textContent || '';
 }
 
 document.addEventListener('click', e => {
@@ -430,6 +486,14 @@ document.addEventListener('click', e => {
   const ee = e.target.closest('[data-emp-edit]');
   if(ee){ e.stopPropagation(); return openEmployee(ee.dataset.empEdit); }
 
+  const lop = e.target.closest('[data-leadopen]');
+  if(lop){ e.stopPropagation();
+    const l = DB.lead(lop.dataset.leadopen);
+    if(l){ INBOX_DRAFT = { ...l, regionId:l.region_id }; view='inbox'; render();
+           const out=$('#inbox-out'); if(out){ out.innerHTML = inboxPreview(INBOX_DRAFT);
+             out.scrollIntoView({behavior:'smooth',block:'nearest'}); } }
+    return; }
+
   const lo = e.target.closest('[data-lead-open]');
   if(lo){ e.stopPropagation(); return lo.dataset.leadOpen ? openClient(lo.dataset.leadOpen) : null; }
 
@@ -441,7 +505,7 @@ document.addEventListener('click', e => {
   const job = e.target.closest('[data-job]');  if(job){ e.stopPropagation(); return openJob(job.dataset.job); }
   const qr  = e.target.closest('[data-quote]');if(qr)  return openQuote(qr.dataset.quote);
   const cl  = e.target.closest('[data-client]');if(cl) return openClient(cl.dataset.client);
-  const day = e.target.closest('.day');        if(day) return openJob(null, day.dataset.date);
+  const day = e.target.closest('.day');        if(day) return openDay(day.dataset.date);
 });
 
 function doAct(a){
@@ -453,6 +517,12 @@ function doAct(a){
     return;
   }
   if(a==='inbox-clear'){ INBOX_DRAFT=null; $('#inbox-code').value=''; $('#inbox-out').innerHTML=''; return; }
+  if(a==='inbox-sync'){
+    toast('Checking…');
+    DB.refresh().then(()=>{ render(); toast('Up to date.'); })
+      .catch(err=>toast('Could not reach the database: '+err.message, true));
+    return;
+  }
   if(a==='inbox-file')  return inboxFile();
   if(a==='newclient')   return openClient(null);
   if(a==='newjob')      return openJob(null);
@@ -474,8 +544,29 @@ function doAct(a){
   if(a==='savebiz'){
     DB.setSettings({business:$('#s-biz')?.value, phone:$('#s-phone')?.value, email:$('#s-email')?.value,
       markup:+($('#s-markup')?.value||2.8), web3forms:$('#s-w3f')?.value,
-      resendKey:$('#s-resend')?.value, mapsEmbed:$('#s-map')?.value});
+      resendKey:$('#s-resend')?.value, mapsEmbed:$('#s-map')?.value,
+      installPerFt:+($('#s-ipf')?.value||0), installMin:+($('#s-imin')?.value||0),
+      taxRate:+($('#s-tax')?.value||0), depositPct:+($('#s-dep')?.value||50)});
     render(); toast('Saved.'); return;
+  }
+  if(a==='refresh'){
+    toast('Reloading…');
+    DB.refresh().then(()=>{ render(); toast('Up to date.'); })
+      .catch(err=>toast('Could not reach the database: '+err.message, true));
+    return;
+  }
+  if(a==='migrate'){
+    const old = DB.localBackup();
+    if(!old) return toast('Nothing to move.', true);
+    const box = $('#migmsg');
+    if(box) box.innerHTML = '<div class="note">Copying…</div>';
+    DB.importLocal(old).then(c => {
+      render();
+      toast(`Moved up: ${c.clients} clients, ${c.employees} crew, ${c.jobs} jobs, ${c.quotes} quotes.`);
+    }).catch(err => {
+      if(box) box.innerHTML = `<div class="note warn"><b>It stopped part way.</b> ${esc(err.message||err)} Anything already copied is in the database; press it again and the rest will follow, but check for duplicates first.</div>`;
+    });
+    return;
   }
   if(a==='export'){
     const b=new Blob([DB.export()],{type:'application/json'});
@@ -483,16 +574,6 @@ function doAct(a){
     l.href=u; l.download=`js-closets-backup-${today()}.json`; l.click();
     setTimeout(()=>URL.revokeObjectURL(u),2000); return;
   }
-  if(a==='import'){
-    const f=$('#importFile'); f.value=''; f.click();
-    f.onchange=()=>{ const file=f.files[0]; if(!file) return;
-      const r=new FileReader();
-      r.onload=()=>{ try{ DB.import(r.result); render(); toast('Backup restored.'); }
-                     catch(err){ toast('Could not read that file: '+err.message, true); } };
-      r.readAsText(file); };
-    return;
-  }
-  if(a==='reset'){ if(confirm('Reset everything back to the demo data? Everything you have added will be lost.')){DB.reset(); render();} return; }
 }
 
 /* ═══════════════ SMALL UI ═══════════════ */
@@ -659,6 +740,25 @@ function openQuote(id){
       <tbody>${(d.order||[]).map(o=>`<tr><td>${esc(o.item)}</td><td class="mono">${o.qty}</td>
         <td class="mono">${o.sq_ft??''}</td><td class="mono">${o.edgeband_ft??''}</td><td class="sub">${esc(o.detail||'')}</td></tr>`).join('')}</tbody></table></div>
       <div class="btnrow"><button class="btn btn-sm" id="q-csv">Download the parts list</button></div></div>`:''}
+    ${q ? (() => {
+      const n = quoteNumbers(q, DB.settings());
+      return `<div class="dlglist"><label>What the customer would see</label>
+        <div class="qsum">
+          <div class="qrow"><span>Cabinetry</span><b>${money(n.cabinetry)}</b></div>
+          <div class="qrow"><span>Installation${n.install!==null?` · ${n.ft} ft at ${money(n.rate)}/ft`:''}</span>
+            <b>${n.install!==null?money(n.install):'<i>rate not set</i>'}</b></div>
+          ${n.taxPct?`<div class="qrow"><span>Sales tax ${n.taxPct}%</span><b>${money(n.tax)}</b></div>`:''}
+          <div class="qrow tot"><span>Total</span><b>${money(n.total)}</b></div>
+          <div class="qrow dep"><span>Deposit to book</span><b>${money(n.deposit)}</b></div>
+        </div>
+        ${n.install===null?`<div class="note warn">No installation rate is set, so the quote will say installation is confirmed at the measure. Put a rate per linear foot in <b>Settings</b> and it is priced automatically.</div>`:''}
+        <div class="f"><label>Anything to add to the quote</label>
+          <textarea id="q-note" rows="2" placeholder="Lead time, access, anything agreed on the phone">${esc(q.note||'')}</textarea></div>
+        <div class="btnrow">
+          <button class="btn btn-p" id="q-doc">Open the quote sheet</button>
+          <button class="btn" id="q-mail">Email it to ${esc((DB.client(q.client)||{}).name || 'the client')}</button>
+        </div></div>`;
+    })() : ''}
     <div class="dlgacts">${q?'<button class="btn danger" id="m-del">Delete</button>':''}
       <button class="btn" value="cancel">Close</button>
       <button class="btn btn-p" id="m-ok">${q?'Save changes':'Add quote'}</button></div>`;
@@ -673,6 +773,39 @@ function openQuote(id){
     q ? DB.updateQuote(q.id,p) : DB.addQuote(p);
     close(); render(); toast(q?'Saved.':'Quote added.');
   };
+  const doc = dlg.querySelector('#q-doc');
+  if(doc) doc.onclick = () => {
+    const note = dlg.querySelector('#q-note')?.value || '';
+    if(note !== (q.note||'')) DB.updateQuote(q.id, { note });
+    const w = window.open('', '_blank');
+    if(!w) return toast('Your browser blocked the new tab. Allow pop-ups for this page.', true);
+    w.document.write(quoteDoc(q, DB.client(q.client), DB.settings(), { note }));
+    w.document.close();
+  };
+  const mail = dlg.querySelector('#q-mail');
+  if(mail) mail.onclick = () => {
+    const c = DB.client(q.client) || {};
+    if(!c.email) return toast('That client has no email address on file yet.', true);
+    const n = quoteNumbers(q, DB.settings());
+    const s2 = DB.settings();
+    const body = [
+      `Hi ${(c.name||'').split(' ')[0]},`, '',
+      `Here is the quote for ${q.title}.`, '',
+      q.summary || '',
+      `Cabinetry: ${money(n.cabinetry)}`,
+      n.install !== null ? `Installation: ${money(n.install)} (${n.ft} linear feet)`
+                         : 'Installation: confirmed at the measure',
+      n.taxPct ? `Sales tax: ${money(n.tax)}` : '',
+      `Total: ${money(n.total)}`,
+      n.deposit ? `Deposit to book it: ${money(n.deposit)}` : '', '',
+      'This holds for 30 days. Every dimension is confirmed at the measure before anything is cut.',
+      '', s2.business || 'JS Installations & Closets', s2.phone || '', s2.email || ''
+    ].filter(Boolean).join('\n');
+    location.href = `mailto:${encodeURIComponent(c.email)}?subject=${
+      encodeURIComponent(`Your quote from ${s2.business||'JS Closets'} — ${q.title}`)}&body=${encodeURIComponent(body)}`;
+    DB.updateQuote(q.id, { status:'sent' });
+    close(); render(); toast('Quote marked as sent.');
+  };
   const csv = dlg.querySelector('#q-csv');
   if(csv) csv.onclick = () => {
     const rows = [['Item','Qty','Sq ft','Edgeband ft','Finish','Detail'],
@@ -683,6 +816,48 @@ function openQuote(id){
     a.href=u; a.download=`${q.title.replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-parts.csv`; a.click();
     setTimeout(()=>URL.revokeObjectURL(u),1500);
   };
+}
+
+/* ───────── a day, read before it is touched ─────────
+   Clicking a square used to open an empty booking form, which meant you could
+   not look at a day without being asked to add to it. Now a day opens as a
+   sheet of what is on it: who, where, which crew, what it is worth and the
+   notes. Editing happens only when you click the actual visit. */
+function openDay(iso){
+  const items = DB.jobs().filter(j => j.date === iso)
+    .sort((a,b) => a.kind.localeCompare(b.kind));
+  const total = items.reduce((a,j) => a + (j.value||0), 0);
+  const card = j => {
+    const c = DB.client(j.client) || {};
+    const crew = (j.crewIds||[]).map(id => DB.employeeName(id)).filter(Boolean);
+    return `<article class="dayjob" data-job="${j.id}">
+      <div class="djtop">
+        <span class="kind ${esc(j.kind)}"><i></i>${esc(j.kind)}</span>
+        <span class="pill p-${j.stage}">${STAGE_LABEL[j.stage]}</span>
+        ${j.value ? `<span class="djval mono">${money(j.value)}</span>` : ''}
+      </div>
+      <h3>${esc(j.title)}</h3>
+      <p class="djwho">${esc(c.name || 'No client on this visit')}${c.phone ? ` · <a href="tel:${esc(String(c.phone).replace(/[^+\d]/g,''))}" data-stop="1">${esc(c.phone)}</a>` : ''}</p>
+      ${c.addr ? `<p class="djaddr"><a href="#" data-map="${esc(c.addr)}" data-stop="1">${esc(c.addr)}</a></p>` : ''}
+      <div class="djmeta">
+        <span><em>Crew</em>${crew.length ? esc(crew.join(' + ')) : 'Unassigned'}</span>
+        ${j.finish && j.finish !== 'n/a' ? `<span><em>Finish</em>${esc(j.finish)}</span>` : ''}
+        ${DB.region()==='all' ? `<span><em>Region</em>${DB.regionMeta(j.region).short}</span>` : ''}
+      </div>
+      ${j.notes ? `<p class="djnote">${esc(j.notes)}</p>` : ''}
+      <span class="djedit">Click to edit this visit &rarr;</span>
+    </article>`;
+  };
+  dlg.innerHTML = `<h2>${esc(fmtFull(iso))}</h2>
+    <p class="sub dlgsub">${items.length ? `${items.length} visit${items.length===1?'':'s'}${total?` · ${money(total)}`:''}` : 'Nothing booked'}${DB.region()==='all'?'':' in '+esc(DB.regionMeta().name)}</p>
+    ${items.length ? `<div class="daylist">${items.map(card).join('')}</div>`
+      : '<div class="note">This day is clear. Use the button below to put something on it.</div>'}
+    <div class="dlgacts">
+      <button class="btn" value="cancel">Close</button>
+      <button class="btn btn-p" id="d-add">+ Book something on this day</button>
+    </div>`;
+  dlg.showModal(); wireCancel();
+  $('#d-add').onclick = () => { close(); openJob(null, iso); };
 }
 
 /* ───────── the crew's week link ───────── */

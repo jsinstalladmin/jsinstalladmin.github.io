@@ -378,3 +378,113 @@ td b, td .sub{overflow-wrap:anywhere}
    of the calendar, where they were clipped and could not be clicked. */
 .cal > .day,.cal > .dow{min-width:0}
 .cal .ev{max-width:100%}
+
+/* ───────── the sign-in gate ───────── */
+.gate{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;
+  background:radial-gradient(120% 90% at 50% 0%,#1D1812 0%,var(--bg) 62%)}
+.gatebox{width:min(380px,100%);background:var(--surf);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:30px 28px 26px;text-align:center;
+  box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.gatemark{width:42px;height:42px;fill:var(--brass);margin-bottom:10px}
+.gatebox h1{font-family:'Instrument Serif',serif;font-weight:400;font-size:1.7rem;margin:0}
+.gatesub{color:var(--muted);font-size:.84rem;margin:.3em 0 1.6em}
+.gatebox .f{text-align:left}
+.gatebox .btn{width:100%;justify-content:center;margin-top:.5em}
+.gatemsg{min-height:1.3em;margin:1em 0 0;font-size:.82rem;color:var(--warn);line-height:1.45}
+.whoami{display:block;font-size:.7rem;color:var(--muted);margin-bottom:8px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button.backlink{display:block;width:100%;text-align:left;background:transparent;border:0;
+  color:inherit;font:inherit;font-size:.72rem;cursor:pointer;padding:0;opacity:.7;margin-bottom:6px}
+button.backlink:hover{opacity:1}
+@media(max-width:1060px){.whoami{display:none}}
+
+/* `.app` is display:grid, which beats the hidden attribute's UA rule, so the
+   application was laid out behind the sign-in screen until this was added.
+   Nothing should render at all until there is a session. */
+[hidden]{display:none!important}
+
+/* ───────── a day, as a sheet you can read ───────── */
+.daylist{display:grid;gap:10px;margin-bottom:.4em}
+.dayjob{position:relative;padding:15px 16px 14px;border:1px solid var(--line);
+  border-radius:var(--r);background:var(--surf2);cursor:pointer;transition:.2s var(--ease)}
+.dayjob:hover{border-color:var(--brass2);background:var(--surf3)}
+.djtop{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+.dayjob .kind{display:inline-flex;align-items:center;gap:.45em;font-size:.66rem;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted)}
+.dayjob .kind i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.dayjob .kind.measure i{background:var(--info)}.dayjob .kind.delivery i{background:var(--warn)}
+.dayjob .kind.install i{background:var(--ok)}.dayjob .kind.service i{background:var(--bad)}
+.djval{margin-left:auto;color:var(--fg);font-weight:500}
+.dayjob h3{font-size:1.02rem;margin:0 0 2px}
+.djwho{margin:0 0 2px;font-size:.86rem;color:var(--muted)}
+.djwho a{color:var(--info);text-decoration:none}
+.djaddr{margin:0 0 9px;font-size:.84rem}
+.djaddr a{color:var(--info);text-decoration:none;border-bottom:1px dotted rgba(132,169,214,.45);
+  overflow-wrap:anywhere}
+.djaddr a:hover{color:var(--fg)}
+.djmeta{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem}
+.djmeta span{display:flex;flex-direction:column;min-width:0}
+.djmeta em{font-style:normal;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.djnote{margin:10px 0 0;font-size:.84rem;background:rgba(224,169,74,.08);
+  border:1px solid rgba(224,169,74,.22);border-radius:10px;padding:.6em .8em;overflow-wrap:anywhere}
+.djedit{display:block;margin-top:10px;font-size:.73rem;color:var(--brass);opacity:0;transition:opacity .2s}
+.dayjob:hover .djedit{opacity:1}
+@media(max-width:560px){.djedit{opacity:1}}
+
+/* ───────── the money on a quote ───────── */
+.qsum{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:1em}
+.qrow{display:flex;justify-content:space-between;gap:16px;align-items:baseline;
+  padding:.6em .85em;background:var(--surf2);border-bottom:1px solid var(--line);font-size:.86rem}
+.qrow:last-child{border-bottom:0}
+.qrow span{color:var(--muted)}
+.qrow b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.qrow b i{font-style:normal;color:var(--warn);font-weight:400;font-size:.82rem}
+.qrow.tot{background:var(--surf3)}
+.qrow.tot b{font-size:1.18rem;letter-spacing:-.02em}
+.qrow.dep b{color:var(--brass)}
+
+/* ───────── buttons with some weight to them ─────────
+   The region switcher already had a lit, glossy treatment and the buttons
+   next to it were flat rectangles of colour, which made the whole screen look
+   half finished. Same light source on everything now: a highlight along the
+   top edge, a soft drop under, and both of them sharpen on hover. */
+.btn{position:relative;
+  background:linear-gradient(180deg,var(--surf3),var(--surf2));
+  box-shadow:inset 0 1px 0 rgba(245,240,232,.07),0 1px 2px rgba(0,0,0,.3);
+  transition:background .2s var(--ease),border-color .2s var(--ease),
+             box-shadow .2s var(--ease),transform .12s var(--ease)}
+.btn:hover{background:linear-gradient(180deg,var(--surf4),var(--surf3));
+  border-color:var(--brass2);
+  box-shadow:inset 0 1px 0 rgba(245,240,232,.12),0 4px 12px rgba(0,0,0,.38)}
+.btn:active{transform:translateY(1px);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.4)}
+.btn:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.btn-p{background:linear-gradient(180deg,#E6C894,var(--brass));color:#15110D;
+  border-color:rgba(255,255,255,.34);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 2px 10px rgba(205,169,110,.26)}
+.btn-p:hover{background:linear-gradient(180deg,#F0D7AB,#D9B87C);color:#15110D;
+  border-color:rgba(255,255,255,.5);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.72),0 6px 20px rgba(205,169,110,.36)}
+.btn-p:active{box-shadow:inset 0 2px 6px rgba(120,90,40,.4)}
+
+.btn.danger{background:linear-gradient(180deg,rgba(217,112,95,.14),rgba(217,112,95,.07))}
+.btn.danger:hover{background:linear-gradient(180deg,rgba(217,112,95,.24),rgba(217,112,95,.12));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 14px rgba(217,112,95,.24)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+
+/* the same light on the panels and the cards, so nothing reads as a flat
+   rectangle sitting on another flat rectangle */
+.panel,.card,.crewcard,.dayjob{box-shadow:inset 0 1px 0 rgba(245,240,232,.04),
+  0 1px 3px rgba(0,0,0,.26)}
+.panel.accent{box-shadow:inset 0 1px 0 rgba(205,169,110,.16),
+  0 0 0 1px rgba(205,169,110,.14),0 6px 22px rgba(0,0,0,.3)}
+.card{background:linear-gradient(180deg,var(--surf2),var(--surf));
+  transition:border-color .3s var(--ease),transform .3s var(--ease-out),box-shadow .3s}
+.card:hover{border-color:var(--brass2);transform:translateY(-2px);
+  box-shadow:inset 0 1px 0 rgba(245,240,232,.07),0 8px 24px rgba(0,0,0,.34)}
+.nvi[aria-current]{background:linear-gradient(180deg,var(--surf4),var(--surf3));
+  box-shadow:inset 0 1px 0 rgba(245,240,232,.08)}
+@media(prefers-reduced-motion:reduce){
+  .btn:active,.card:hover{transform:none}
+}

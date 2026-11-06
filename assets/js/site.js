@@ -41,6 +41,34 @@ document.querySelectorAll('.article').forEach(a=>{
 });
 document.querySelectorAll('[data-rv]').forEach(el=>io.observe(el));
 
+/* ── the safety net ──
+   A revealed element starts at opacity 0. If the observer never reports it,
+   that section stays INVISIBLE, and a fast scroll, a restored scroll position
+   or a browser that throttles observers can all cause exactly that. Content
+   must never depend on an animation firing.
+
+   So: on scroll, and once after load, anything still waiting that has reached
+   the viewport is revealed directly. And whatever happens, everything is
+   revealed after six seconds. The animation is decoration; the words are not. */
+(function(){
+  const left = () => document.querySelectorAll('[data-rv]:not(.in)');
+  let queued = false;
+  const sweep = () => {
+    queued = false;
+    const h = innerHeight || 800;
+    for(const el of left()){
+      const r = el.getBoundingClientRect();
+      if(r.top < h * 0.98 && r.bottom > -40){ el.classList.add('in'); io.unobserve(el); }
+    }
+  };
+  const onScroll = () => { if(!queued){ queued = true; requestAnimationFrame(sweep); } };
+  addEventListener('scroll', onScroll, {passive:true});
+  addEventListener('resize', onScroll, {passive:true});
+  addEventListener('load', sweep);
+  sweep();
+  setTimeout(() => { for(const el of left()){ el.classList.add('in'); io.unobserve(el); } }, 6000);
+})();
+
 /* mobile drawer */
 const mb=document.getElementById('menuBtn'), dr=document.getElementById('drawer');
 if(mb&&dr){

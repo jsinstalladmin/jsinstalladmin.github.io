@@ -15,7 +15,30 @@
 <link rel="stylesheet" href="../admin/app.css">
 </head>
 <body>
-<div class="app">
+
+<!-- ── the gate ──
+     Nothing about a customer is in this page until someone signs in. The
+     database itself refuses to hand over a single row to an unauthenticated
+     request, so this screen is the front door, not the whole lock. -->
+<div class="gate" id="gate" hidden>
+  <form class="gatebox" id="gateform">
+    <svg class="gatemark" viewBox="0 0 40 40" aria-hidden="true">
+      <path d="M5.6 4.4h28.8a1.2 1.2 0 0 1 1.2 1.2v28.8a1.2 1.2 0 0 1-1.2 1.2H5.6a1.2 1.2 0 0 1-1.2-1.2V5.6a1.2 1.2 0 0 1 1.2-1.2Zm1.6 3.2v24.8h25.6V7.6H7.2Z"/>
+      <path d="M15.4 7.6h2.6v24.8h-2.6zM22 7.6h2.6v24.8H22z"/>
+      <path d="M7.2 15.1h8.2v2.4H7.2zM24.6 15.1h8.2v2.4h-8.2zM7.2 22.6h8.2v2.4H7.2zM24.6 22.6h8.2v2.4h-8.2z"/>
+    </svg>
+    <h1>JS Closets</h1>
+    <p class="gatesub">Sign in to the office</p>
+    <div class="f"><label for="g-e">Email</label>
+      <input id="g-e" type="email" autocomplete="username" required></div>
+    <div class="f"><label for="g-p">Password</label>
+      <input id="g-p" type="password" autocomplete="current-password" required></div>
+    <button class="btn btn-p" type="submit" id="g-go">Sign in</button>
+    <p class="gatemsg" id="g-msg" role="status"></p>
+  </form>
+</div>
+
+<div class="app" id="app" hidden>
 
   <nav class="side">
     <a class="brand" href="../admin/">
@@ -45,7 +68,8 @@
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.9 15.2a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.2a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3.9a2 2 0 1 1 0-4H4a1.6 1.6 0 0 0 1.1-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1V4a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.2a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.5z"/></svg><span>Settings</span></button>
 
     <div class="sideftr">
-      <span class="demo-pill"><b>Demo mode.</b> No password yet, so you can look at everything. Turning the login on is one line, and it is in the handover notes.</span>
+      <span class="whoami" id="whoami"></span>
+      <button class="backlink" id="signout" type="button">Sign out</button>
       <a href="../index.html" class="backlink">← Back to the website</a>
     </div>
   </nav>
@@ -96,8 +120,5 @@ Add your Anthropic key in Settings first. I run on your account, and the key sta
   "three":"../assets/vendor/three/three.module.min.js",
   "three/addons/":"../assets/vendor/three/addons/"
 }}</script>
-<script type="module">
-  import './app.js';
-  import './agent.js';
-</script>
+<script type="module" src="./boot.js"></script>
 </body></html>

@@ -1,0 +1,108 @@
+# ════════════════════════════════════════════════════════════════════
+# JS Installations & Closets
+#
+# Search engines are welcome. The drawings, the photographs, the written
+# guides, the pricing engine and the 3D builder on this site are the work
+# of this business and are not offered as training data or as material to
+# be reproduced elsewhere. See /terms.html.
+#
+# TO LET AI ASSISTANTS READ THIS SITE AGAIN (so it can be recommended in
+# their answers), delete everything between the two ==== lines below.
+# Nothing else in this file needs to change.
+# ════════════════════════════════════════════════════════════════════
+
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /crew/
+
+# ==================== AI ACCESS: CURRENTLY CLOSED ====================
+
+# Anthropic. Their documentation states these honour robots.txt.
+# ClaudeBot is the training crawler, Claude-SearchBot indexes, and
+# Claude-User is the one that fetches a page because somebody pasted
+# the link into Claude. Blocking that last one is what makes Claude
+# answer that it cannot read this site.
+User-agent: ClaudeBot
+Disallow: /
+User-agent: Claude-User
+Disallow: /
+User-agent: Claude-SearchBot
+Disallow: /
+User-agent: Claude-Agent
+Disallow: /
+
+# OpenAI. GPTBot trains, OAI-SearchBot indexes for ChatGPT search, and
+# ChatGPT-User fetches on demand. OpenAI's own documentation says
+# robots.txt may NOT be applied to ChatGPT-User, because that fetch is
+# started by a person rather than by a crawler, so this one is a request
+# rather than a lock.
+User-agent: GPTBot
+Disallow: /
+User-agent: OAI-SearchBot
+Disallow: /
+User-agent: ChatGPT-User
+Disallow: /
+User-agent: OAI-AdsBot
+Disallow: /
+
+# Google's AI training opt-out. This does NOT affect Google Search:
+# Googlebot is untouched above and the site stays fully indexed.
+User-agent: Google-Extended
+Disallow: /
+
+# Apple's AI training opt-out. Applebot itself is left alone so Siri and
+# Spotlight still find the business.
+User-agent: Applebot-Extended
+Disallow: /
+
+# Perplexity. PerplexityBot builds their index. Perplexity-User fetches
+# on demand and is widely reported NOT to honour robots.txt, so treat
+# that one as unenforced.
+User-agent: PerplexityBot
+Disallow: /
+User-agent: Perplexity-User
+Disallow: /
+
+# Meta, ByteDance, Common Crawl, Amazon, Mistral, DuckDuckGo, xAI.
+User-agent: Meta-ExternalAgent
+Disallow: /
+User-agent: Meta-ExternalFetcher
+Disallow: /
+User-agent: FacebookBot
+Disallow: /
+User-agent: Bytespider
+Disallow: /
+User-agent: CCBot
+Disallow: /
+User-agent: Amazonbot
+Disallow: /
+User-agent: MistralAI-User
+Disallow: /
+User-agent: DuckAssistBot
+Disallow: /
+User-agent: GrokBot
+Disallow: /
+User-agent: YouBot
+Disallow: /
+User-agent: Diffbot
+Disallow: /
+User-agent: omgili
+Disallow: /
+User-agent: Timpibot
+Disallow: /
+
+# Scrapers that exist to copy a whole site. These ignore robots.txt as
+# often as not, but naming them costs nothing and removes the excuse.
+User-agent: HTTrack
+Disallow: /
+User-agent: WebCopier
+Disallow: /
+User-agent: Wget
+Disallow: /
+User-agent: SiteSucker
+Disallow: /
+
+# ==================== END AI ACCESS BLOCK ====================
+
+Sitemap: https://jsclosets.com/sitemap.xml

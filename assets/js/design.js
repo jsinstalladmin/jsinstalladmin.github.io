@@ -801,13 +801,45 @@ export function buildDesign(cfg, cat){
     const code = cfg.mounting==='wall' ? 'VP_WALL' : 'VP_FLOOR';
     let x = 0;
     const local = [];
+    /* ---- islands ----------------------------------------------------------
+       A run used to be one unbroken line of sections starting in the corner.
+       Real walls are not like that: a radiator, a door swing or simply where
+       the customer wants it means a run can start part way along and can have
+       a genuine gap in the middle.
+
+       So a run is now a list of ISLANDS separated by gap bays. Each island is
+       a closed box in its own right: its own end panel, its own cleat and its
+       own length of toe kick, all measured from where that island actually
+       starts rather than from the corner. A gap costs nothing and builds
+       nothing; it is simply wall we are not touching. */
+    let islandStart = null;          // x where the open island began
+    const closeIsland = () => {
+      if(islandStart === null) return;
+      const span = x - islandStart;
+      if(span > 0.01){
+        const endH = lastTop - floorY + SPEC.panel;
+        parts.push(P(code,1,(endH*depth)/144,(endH+depth)/12,`End panel — ${run.wall}`));
+        local.push({k:'panel', p:[x, floorY+endH/2, 0], s:[SPEC.panel,endH,depth], m:'carcass'});
+        parts.push(P('CLEAT',1,(span*4)/144,span/12,`Hang cleat — ${run.wall}`));
+        if(cfg.mounting!=='wall' && !liftedByHeat){
+          parts.push(P('TK',1,(span*SPEC.toeKick)/144,span/12,`Toe kick — ${run.wall}`));
+          local.push({k:'toe', p:[islandStart + span/2, SPEC.toeKick/2, -1.5],
+                      s:[span, SPEC.toeKick, depth-3], m:'carcass'});
+        }
+      }
+      islandStart = null;
+    };
     /* The leaves of a bi-fold stack over the first and last few inches of the
        opening. A drawer or a door front behind that cannot be opened. */
     const block = DS.sideBlock || 0;
     const wallEnd = runLen(run.wall);
     let lastTop = bayTop;                 // the closing panel matches its neighbour
 
-    run.bays.forEach((bay,bi)=>{
+    let secN = 0;                     // sections are numbered, gaps are not
+    run.bays.forEach((bay)=>{
+      if(bay.gap){ closeIsland(); x += bay.w; return; }
+      const bi = secN++;
+      if(islandStart === null) islandStart = x;
       if(bay.w < SPEC.bayMin) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}", under the ${SPEC.bayMin}" minimum.`);
       if(bay.w > SPEC.bayMax) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}". Past ${SPEC.bayMax}" a ¾" shelf sags.`);
 
@@ -912,17 +944,10 @@ export function buildDesign(cfg, cat){
       x += bay.w;
     });
 
-    // closing panel at the height of the bay it closes, cleat, toe kick
-    const endH = lastTop - floorY + SPEC.panel;
-    parts.push(P(code,1,(endH*depth)/144,(endH+depth)/12,`End panel — ${run.wall}`));
-    local.push({k:'panel', p:[x, floorY+endH/2, 0], s:[SPEC.panel,endH,depth], m:'carcass'});
-    parts.push(P('CLEAT',1,(x*4)/144,x/12,`Hang cleat — ${run.wall}`));
-    /* Baseboard heat takes the toe kick away: there is nothing on the floor to
+    /* close whatever island the last section left open. Baseboard heat takes
+       the toe kick away inside closeIsland: there is nothing on the floor to
        close in, and a kick over the element is a fire detail nobody wants. */
-    if(cfg.mounting!=='wall' && !liftedByHeat){
-      parts.push(P('TK',1,(x*SPEC.toeKick)/144,x/12,`Toe kick — ${run.wall}`));
-      local.push({k:'toe', p:[x/2, SPEC.toeKick/2, -1.5], s:[x, SPEC.toeKick, depth-3], m:'carcass'});
-    }
+    closeIsland();
     /* A door leaf that folds back over the end of the opening needs a scribe
        filler so the cabinetry stops clear of it. Real panel, real square feet,
        real edge band. */

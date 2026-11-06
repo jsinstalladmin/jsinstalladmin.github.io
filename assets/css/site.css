@@ -710,10 +710,23 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
              transform 1.05s var(--ease-out) var(--rvd,0ms);
   will-change:opacity,transform}
 .in[data-rv="up"]{opacity:1;transform:none}
-/* headings come up from behind their own line */
+/* headings come up from behind their own line.
+
+   The reset below used to be `.in[data-rv]`, which is less specific than the
+   rule that pushes the heading down, so the heading NEVER came back up. It
+   sat 56px low on top of its own paragraph on every room page. The reset now
+   repeats the same selectors with .in added, so it always wins. */
 .sec > .shell > h2[data-rv],.sec-tight > .shell > h2[data-rv],.faqhd[data-rv]{
   transform:translate3d(0,56px,0)}
-.in.sec > .shell > h2[data-rv],.in[data-rv]{transform:none}
+.sec > .shell > h2.in[data-rv],
+.sec-tight > .shell > h2.in[data-rv],
+.faqhd.in[data-rv],
+.in[data-rv]{transform:none}
+/* and if the observer never runs at all, nothing may be left hidden or
+   displaced: no JavaScript must never mean no content. */
+@media(prefers-reduced-motion:reduce){
+  [data-rv]{opacity:1!important;transform:none!important}
+}
 
 /* ── a block of information in its own box ──
    Sections that are a statement rather than a list get a rounded panel, the
@@ -907,3 +920,34 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
   border-radius:var(--r-sm);background:var(--paper);color:var(--body);resize:vertical;
   word-break:break-all}
 .refbox .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:.8em}
+
+/* ── what goes in it, with the drawing of each thing ──
+   These were eight lines of plain text, which reads as a contract rather than
+   a showroom. Each one now carries the same line drawing the 3D builder uses
+   for that part, so the page and the builder agree, and the whole block lifts
+   on hover the way the cards do. */
+.incs{gap:0}
+.inc{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 14px;align-items:start;
+  transition:transform .35s var(--ease-out),border-color .35s var(--ease-out)}
+/* the icon holds column one; the title and the line under it both live in
+   column two, or the description drops under the icon and the row breaks */
+.inc > .incico{grid-column:1;grid-row:1/3}
+.inc > b{grid-column:2;grid-row:1}
+.inc > span{grid-column:2;grid-row:2}
+.inc:hover{transform:translateY(-2px);border-color:var(--accent,#A8824C)}
+.incico{display:grid;place-items:center;width:38px;height:38px;flex:0 0 auto;margin-top:2px;
+  border:1px solid var(--line);border-radius:11px;background:var(--paper-2);
+  transition:border-color .35s var(--ease-out),background .35s var(--ease-out)}
+.inc:hover .incico{border-color:var(--accent,#A8824C);background:var(--paper-3)}
+.incico svg{width:19px;height:23px;fill:none;stroke:var(--accent,#A8824C);
+  stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;opacity:.92}
+.sec-dark .incico,.over-dark .incico{background:rgba(248,245,240,.06);border-color:var(--line-dk)}
+.sec-dark .incico svg,.sec-dark .inc:hover .incico svg{stroke:#D7B37A}
+@media(prefers-reduced-motion:reduce){.inc:hover{transform:none}}
+
+/* ── the finish wall lifts like everything else ── */
+.fswatch{transition:transform .38s var(--ease-out),box-shadow .38s var(--ease-out)}
+.fswatch:hover{transform:translateY(-4px)}
+.fswatch .fsw-img,.fswatch img,.fswatch .fsq{border-radius:14px}
+.fswatch:hover .fsq,.fswatch:hover img{box-shadow:0 10px 26px rgba(26,18,10,.16)}
+@media(prefers-reduced-motion:reduce){.fswatch:hover{transform:none}}
