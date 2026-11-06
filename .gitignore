@@ -3,4 +3,9 @@
 Thumbs.db
 *.log
 000 — MAIN SITE IS index.html.txt
+_to_delete/
+_batch_tmp/
+_batch_tmp*/
+_b[0-9]*/
 _t/
+*.zip

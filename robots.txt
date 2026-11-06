@@ -6,9 +6,10 @@
 # of this business and are not offered as training data or as material to
 # be reproduced elsewhere. See /terms.html.
 #
-# TO LET AI ASSISTANTS READ THIS SITE AGAIN (so it can be recommended in
-# their answers), delete everything between the two ==== lines below.
-# Nothing else in this file needs to change.
+# AI assistants ARE allowed to read this site, so it can be recommended
+# when somebody asks one for a closet company. What is refused is bulk
+# collection for model training, and the tools that exist to download a
+# whole site at once. See /terms.html.
 # ════════════════════════════════════════════════════════════════════
 
 User-agent: *
@@ -16,74 +17,29 @@ Allow: /
 Disallow: /admin/
 Disallow: /crew/
 
-# ==================== AI ACCESS: CURRENTLY CLOSED ====================
+# ──────────────── AI ASSISTANTS: WELCOME ────────────────
+# The assistants that answer "who does custom closets near me" are allowed
+# in on purpose. Being recommended in those answers is a real source of
+# work now, and a business nobody can find is worse off than one that gets
+# quoted. Claude-User, ChatGPT-User, Perplexity-User, OAI-SearchBot,
+# Claude-SearchBot and the rest are covered by the Allow rule at the top of
+# this file and are deliberately NOT listed here.
 
-# Anthropic. Their documentation states these honour robots.txt.
-# ClaudeBot is the training crawler, Claude-SearchBot indexes, and
-# Claude-User is the one that fetches a page because somebody pasted
-# the link into Claude. Blocking that last one is what makes Claude
-# answer that it cannot read this site.
+# ──────────────── TRAINING CRAWLERS: NOT WELCOME ────────────────
+# These collect pages in bulk to train models. They send nobody here and
+# give nothing back, so they get nothing. Blocking them does not affect
+# whether an assistant can read the site when a customer asks about it.
 User-agent: ClaudeBot
 Disallow: /
-User-agent: Claude-User
-Disallow: /
-User-agent: Claude-SearchBot
-Disallow: /
-User-agent: Claude-Agent
-Disallow: /
-
-# OpenAI. GPTBot trains, OAI-SearchBot indexes for ChatGPT search, and
-# ChatGPT-User fetches on demand. OpenAI's own documentation says
-# robots.txt may NOT be applied to ChatGPT-User, because that fetch is
-# started by a person rather than by a crawler, so this one is a request
-# rather than a lock.
 User-agent: GPTBot
-Disallow: /
-User-agent: OAI-SearchBot
-Disallow: /
-User-agent: ChatGPT-User
-Disallow: /
-User-agent: OAI-AdsBot
-Disallow: /
-
-# Google's AI training opt-out. This does NOT affect Google Search:
-# Googlebot is untouched above and the site stays fully indexed.
-User-agent: Google-Extended
-Disallow: /
-
-# Apple's AI training opt-out. Applebot itself is left alone so Siri and
-# Spotlight still find the business.
-User-agent: Applebot-Extended
-Disallow: /
-
-# Perplexity. PerplexityBot builds their index. Perplexity-User fetches
-# on demand and is widely reported NOT to honour robots.txt, so treat
-# that one as unenforced.
-User-agent: PerplexityBot
-Disallow: /
-User-agent: Perplexity-User
-Disallow: /
-
-# Meta, ByteDance, Common Crawl, Amazon, Mistral, DuckDuckGo, xAI.
-User-agent: Meta-ExternalAgent
-Disallow: /
-User-agent: Meta-ExternalFetcher
-Disallow: /
-User-agent: FacebookBot
-Disallow: /
-User-agent: Bytespider
 Disallow: /
 User-agent: CCBot
 Disallow: /
-User-agent: Amazonbot
+User-agent: Bytespider
 Disallow: /
-User-agent: MistralAI-User
+User-agent: Meta-ExternalAgent
 Disallow: /
-User-agent: DuckAssistBot
-Disallow: /
-User-agent: GrokBot
-Disallow: /
-User-agent: YouBot
+User-agent: FacebookBot
 Disallow: /
 User-agent: Diffbot
 Disallow: /
@@ -92,17 +48,22 @@ Disallow: /
 User-agent: Timpibot
 Disallow: /
 
-# Scrapers that exist to copy a whole site. These ignore robots.txt as
-# often as not, but naming them costs nothing and removes the excuse.
+# Opt-out tokens, not crawlers. Google Search and Apple's search are
+# untouched; only their model training is refused.
+User-agent: Google-Extended
+Disallow: /
+User-agent: Applebot-Extended
+Disallow: /
+
+# ──────────────── SITE RIPPERS ────────────────
+# Tools whose only purpose is to download a whole site at once.
 User-agent: HTTrack
 Disallow: /
 User-agent: WebCopier
 Disallow: /
-User-agent: Wget
-Disallow: /
 User-agent: SiteSucker
 Disallow: /
-
-# ==================== END AI ACCESS BLOCK ====================
+User-agent: Wget
+Disallow: /
 
 Sitemap: https://jsclosets.com/sitemap.xml

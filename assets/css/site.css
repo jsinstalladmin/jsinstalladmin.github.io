@@ -137,7 +137,12 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .lk{display:flex;align-items:center;gap:11px;text-decoration:none;flex:0 0 auto;
   padding:4px 12px 4px 4px;border-radius:var(--r-pill);transition:background .3s}
 .lk:hover{background:var(--line-2)}
-.lk-mark{width:37px;height:37px;flex:0 0 auto}
+/* Joseph's own mark, taken from his existing site. It is a square tile with
+   its own dark ground, so it needs the corner radius and nothing else: it
+   reads gold on the light header and gold on the dark footer alike, which
+   the drawn placeholder never did. */
+.lk-mark{width:37px;height:37px;flex:0 0 auto;border-radius:9px;
+  object-fit:cover;display:block}
 .lk-txt{display:flex;flex-direction:column;line-height:1}
 .lk-txt b{font-family:'Instrument Serif',serif;font-weight:400;font-size:1.16rem}
 .lk-txt span{font-size:.54rem;letter-spacing:.3em;text-transform:uppercase;opacity:.58;margin-top:3px}
@@ -951,3 +956,63 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
 .fswatch .fsw-img,.fswatch img,.fswatch .fsq{border-radius:14px}
 .fswatch:hover .fsq,.fswatch:hover img{box-shadow:0 10px 26px rgba(26,18,10,.16)}
 @media(prefers-reduced-motion:reduce){.fswatch:hover{transform:none}}
+
+/* ════════ The spec figures, one box each ════════
+   Five numbers in a bare row read as a stripe of text. Each is now its own
+   card with a drawing of the thing it measures, so you can tell at a glance
+   that 84" is a shelf and 66" is a rod. */
+.statrow{border-top:0;padding-top:0;gap:clamp(10px,1.3vw,16px);
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.statrow > div{border:1px solid var(--line);border-radius:var(--r-md);
+  padding:clamp(16px,1.9vw,22px);background:var(--paper-2);
+  transition:border-color .25s var(--ease),transform .25s var(--ease)}
+.statrow > div:hover{border-color:var(--accent);transform:translateY(-2px)}
+.stico{display:block;margin-bottom:.85em}
+.stico svg{width:26px;height:26px;display:block}
+.stico svg path{fill:none;stroke:var(--accent);stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.statrow div span{margin-top:.5em}
+.sec-dark .statrow > div{border-color:var(--line-dk);background:transparent}
+.sec-dark .stico svg path{stroke:var(--paper)}
+
+/* ════════ A drawing of each layout in the requirements table ════════ */
+.laico{display:inline-block;vertical-align:-.34em;margin-right:.55em}
+.laico svg{width:20px;height:20px;display:block}
+.laico svg path{fill:none;stroke:var(--accent);stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.spectab td:first-child{white-space:nowrap}
+@media(max-width:680px){.laico{margin-right:.45em}}
+
+/* ════════ The related heading was sitting on the band edge ════════ */
+.relhd{margin-top:0;padding-top:clamp(26px,3.4vw,52px)}
+.sec + .sec-tight > .shell > .relhd,
+.relsec > .relhd{padding-top:clamp(30px,4vw,60px)}
+
+/* ════════ Nav dropdown: the current page was black on black ════════
+   The link for the page you are on takes a dark background, but the title
+   inside it kept its own near-black colour, so on every page the one entry
+   telling you where you are was the one entry you could not read. */
+.nvm a[aria-current] b,
+.nvm a[aria-current] span{color:var(--paper)}
+.nvm a[aria-current] span{opacity:.72}
+body.over-dark .hdr:not(.solid) .nvm a[aria-current] b{color:var(--ink)}
+body.over-dark .hdr:not(.solid) .nvm a[aria-current] span{color:var(--muted);opacity:1}
+
+/* and the hover was invisible against the dark hero on the home page */
+body.over-dark .hdr:not(.solid) .nvd:hover .nvt,
+body.over-dark .hdr:not(.solid) .nvt[aria-expanded="true"]{
+  background:rgba(248,245,240,.22);color:#fff;
+  box-shadow:inset 0 0 0 1px rgba(248,245,240,.3)}
+body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
+
+/* ════════ Work gallery: a window, not a growing column ════════ */
+.gwrap{position:relative;overflow:hidden;max-height:664px;
+  transition:max-height .5s var(--ease-out)}
+.gwrap[data-open="1"]{max-height:none}
+.gfade{position:absolute;inset:auto 0 0;height:160px;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(248,245,240,0),var(--paper));
+  transition:opacity .35s var(--ease)}
+.gwrap[data-open="1"] .gfade{opacity:0}
+.gmore{display:flex;justify-content:center;margin-top:clamp(18px,2.2vw,28px)}
+@media(max-width:700px){.gwrap{max-height:520px}}
+@media(prefers-reduced-motion:reduce){.gwrap{transition:none}}

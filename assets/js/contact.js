@@ -1,4 +1,4 @@
-import { pack, regionFor, describe } from './enquiry.js';
+import { pack, regionFor, describe, fullText } from './enquiry.js';
 import { SUPA_REST, SUPA_KEY } from './supa-config.js';
 
 const f    = document.getElementById('leadform');
@@ -102,6 +102,9 @@ f?.addEventListener('submit', async ev => {
      whoever opens it can act on it without decoding anything. */
   if(f.elements.quote_payload) f.elements.quote_payload.value = code;
   if(f.elements.enquiry_summary) f.elements.enquiry_summary.value = describe(pkg);
+  /* the readable version, so whoever opens the email can act on it without
+     decoding anything, right down to the height of every outlet */
+  if(f.elements.enquiry_detail) f.elements.enquiry_detail.value = fullText(pkg);
 
   const key = f.elements.access_key.value;
   if(!key || key === 'WEB3FORMS_KEY_HERE'){
@@ -113,7 +116,7 @@ f?.addEventListener('submit', async ev => {
       `Name: ${pkg.contact.name}`, `Phone: ${pkg.contact.phone}`, `Email: ${pkg.contact.email}`,
       `Area: ${pkg.contact.region}`, `Town or ZIP: ${pkg.contact.location}`,
       `Address: ${pkg.contact.address || 'not given'}`, `Project: ${pkg.contact.project}`,
-      '', pkg.contact.message || '', '', describe(pkg), '', 'Reference code:', code
+      '', pkg.contact.message || '', '', fullText(pkg), '', 'Reference code:', code
     ].join('\n');
     location.href = 'mailto:jsinstallationsclosets@gmail.com?subject='
       + encodeURIComponent('Closet enquiry from the website')

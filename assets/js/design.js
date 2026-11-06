@@ -62,17 +62,17 @@ export const DOOR_SPEC = {
    that does to the cabinetry. Defaults are the common real sizes; the customer
    can change any of them. */
 export const FIT_SPEC = {
-  outlet: { w:4,  rule:'keepClear',  label:'Outlet',
+  outlet: { w:4,  hi:16, rule:'keepClear',  label:'Outlet',
     note:'The back of that section stays open so you can still reach the socket.',
     ask:'Roughly how high off the floor, and does anything need to plug into it?' },
-  switch: { w:4,  rule:'keepClear',  label:'Light switch',
+  switch: { w:4,  hi:48, rule:'keepClear',  label:'Light switch',
     note:'Nothing solid goes in front of it, so it still works with the closet in.',
     ask:'Inside the closet or beside the door? Roughly how high?' },
   /* A vent in the floor and a vent on the wall are two different jobs. The
      toe-kick grille only makes sense for a floor vent — saying it about a wall
      vent, which is what this used to do, is nonsense to anyone who has ever
      seen one. */
-  vent:   { w:14, rule:'keepClear', spot:'wall', label:'HVAC vent',
+  vent:   { w:14, hi:10, rule:'keepClear', spot:'wall', label:'HVAC vent',
     note:'On the wall, so that section stays open at the back and the air still moves.',
     noteFloor:'In the floor under the run, so that length of toe kick is cut for a grille.',
     ask:'High on the wall, low down, or in the floor? Does it blow into the closet?' },
@@ -88,7 +88,7 @@ export const FIT_SPEC = {
   window: { w:36, cap:34, rule:'capHeight', label:'Window',
     note:'The run under it stops at the sill so the glass stays clear.',
     ask:'How wide is it, how high is the sill, and do you want the run to pass under it?' },
-  pipe:   { w:6,  depth:4, rule:'stealDepth', label:'Pipe / bulkhead',
+  pipe:   { w:6,  depth:4, hi:0, rule:'stealDepth', label:'Pipe / bulkhead',
     note:'Pushes the run forward by its own depth where it passes.',
     ask:'Floor to ceiling, or a boxed bulkhead across the top? How far does it stick out?' }
 };
@@ -422,9 +422,19 @@ export const MODULES = {
       const {w,d,y,h,G,parts} = c;
       const n = Math.max(2, Math.floor(h/10));
       parts.push(P('SHOE_SLANT',n,(w*d)/144*n,(w/12)*n,`${n} slanted shoe shelves with fence`));
+      /* The slant runs DOWN towards the front, so you look into the shoe
+         rather than at its heel, and a metal rail along the low front edge
+         is what stops it sliding off. It was tilted the other way, with a
+         wooden lip, which is neither how it is built nor how it looks. */
+      const T = 0.18;                       // front edge low, back edge high
       for(let i=1;i<=n;i++){
-        G.push({k:'shelf', p:[0, y + (h/(n+1))*i, 0], s:[w, SPEC.panel, d], m:'carcass', tilt:-0.18});
-        G.push({k:'shelf', p:[0, y + (h/(n+1))*i + 1.4, d/2-0.8], s:[w, 2, SPEC.panel], m:'carcass'});
+        const yS = y + (h/(n+1))*i;
+        G.push({k:'shelf', p:[0, yS, 0], s:[w, SPEC.panel, d], m:'carcass', tilt:T});
+        /* the rail sits just above the shelf's front edge, which the tilt has
+           carried down and forward */
+        G.push({k:'rail',
+                p:[0, yS - (d/2)*Math.sin(T) + 1.05, (d/2)*Math.cos(T) - 0.45],
+                s:[w, 0.5, 0.5], m:'metal'});
       }
     }
   },
@@ -784,6 +794,21 @@ export function buildDesign(cfg, cat){
   const pull = PULLS.find(p=>p.id===cfg.pull) || PULLS[1];
   const pullFin = PULL_FINISHES.find(f=>f.id===cfg.pullFinish) || PULL_FINISHES[0];
 
+  /* The baseboard. If the run stands in front of it, it stands off every wall
+     by the thickness of the base, and the side baseboards eat into the length
+     of the run as well — which is exactly why it matters whether the number
+     they measured was taken wall to wall or baseboard to baseboard. */
+  const GAP = wallGap(cfg.base);
+  if(GAP > 0) warnings.push(
+    `The run sits in front of the baseboard, so it stands ${GAP.toFixed(2)}" off the wall`
+    + (cfg.base?.measured === 'wall'
+       ? ` and loses ${(GAP*2).toFixed(2)}" of length to the baseboards at each end, because the width given was measured wall to wall.`
+       : `. The width given was measured baseboard to baseboard, so the length is already right.`));
+  if(cfg.base?.handling === 'remove') warnings.push(
+    'The baseboard behind the run is to be taken off so the cabinetry goes back to bare wall. It is not refitted afterwards.');
+  if(cfg.base?.handling === 'scribe') warnings.push(
+    `The panels are notched round the ${(+cfg.base.h||0).toFixed(0)}" baseboard on site so the run sits back to the wall.`);
+
   const bayIndex = [];     // flat list so the UI can address every bay
 
   const runLen = w => (w === 'back' ? cfg.room.w : cfg.room.d);
@@ -956,26 +981,41 @@ export function buildDesign(cfg, cat){
       parts.push(P(code,2,(block*fh)/144,(block+fh)/12,`Scribe filler at the door jamb — ${run.wall}`));
     }
     run.width = x;
-    for(const g of local) G.push(place(g, run, cfg.room));
+    for(const g of local) G.push(place(g, run, cfg.room, GAP));
   }
 
   const F  = cat.finishes.find(f=>f.n===cfg.finish)       || cat.finishes[0];
   const DF = cat.finishes.find(f=>f.n===cfg.frontFinish)  || F;
   const price = priceParts(parts, cat, F, DF, pull, pullFin);
   return { parts, geo:G, price, finish:F, frontFinish:DF, pull, pullFinish:pullFin,
-           bays:bayIndex, warnings:[...new Set(warnings)],
+           bays:bayIndex, wallGap:GAP, warnings:[...new Set(warnings)],
            quote:quoteSummary(price, bayIndex, cfg.runs),
            order:orderList(parts, cat, F, DF, pull, pullFin) };
 }
 
-function place(g, run, room){
-  const [lx,y,lz]=g.p, [sx,sy,sz]=g.s, off=run.start||0, dep=run.builtDepth ?? run.depth;
+/* A closet cannot sit flush against a wall that has a baseboard on it. Either
+   the panels are notched round it, the base is taken off behind the run, or
+   the whole run stands proud by the thickness of the base. The drawing used to
+   show the run hard against the wall whatever the answer, which is the one
+   thing it certainly is not. `gap` is how far off the wall the run really
+   stands, and both the drawing and the position strip are built from it. */
+function place(g, run, room, gap){
+  const G = gap || 0;
+  const [lx,y,lz]=g.p, [sx,sy,sz]=g.s, dep=run.builtDepth ?? run.depth;
+  const along = (run.start||0) + (run.wall==='island' ? 0 : G);
   switch(run.wall){
-    case 'left':   return {...g, p:[ dep/2 + lz, y, off + lx ], s:[sz,sy,sx]};
-    case 'right':  return {...g, p:[ room.w - dep/2 - lz, y, off + lx ], s:[sz,sy,sx]};
-    case 'island': return {...g, p:[ off + lx, y, room.d/2 + lz ], s:[sx,sy,sz]};
-    default:       return {...g, p:[ off + lx, y, dep/2 + lz ], s:[sx,sy,sz]};
+    case 'left':   return {...g, p:[ G + dep/2 + lz, y, along + lx ], s:[sz,sy,sx]};
+    case 'right':  return {...g, p:[ room.w - G - dep/2 - lz, y, along + lx ], s:[sz,sy,sx]};
+    case 'island': return {...g, p:[ along + lx, y, room.d/2 + lz ], s:[sx,sy,sz]};
+    default:       return {...g, p:[ along + lx, y, G + dep/2 + lz ], s:[sx,sy,sz]};
   }
+}
+
+/* How far off the wall the cabinetry actually stands, from what they told us
+   about the baseboard. Notching or removing it buys the run the full wall. */
+export function wallGap(base){
+  if(!base) return 0;
+  return base.handling === 'front' ? (+base.t || 0) : 0;
 }
 
 /* ---------- price engine (his real formula) ---------- */

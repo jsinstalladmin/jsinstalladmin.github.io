@@ -1068,3 +1068,69 @@ body[data-step="6"] .pacts{margin-top:0}
   white-space:nowrap;transition:.2s var(--ease)}
 .btn-mini:hover{border-color:var(--ink);color:var(--ink);background:var(--paper-3)}
 @media(max-width:520px){.tahint{flex-basis:100%}}
+
+/* ── Part card art ───────────────────────────────────────────────────────
+   Two shapes live in this grid: the single-part drawings are 4:3 and the
+   ready-made layouts are 3:4. Cropping a 4:3 drawing into the 3:4 frame
+   threw away 44% of its width, and the width is where the side panels are —
+   the part of the drawing that says how the thing is built. Fitting it
+   inside the frame loses nothing, and the frame is painted the same colour
+   as the drawings' own background (#E3E4DE, measured off the files), so
+   there is no visible letterbox, just a taller card. */
+.pcard > img{object-fit:contain;background:#E3E4DE}
+.pcard .pstack img{object-fit:contain;background:#E3E4DE}
+
+/* ── The selected fitting row ────────────────────────────────────────────
+   Marked with a class rather than a re-render, because re-rendering the list
+   was killing the note box mid-keystroke. */
+#fitlist .fitrow.sel{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}
+
+/* ── The baseboard block ─────────────────────────────────────────────────
+   It sits with the room dimensions because it is a dimension: it decides how
+   far off the wall the cabinetry stands and how much wall is really there. */
+.basebox{margin-top:1rem;padding:.9rem;border:1px solid var(--line);
+  border-radius:12px;background:var(--paper-2)}
+.basebox > b{display:block;font-size:.95rem;margin-bottom:.2rem}
+.basebox .note{margin:.1rem 0 .7rem;font-size:.78rem;line-height:1.45}
+.baseq{display:block;font-style:normal;font-size:.76rem;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-3);margin:.85rem 0 .4rem}
+.segrow{display:flex;flex-wrap:wrap;gap:.4rem}
+.segrow.col{flex-direction:column}
+.segrow button{flex:1 1 auto;min-width:0;text-align:left;cursor:pointer;
+  padding:.5rem .65rem;border:1px solid var(--line);border-radius:9px;
+  background:var(--paper);font:inherit;font-size:.82rem;color:var(--ink);
+  transition:border-color .15s var(--ease),background .15s var(--ease)}
+.segrow button:hover{border-color:var(--ink-3)}
+.segrow button.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.segrow button b{display:block;font-size:.84rem}
+.segrow button span{display:block;font-size:.74rem;opacity:.72;margin-top:.1rem}
+.segrow.col button{text-align:left}
+
+/* the ruler now names the origin, so the strip and the 3D quote the same
+   number: inches from the corner of the wall, baseboard included */
+.bruler em{flex:1 1 100%;order:2;font-style:normal;font-size:.7rem;
+  color:var(--ink-3);text-align:center;padding-top:.15rem}
+.bruler{flex-wrap:wrap}
+
+/* ── Changing one part of a section ──────────────────────────────────────
+   The flat list of everything is still there for building a section from
+   nothing. This is for the other question: "that bottom rod — what else
+   could go there?" */
+.sswap{font-size:.7rem;letter-spacing:.02em;padding:.3em .62em;border-radius:7px;
+  border:1px solid var(--line);background:var(--paper);color:var(--ink-3);
+  cursor:pointer;white-space:nowrap;margin-right:.35em;
+  transition:border-color .15s var(--ease),background .15s var(--ease),color .15s var(--ease)}
+.sswap:hover{border-color:var(--ink-3);color:var(--ink)}
+.sswap.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.swapback{display:inline;border:0;background:none;padding:0;margin-left:.35em;
+  font:inherit;color:var(--ink);text-decoration:underline;
+  text-underline-offset:2px;cursor:pointer}
+.swapback:hover{opacity:.7}
+
+/* The part row carries a name, a quantity, Change and five square buttons.
+   Across a 460px panel that left the name as "D...". Name on the first line,
+   controls on the second, right-aligned, wrapping if they still run out. */
+.srow{grid-template-columns:30px minmax(0,1fr)}
+.srhs{grid-column:2/-1;display:flex;flex-wrap:wrap;align-items:center;
+  gap:6px;justify-content:flex-end;margin-top:2px}
+.srow .sname b,.srow .sname i{white-space:normal;overflow:visible}

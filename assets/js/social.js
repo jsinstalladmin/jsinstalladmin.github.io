@@ -75,11 +75,18 @@ export async function mountGallery(base=''){
   let man = [];
   try { man = await (await fetch(base + 'img/work/manifest.json')).json(); } catch(e){}
   if(!man.length){ host.innerHTML = '<p class="note">Gallery is loading.</p>'; return; }
-  host.innerHTML = `<div class="ggrid">` + man.map((m,i)=>`
+  /* The grid used to be every photo at once, so every job added to the folder
+     made this page taller and pushed everything under it further away. It is
+     now a fixed window onto the work: three rows, then a button that says how
+     many more there are. Adding a hundred photos changes what is behind the
+     button, not the length of the page. */
+  host.innerHTML = `<div class="gwrap" data-open="0"><div class="ggrid">` + man.map((m,i)=>`
     <button class="gcell ${m.portrait?'tall':''}" data-g="${i}" aria-label="Open: ${esc(m.alt||('photo '+(i+1)))}">
       <img src="${base}img/work/${m.id}@800.jpg" alt="${esc(m.alt||'Closet installed by JS Installations & Closets')}"
            loading="${i<6?'eager':'lazy'}" decoding="async" width="800" height="${Math.round(800*m.h/m.w)}">
-    </button>`).join('') + `</div>
+    </button>`).join('') + `</div><div class="gfade"></div></div>
+    <div class="gmore"><button type="button" class="btn btn-ghost" data-gmore>
+      Show all ${man.length} photographs</button></div>
     <div class="glight" id="glight" hidden>
       <button class="gx" aria-label="Close">&times;</button>
       <button class="gprev" aria-label="Previous">&#9664;</button>
@@ -100,6 +107,15 @@ export async function mountGallery(base=''){
   const open = i => { show(i); lb.hidden = false; document.body.style.overflow = 'hidden'; };
   const close = () => { lb.hidden = true; document.body.style.overflow = ''; };
   host.addEventListener('click', e => {
+    const more = e.target.closest('[data-gmore]');
+    if(more){
+      const wrap = host.querySelector('.gwrap');
+      const open = wrap.dataset.open === '1';
+      wrap.dataset.open = open ? '0' : '1';
+      more.textContent = open ? `Show all ${man.length} photographs` : 'Show fewer';
+      if(open) wrap.scrollIntoView({ block:'start', behavior:'smooth' });
+      return;
+    }
     const c = e.target.closest('[data-g]'); if(c) return open(+c.dataset.g);
     if(e.target.closest('.gx') || e.target === lb) return close();
     if(e.target.closest('.gprev')) return show(at-1);

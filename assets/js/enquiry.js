@@ -90,3 +90,73 @@ export function describe(e){
   const head = d.summary || `${sections} section${sections===1?'':'s'}`;
   return `${head} · ${parts} parts · $${Number(d.price||0).toLocaleString()}`;
 }
+
+/* ── The whole enquiry in plain words ─────────────────────────────────────
+   The packed code carries everything but can only be read by the machine,
+   and the one-line summary is for the inbox list. This is what a person
+   actually reads: the room, the design wall by wall, and crucially every
+   single thing on the walls with its wall, its distance along that wall,
+   its height off the floor, its size and whatever the customer said about
+   it. Before this, the email said "Outlet" and the crew found out the rest
+   on the day. */
+export function fullText(e){
+  const d = e.design, c = e.contact || {}, L = [];
+  const row = (k, v) => { if(v != null && v !== '') L.push(k + ': ' + v); };
+
+  L.push('WHO');
+  row('Name', c.name); row('Phone', c.phone); row('Email', c.email);
+  row('Area', c.region); row('Town or ZIP', c.location);
+  row('Address', c.address || 'not given');
+  row('Project', c.project);
+  if(c.message){ L.push(''); L.push('WHAT THEY SAID'); L.push(c.message); }
+
+  if(!d){ L.push(''); L.push('No design attached. Enquiry only.'); return L.join('\n'); }
+
+  L.push(''); L.push('THE ROOM');
+  row('Type', d.typeLabel);
+  row('Size', `${d.room.w}" wide · ${d.room.d}" deep · ${d.room.h}" high`);
+  row('Mounting', d.mounting === 'wall' ? 'Wall hung' : 'On the floor');
+  if(d.baseboard){
+    row('Baseboard', `${d.baseboard.height}" tall · ${d.baseboard.thickness}" thick`);
+    row('They measured', d.baseboard.measuredFrom === 'baseboard'
+        ? 'baseboard to baseboard' : 'wall to wall');
+    row('At the baseboard', d.baseboard.handling);
+  }
+  row('Doors', d.door);
+  row('Finish', d.finish === d.frontFinish ? d.finish
+      : `${d.finish} carcass · ${d.frontFinish} fronts`);
+  row('Hardware', `${d.pull} in ${d.pullFinish}`);
+
+  L.push(''); L.push('THE DESIGN');
+  (d.bays || []).forEach((b, i) => {
+    L.push(`  ${i+1}. ${b.wall} wall · ${b.width}" wide${b.topShelf ? '' : ' · no top shelf'}`);
+    (b.stack || []).forEach(s => L.push(`       ${s.module}`
+      + (s.height ? ` · ${s.height}"` : '')
+      + (s.options && Object.keys(s.options).length
+         ? ' · ' + Object.entries(s.options).map(([k,v]) => `${k} ${v}`).join(', ') : '')));
+  });
+
+  L.push(''); L.push('ON THE WALLS');
+  if(!(d.fittings || []).length) L.push('  Nothing marked.');
+  (d.fittings || []).forEach(f => {
+    L.push(`  ${f.item} — ${f.wall}`);
+    row('       Along the wall', f.inchesAlong + '" from the left corner');
+    if(f.heightOffFloor  != null) row('       Height off the floor', f.heightOffFloor + '"');
+    if(f.widthInches     != null) row('       Width', f.widthInches + '"');
+    if(f.sillOrLowPoint  != null) row('       Sill / low point', f.sillOrLowPoint + '"');
+    if(f.tallInches      != null) row('       Tall', f.tallInches + '"');
+    if(f.sticksOutInches != null) row('       Sticks out', f.sticksOutInches + '"');
+    if(f.where)                   row('       Where', f.where);
+    if(f.note)                    row('       They said', f.note);
+  });
+
+  if((d.warnings || []).length){
+    L.push(''); L.push('WORTH SAYING');
+    d.warnings.forEach(w => L.push('  ' + w));
+  }
+
+  L.push(''); L.push('ESTIMATE');
+  L.push(`  $${Number(d.price || 0).toLocaleString()} for the cabinetry`);
+  L.push(`  ${(d.order || []).reduce((a,o) => a + (+o.qty || 0), 0)} parts and pieces`);
+  return L.join('\n');
+}

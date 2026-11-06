@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS,
-         presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit,
+         presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit, wallGap,
          baseHeight } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, makeComposer } from './render.js';
@@ -107,9 +107,19 @@ const S = {
   frontFinish:null, pull:'bar4', pullFinish:'nickel',
   runs:{}, sel:null, spin:false, evening:false,
   door:'none',
+  /* The baseboard is not decoration, it is the reason a closet does not sit
+     flush to the wall. `handling` says what happens where the run meets it,
+     and `measured` says whether the width they gave was taken wall to wall or
+     between the baseboards, which changes how much wall there actually is. */
+  base:{ h:4.5, t:0.75, measured:'wall', handling:'scribe' },
+  /* When you ask to change ONE part of a section, this is which one. Null
+     means the picker is showing everything, the way it always did. */
+  swap:null,
   /* [{k, wall, at}] where at is inches along that wall from its left end */
   fittings:[]
 };
+/* how far off the wall the run really stands, in inches */
+const baseGap = () => wallGap(S.base);
 const qp=new URLSearchParams(location.search);
 const qt=qp.get('type')||'';
 if(/reach/.test(qt)) S.type='reach-in'; else if(/walk/.test(qt)) S.type='walk-in';
@@ -132,7 +142,11 @@ const placedFittings = () => S.fittings.filter(f => f.placed);
    begin where it ends. That is how the cabinetry actually goes in. */
 function wallLength(wall){
   const base = wall==='back' ? S.room.w : S.room.d - SPEC.hangDepth;
-  return Math.max(SPEC.bayMin, base - wallLoss(placedFittings(), wall));
+  /* Standing in front of the baseboard costs the run the thickness of the
+     base at BOTH ends — but only if the number they gave was measured wall to
+     wall. If they measured between the baseboards, it is already right. */
+  const bb = (baseGap() > 0 && S.base.measured === 'wall') ? baseGap()*2 : 0;
+  return Math.max(SPEC.bayMin, base - bb - wallLoss(placedFittings(), wall));
 }
 /* The deepest this wall's run can be once the door hardware and anything
    projecting from the wall have had their share. */
@@ -301,7 +315,8 @@ function cfg(){
   }
   return { room:S.room, mounting:S.mounting, finish:S.finish,
            frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
-           door:S.door, fittings:S.fittings.filter(f=>f.placed), runs };
+           door:S.door, base:S.base,
+           fittings:S.fittings.filter(f=>f.placed), runs };
 }
 
 /* ───────── scene ───────── */
@@ -627,7 +642,9 @@ function drawRoom(){
   const {w:CW, d:CD, h:H} = S.room;
   const W = CW, D = CD;
   const T = roomTextures();
-  const BASE_H = 4.5, BASE_T = 0.6;          // real baseboard, 4½" tall
+  /* drawn at the size they actually told us, so the gap you can see between
+     the cabinetry and the wall is the gap that is really there */
+  const BASE_H = +S.base.h || 4.5, BASE_T = +S.base.t || 0.75;
 
   /* FrontSide, with every normal pointing INTO the room. That is what makes
      the 360 work: orbit round the back and the near wall simply is not drawn,
@@ -717,9 +734,11 @@ function drawCloset(res){
       new THREE.MeshBasicMaterial({visible:false}));
     const y=baseHeight(S.mounting, placedFittings())+b.h/2;
     const local={p:[b.x,y,0]};
-    const pos = r.wall==='left'  ? [r.depth/2, y, (r.start||0)+b.x]
-              : r.wall==='right' ? [S.room.w-r.depth/2, y, (r.start||0)+b.x]
-              : [(r.start||0)+b.x, y, r.depth/2];
+    const G = res.wallGap || 0;
+    const along = (r.start||0) + G + b.x;
+    const pos = r.wall==='left'  ? [G + r.depth/2, y, along]
+              : r.wall==='right' ? [S.room.w - G - r.depth/2, y, along]
+              : [along, y, G + r.depth/2];
     g.position.set(...pos);
     g.userData={wall:b.wall,i:b.bay};
     picks.add(g);
@@ -806,15 +825,16 @@ canvas.addEventListener('pointerdown', e=>{
   const bays = S.runs[wall]?.bays; if(!bays || !bays[i]) return;
   SDRAG = { wall, i, axis:runAxisScreen(wall), x0:e.clientX, y0:e.clientY,
             at0: bays[i].at ?? 0, moved:false };
+  DRAGGING = true;
   ctl.enabled = false;
   canvas.setPointerCapture?.(e.pointerId);
   canvas.style.cursor = 'grabbing';
 });
 
-canvas.addEventListener('pointermove', e=>{
+const dragSectionTo = onFrame(pt => {
   if(!SDRAG) return;
   /* how far along the wall, in inches, has the pointer travelled */
-  const dx = e.clientX - SDRAG.x0, dy = e.clientY - SDRAG.y0;
+  const dx = pt.x - SDRAG.x0, dy = pt.y - SDRAG.y0;
   const along = (dx * SDRAG.axis.x + dy * SDRAG.axis.y) / Math.max(1, SDRAG.axis.pxPerInch);
   if(Math.abs(along) > 0.75) SDRAG.moved = true;
   if(!SDRAG.moved) return;
@@ -823,8 +843,12 @@ canvas.addEventListener('pointermove', e=>{
   SDRAG.i = S.runs[SDRAG.wall].bays.findIndex(b => (b.at ?? 0) === at && b.w);
   if(SDRAG.i < 0) SDRAG.i = 0;
   S.sel = { wall:SDRAG.wall, i:SDRAG.i };
-  showAtTip(SDRAG.wall, SDRAG.i, e.clientX, e.clientY);
+  showAtTip(SDRAG.wall, SDRAG.i, pt.x, pt.y);
   rebuild(false);
+});
+canvas.addEventListener('pointermove', e=>{
+  if(!SDRAG) return;
+  dragSectionTo({ x:e.clientX, y:e.clientY });
 });
 
 /* ---- the running measurement -------------------------------------------
@@ -841,8 +865,10 @@ function showAtTip(wall, i, px, py){
   if(!me) return;
   const len = wallLength(wall);
   const right = Math.max(0, len - me.end);
-  tip.innerHTML = `<b>${me.at.toFixed(1).replace(/\.0$/,'')}"</b> from the left corner`
-    + `<span>${me.w.toFixed(0)}" section &middot; ${right.toFixed(1).replace(/\.0$/,'')}" to the right corner</span>`;
+  const G = baseGap();
+  tip.innerHTML = `<b>${(me.at+G).toFixed(1).replace(/\.0$/,'')}"</b> from the left corner`
+    + `<span>${me.w.toFixed(0)}" section &middot; ${(right+G).toFixed(1).replace(/\.0$/,'')}" to the right corner`
+    + (G ? ` &middot; ${G}" off the wall at the baseboard` : '') + `</span>`;
   tip.style.left = px + 'px';
   tip.style.top  = py + 'px';
   tip.dataset.on = '1';
@@ -860,7 +886,7 @@ function offsetOf(bays, from, now){
 const endSectionDrag = () => {
   if(!SDRAG) return;
   const wasMove = SDRAG.moved;
-  SDRAG = null; ctl.enabled = true; canvas.style.cursor = 'grab';
+  SDRAG = null; DRAGGING = false; ctl.enabled = true; canvas.style.cursor = 'grab';
   hideAtTip();
   if(wasMove) rebuild(true);              // reprice once, at the end
 };
@@ -1053,11 +1079,27 @@ for(const ev of ['pointerdown','wheel','touchstart'])
 
 /* ───────── render pass ───────── */
 let cur=null;
+/* ── Dragging ──────────────────────────────────────────────────────────
+   Sliding a section along a wall used to run the whole machine on every
+   single pointermove: the room's walls, floor, textures and baseboards were
+   thrown away and rebuilt, the canvas was re-measured, all nine panels were
+   re-rendered from scratch, and the camera was told to fly somewhere. At
+   sixty of those a second the drag could not keep up with the pointer.
+
+   None of that work is about the thing being dragged. While DRAGGING is on,
+   the room stays where it is, the camera stays where it is, and only the
+   cabinetry and the two things that actually change — the strip and the
+   price — are redrawn. Everything else catches up once the pointer is let
+   go, which is also when the price is worth reading. */
+let DRAGGING = false;
+
 function rebuild(reframe){
   cur=buildDesign(cfg(),cat);
-  drawRoom(); drawCloset(cur); resize();
+  if(!DRAGGING) drawRoom();
+  drawCloset(cur);
+  if(!DRAGGING) resize();
   if(reframe){ resize(); frame(); }
-  paintAll();
+  if(DRAGGING) paintWhileDragging(); else paintAll();
   built = true;
 }
 function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps();
@@ -1065,6 +1107,24 @@ function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paint
      to move the camera too, not just the panel */
   const st = document.body.dataset.step;
   if((st === '2' || st === '4') && cur?.bays?.length) flyTo(st, 520);
+}
+/* The two things that move while you drag. When the drag started ON the
+   strip, the strip is deliberately left alone: repainting it would destroy
+   the very button the pointer is captured on and the drag would die on the
+   first frame. That one moves its own element instead. */
+function paintWhileDragging(){ if(!TDRAG) paintBays(); paintPrice(); }
+
+/* One update per displayed frame, not one per pointer event. A trackpad
+   fires far more moves than the screen can show, and every extra one was a
+   full rebuild thrown away before anyone saw it. */
+function onFrame(fn){
+  let pending = null, queued = false;
+  return arg => {
+    pending = arg;
+    if(queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; const a = pending; pending = null; fn(a); });
+  };
 }
 
 /* tick the steps that have been satisfied, so the bar reads as progress
@@ -1228,9 +1288,33 @@ function paintPlan(){
       <label class="pfield"><span>Width</span>
         <input type="number" data-dim="w" value="${S.room.w}" min="36" max="288" aria-label="Wall width in inches"><i>in</i></label>
       <label class="pfield"><span>Depth</span>
-        <input type="number" data-dim="d" value="${S.room.d}" min="12" max="48" aria-label="Room depth in inches"><i>in</i></label>
+        <input type="number" data-dim="d" value="${S.room.d}" min="12" max="360" aria-label="Room depth in inches"><i>in</i></label>
       <label class="pfield"><span>Ceiling</span>
         <input type="number" data-dim="h" value="${S.room.h}" min="84" max="132" aria-label="Ceiling height in inches"><i>in</i></label>
+    </div>
+    <div class="basebox">
+      <b>The baseboard</b>
+      <p class="note">A closet cannot sit flush to a wall that has a baseboard on it. What we do here changes the drawing, the width you have to play with and the price.</p>
+      <div class="pfields">
+        <label class="pfield"><span>How tall</span>
+          <input type="number" data-base="h" value="${S.base.h}" min="0" max="12" step="0.25" aria-label="Baseboard height in inches"><i>in</i></label>
+        <label class="pfield"><span>How thick</span>
+          <input type="number" data-base="t" value="${S.base.t}" min="0" max="3" step="0.125" aria-label="Baseboard thickness in inches"><i>in</i></label>
+      </div>
+      <em class="baseq">The width and depth above — where did you measure from?</em>
+      <div class="segrow">
+        <button type="button" data-bmeas="wall" class="${S.base.measured==='wall'?'on':''}">Wall to wall</button>
+        <button type="button" data-bmeas="baseboard" class="${S.base.measured==='baseboard'?'on':''}">Baseboard to baseboard</button>
+      </div>
+      <em class="baseq">And where the cabinetry meets it?</em>
+      <div class="segrow col">
+        <button type="button" data-bhand="scribe" class="${S.base.handling==='scribe'?'on':''}">
+          <b>Notch the panels round it</b><span>Cut on site. The run sits back to bare wall.</span></button>
+        <button type="button" data-bhand="remove" class="${S.base.handling==='remove'?'on':''}">
+          <b>Take the base off behind the run</b><span>It is not put back. The run sits back to bare wall.</span></button>
+        <button type="button" data-bhand="front" class="${S.base.handling==='front'?'on':''}">
+          <b>Stand in front of it</b><span>Nothing is cut. The run stands ${(+S.base.t||0)}" off the wall.</span></button>
+      </div>
     </div>`;
 }
 
@@ -1249,8 +1333,13 @@ function paintDoors(){
   /* Each dimension that changes the build gets its own stepper, labelled with
      what it is rather than with a letter. Change the sill from 34" to 48" and
      the partitions under the window grow with it. */
+  /* "How far along the wall" was never enough. An electrician's socket at 16"
+     and a switch at 48" are different problems for the same cabinetry, and the
+     crew turning up to install needs the height as a number, not as a sentence
+     someone typed in a box. */
   const DIMS = {
     w:     { lbl:'wide',  step:2, min:2,  max:120 },
+    hi:    { lbl:'off the floor', step:2, min:0,  max:120 },
     cap:   { lbl:'high',  step:2, min:18, max:84  },
     top:   { lbl:'tall',  step:1, min:4,  max:24  },
     depth: { lbl:'deep',  step:1, min:1,  max:16  }
@@ -1266,10 +1355,11 @@ function paintDoors(){
         const def = FITTINGS.find(y => y.id === x.k);
         const sp  = FIT_SPEC[x.k] || {};
         const len = x.wall ? (x.wall === 'back' ? S.room.w : S.room.d) : 0;
-        return `<div class="fitrow ${x.placed?'':'unplaced'}" data-pinrow="${i}">
+        return `<div class="fitrow ${x.placed?'':'unplaced'} ${S.pinSel===i?'sel':''}" data-pinrow="${i}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${def?.art||''}"/></svg>
           <b>${def?.label || x.k}</b>
-          <span>${x.placed ? `${WALL_LABEL[x.wall]} &middot; ${Math.round(x.at)}" from the left` : 'Pick its wall'}</span>
+          <span>${x.placed ? `${WALL_LABEL[x.wall]} &middot; ${Math.round(x.at)}" from the left`
+                + (x.hi != null ? ` &middot; ${Math.round(x.hi)}" off the floor` : '') : 'Pick its wall'}</span>
           <button data-fitrm="${i}" title="Remove">&times;</button>
 
           <div class="fwall">
@@ -1368,9 +1458,11 @@ function paintBays(){
             title="${sb.bay.stack.length ? sb.bay.stack.length+' item'+(sb.bay.stack.length===1?'':'s') : 'empty'} &middot; ${sb.at.toFixed(0)}&quot; from the corner. Drag it anywhere along the wall.">
             <span class="bstack">${miniStack(sb.bay)}</span>
             <span class="bw">${sb.w.toFixed(0)}"</span>
-            <span class="bat">${sb.at.toFixed(0)}"</span></button>`).join('')}
+            <span class="bat">${(sb.at+baseGap()).toFixed(0)}"</span></button>`).join('')}
         </div>
-        <div class="bruler"><span>0"</span><span>${len.toFixed(0)}"</span></div>`
+        <div class="bruler"><span>${(+baseGap().toFixed(2))}"</span>
+          ${baseGap() ? `<em>measured from the wall corner, the run starts ${baseGap()}" out at the baseboard</em>` : ''}
+          <span>${(+(len+baseGap()).toFixed(2))}"</span></div>`
       : `<p class="note emptyrun">Nothing on this wall yet. Pick a width below and it lands in the left corner, where you can drag it anywhere along the wall.</p>`;
 
     /* The width buttons used to be five bare numbers with a little bar, which
@@ -1458,8 +1550,27 @@ function dockStack(){
 const ART_GONE = new Set();
 window.__artGone = n => ART_GONE.add(n);
 
+/* Nobody thinks "index 0". They think "the bottom one". The stack is stored
+   bottom-up, so index 0 is the floor end. */
+function slotName(i, n){
+  if(n <= 1) return 'this part';
+  if(i === 0) return 'the bottom part';
+  if(i === n - 1) return 'the top part';
+  if(n === 3) return 'the middle part';
+  return `part ${i + 1} from the bottom`;
+}
+
+/* Which section the one-slot picker was opened for. Selecting a different
+   section anywhere — the strip, the 3D, the arrows — must close it, and
+   there are five places that move the selection, so the check lives here
+   rather than being repeated in all of them. */
+let SWAP_FOR = null;
+
 function paintStack(){
   const box = $('#stack');
+  if(S.swap != null && SWAP_FOR !== (S.sel ? S.sel.wall + '|' + S.sel.i : null)){
+    S.swap = null; SWAP_FOR = null;
+  }
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
     /* If the chosen wall exists but has nothing on it yet, STAY on it. This
@@ -1560,6 +1671,34 @@ function paintStack(){
       ${chk.ok ? '' : '<u class="full">No room</u>'}</button>`;
   }).join('');
 
+  /* ── Changing one part of a section ────────────────────────────────────
+     A double hang is a rod over a rod. Wanting a drawer bank under the top
+     rod meant finding "Drawers" in a flat list of twenty-odd things, adding
+     it, then deleting the one you meant to replace and hoping the order came
+     out right. Pressing Change on a row asks the question the other way
+     round: here is that one slot, here is everything that fits in it. */
+  const swapOpen = S.swap != null && bay.stack[S.swap] != null;
+  let swapCards = '';
+  if(swapOpen){
+    const without = bay.stack.filter((_, k) => k !== S.swap);
+    const cur_ = bay.stack[S.swap];
+    swapCards = MODULE_IDS.map(id => {
+      const d = MODULES[id], img = id.toLowerCase().replace(/_/g,'-');
+      const chk = id === cur_.m ? { ok:true } : canAdd(without, id, usable);
+      const on  = id === cur_.m;
+      const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
+      return `<button class="pcard" data-swapto="${id}" aria-pressed="${on}"
+                      ${chk.ok?'':'disabled'} title="${tip}">
+        <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
+             width="420" height="315">
+        <i>${d.label}</i>
+        <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
+          <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
+        ${on ? '<span class="pbadge">Current</span>' : ''}
+        ${chk.ok ? '' : '<u class="full">Will not fit here</u>'}</button>`;
+    }).join('');
+  }
+
   box.innerHTML = `
     <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · section ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
       <span class="selacts">
@@ -1580,24 +1719,39 @@ function paintStack(){
 
     ${bay.stack.length ? `<div class="stacklist">${bay.stack.slice().reverse().map((st,ri)=>{
       const i=bay.stack.length-1-ri, d=MODULES[st.m];
+      /* The name and the controls are on separate lines. Seven controls and a
+         part name never fitted across a 460px panel: the name was squeezed to
+         "D..." and the buttons ran into each other. */
       return `<div class="srow ${st.h==null?'flex':''}">
         <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
         <span class="sname"><b>${d.label}</b><i>${st.h==null?'fills the space':(st.h+'" tall')}</i></span>
-        ${d.opt?`<span class="sopt"><button data-opt="-1" data-i="${i}">−</button><i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-i="${i}">+</button></span>`:''}
-        <span class="sacts">
-          <button data-mv="1"  data-i="${i}" title="Move up"    ${i===bay.stack.length-1?'disabled':''}>↑</button>
-          <button data-mv="-1" data-i="${i}" title="Move down"  ${i===0?'disabled':''}>↓</button>
-          <button data-hh="-4" data-i="${i}" title="Shorter">▾</button>
-          <button data-hh="4"  data-i="${i}" title="Taller">▴</button>
-          <button data-rm="${i}" title="Remove this part">×</button>
+        <span class="srhs">
+          ${d.opt?`<span class="sopt"><button data-opt="-1" data-i="${i}" title="Fewer">−</button><i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-i="${i}" title="More">+</button></span>`:''}
+          <button class="sswap ${S.swap===i?'on':''}" data-swap="${i}"
+            title="Show only what can go in this part of the section">Change</button>
+          <span class="sacts">
+            <button data-mv="1"  data-i="${i}" title="Move up"    ${i===bay.stack.length-1?'disabled':''}>↑</button>
+            <button data-mv="-1" data-i="${i}" title="Move down"  ${i===0?'disabled':''}>↓</button>
+            <button data-hh="-4" data-i="${i}" title="Shorter">▾</button>
+            <button data-hh="4"  data-i="${i}" title="Taller">▴</button>
+            <button data-rm="${i}" title="Remove this part">×</button>
+          </span>
         </span></div>`;
     }).join('')}</div>` : `<p class="note emptybay">This section is empty. Pick anything below to put in it.</p>`}
 
+    ${swapOpen ? `
+    <h4 class="subh">Change ${slotName(S.swap, bay.stack.length)}</h4>
+    <p class="note" style="margin:-2px 0 10px">
+      It is <b>${MODULES[bay.stack[S.swap].m].label}</b> at the moment. Everything below fits
+      ${slotName(S.swap, bay.stack.length)} of this section with the rest of it left alone.
+      <button class="swapback" data-swapback="1" type="button">Show everything instead</button></p>
+    <div class="pgrid">${swapCards}</div>`
+    : `
     <h4 class="subh">${bay.stack.length ? 'Change this section to' : 'What goes in this section'}</h4>
     <p class="note" style="margin:-2px 0 10px">${bay.stack.length
-      ? `Currently ${matched ? `<b>${matched.name}</b>` : 'a custom stack'}. Pick another layout to swap it, or add a single part below it.`
+      ? `Currently ${matched ? `<b>${matched.name}</b>` : 'a custom stack'}. Pick another layout to swap the lot, or press <b>Change</b> on any part above to swap just that one.`
       : 'Ready-made layouts first, then single parts. Everything can be changed after.'}</p>
-    <div class="pgrid">${presetCards}${partCards}</div>`;
+    <div class="pgrid">${presetCards}${partCards}</div>`}`;
   dockStack();
 }
 
@@ -1810,7 +1964,7 @@ $('#fittings').onclick=e=>{const b=e.target.closest('[data-fit]');if(!b)return;
   S.fittings.push({ k:b.dataset.fit, wall:null, at:0, placed:false, note:'',
     ...(b.dataset.fit==='vent' ? { spot:'wall', rule:'keepClear' } : {}),
     w:sp.w, ...(sp.cap!=null?{cap:sp.cap}:{}), ...(sp.top!=null?{top:sp.top}:{}),
-    ...(sp.depth!=null?{depth:sp.depth}:{}) });
+    ...(sp.depth!=null?{depth:sp.depth}:{}), ...(sp.hi!=null?{hi:sp.hi}:{}) });
   S.pinSel = S.fittings.length-1; paintPlan(); paintDoors(); };
 $('#fitlist').onclick=e=>{
   const rm=e.target.closest('[data-fitrm]');
@@ -1842,14 +1996,27 @@ $('#fitlist').onclick=e=>{
   }
   const dim=e.target.closest('[data-fdim]');
   if(dim){
-    const L={ w:[2,2,120], cap:[2,18,84], top:[1,4,24], depth:[1,1,16] }[dim.dataset.fdim];
+    const L={ w:[2,2,120], hi:[2,0,120], cap:[2,18,84], top:[1,4,24], depth:[1,1,16] }[dim.dataset.fdim];
     const f=S.fittings[+dim.dataset.i], k=dim.dataset.fdim;
     f[k]=Math.min(L[2], Math.max(L[1], (+f[k]||0) + L[0]*(+dim.dataset.s)));
     rebuild(); return;
   }
+  /* Selecting a row highlights it on the plan. It must NOT repaint the list:
+     paintDoors() rewrites #fitlist.innerHTML, so a click that landed on the
+     note box destroyed the very textarea it had just focused and nothing
+     could ever be typed into it. Form controls are left alone, and the
+     highlight is a class toggle rather than a re-render. */
   const row=e.target.closest('[data-pinrow]');
-  if(row){ S.pinSel=+row.dataset.pinrow; paintPlan(); paintDoors(); }
+  if(row && !e.target.closest('input,textarea,select,label')){
+    S.pinSel=+row.dataset.pinrow;
+    paintPlan(); markPinRow();
+  }
 };
+/* highlight the selected row without rebuilding it */
+function markPinRow(){
+  document.querySelectorAll('#fitlist .fitrow').forEach((r,n)=>
+    r.classList.toggle('sel', n===S.pinSel));
+}
 /* What they type is kept on the fitting and travels into the quote. Repainting
    on every keystroke would blow away the box they are typing in, so the note is
    stored on input and the panel is only redrawn when they leave the field. */
@@ -1885,6 +2052,19 @@ $('#fitlist').addEventListener('change', e=>{
   });
   host.addEventListener('keydown', e=>{
     if(e.key==='Enter' && e.target.matches('input[data-dim]')){ e.preventDefault(); e.target.blur(); }
+  });
+  /* the baseboard: two numbers and two decisions, all of which move the run */
+  host.addEventListener('change', e=>{
+    const i=e.target.closest('input[data-base]'); if(!i) return;
+    const k=i.dataset.base, v=Number(i.value);
+    if(Number.isFinite(v)) S.base[k]=Math.min(+i.max, Math.max(+i.min, v));
+    rebuild(true);
+  });
+  host.addEventListener('click', e=>{
+    const m=e.target.closest('[data-bmeas]');
+    if(m){ S.base.measured=m.dataset.bmeas; rebuild(true); return; }
+    const h=e.target.closest('[data-bhand]');
+    if(h){ S.base.handling=h.dataset.bhand; rebuild(true); }
   });
 })();
 
@@ -1962,7 +2142,7 @@ $('#bays').onclick=e=>{
     }
     rebuild(true); return; }
   const b=e.target.closest('.bay');
-  if(b){ S.sel={wall:b.dataset.wall,i:+b.dataset.i}; rebuild(false); }
+  if(b){ S.sel={wall:b.dataset.wall,i:+b.dataset.i}; S.swap=null; rebuild(false); }
 };
 /* ---- reorder sections along the wall -------------------------------------
    A run is an ordered list, so moving a section is a splice. Dropping onto a
@@ -1983,13 +2163,14 @@ $('#bays').addEventListener('pointerdown', e => {
   const bay = S.runs[wall]?.bays[i]; if(!bay) return;
   TDRAG = { wall, i, el:b, x0:e.clientX, at0:bay.at ?? 0,
             px:track.getBoundingClientRect().width, len:wallLength(wall), moved:false };
+  DRAGGING = true;
   b.setPointerCapture?.(e.pointerId);
   b.classList.add('dragging');
 });
 
-$('#bays').addEventListener('pointermove', e => {
+const dragOnTrack = onFrame(pt => {
   if(!TDRAG) return;
-  const inches = ((e.clientX - TDRAG.x0) / Math.max(1, TDRAG.px)) * TDRAG.len;
+  const inches = ((pt.x - TDRAG.x0) / Math.max(1, TDRAG.px)) * TDRAG.len;
   if(Math.abs(inches) > 0.4) TDRAG.moved = true;
   if(!TDRAG.moved) return;
   const at = moveSection(TDRAG.wall, TDRAG.i, TDRAG.at0 + inches);
@@ -1997,17 +2178,21 @@ $('#bays').addEventListener('pointermove', e => {
      a repaint would destroy the node the pointer is captured on */
   TDRAG.el.style.left = ((at / Math.max(1, TDRAG.len)) * 100).toFixed(3) + '%';
   const lbl = TDRAG.el.querySelector('.bat');
-  if(lbl) lbl.textContent = at.toFixed(0) + '"';
+  if(lbl) lbl.textContent = (at + baseGap()).toFixed(0) + '"';
   TDRAG.i = S.runs[TDRAG.wall].bays.findIndex(b2 => b2 === S.runs[TDRAG.wall].bays[TDRAG.i]);
-  showAtTip(TDRAG.wall, TDRAG.i, e.clientX, e.clientY);
+  showAtTip(TDRAG.wall, TDRAG.i, pt.x, pt.y);
   rebuild(false);
+});
+$('#bays').addEventListener('pointermove', e => {
+  if(!TDRAG) return;
+  dragOnTrack({ x:e.clientX, y:e.clientY });
 });
 
 const endTrackDrag = () => {
   if(!TDRAG) return;
   const { moved, wall, el } = TDRAG;
   el.classList.remove('dragging');
-  TDRAG = null; hideAtTip();
+  TDRAG = null; DRAGGING = false; hideAtTip();
   if(moved){ sortRun(wall); rebuild(true); }      // reprice once, at the end
 };
 $('#bays').addEventListener('pointerup', endTrackDrag);
@@ -2103,7 +2288,31 @@ $('#stack').onclick=e=>{
      you add one — so the last part can be deleted like any other. Refusing to
      delete it meant the only way out of a wrong choice was deleting the whole
      section and starting again. */
-  else if(t.dataset.rm!==undefined){ bay.stack.splice(+t.dataset.rm,1); }
+  /* open the one-slot picker for this row */
+  else if(t.dataset.swap!==undefined){
+    const i = +t.dataset.swap;
+    S.swap = (S.swap === i) ? null : i;
+    SWAP_FOR = S.sel ? S.sel.wall + '|' + S.sel.i : null;
+    paintStack(); return;
+  }
+  else if(t.dataset.swapback!==undefined){ S.swap = null; paintStack(); return; }
+  /* put a different part in that slot, keeping its height and its options
+     where the new part has the same option to keep */
+  else if(t.dataset.swapto!==undefined){
+    const i = S.swap, old = bay.stack[i];
+    if(old == null){ S.swap = null; paintStack(); return; }
+    const id = t.dataset.swapto, d = MODULES[id];
+    if(id === old.m){ S.swap = null; paintStack(); return; }
+    const keepOpt = d.opt && old.o && old.o[d.opt.key] != null
+      && old.o[d.opt.key] >= d.opt.min && old.o[d.opt.key] <= d.opt.max;
+    bay.stack[i] = {
+      m:id,
+      h: d.fill ? null : Math.min(d.maxH, Math.max(d.minH, old.h ?? d.defH)),
+      o: d.opt ? { [d.opt.key]: keepOpt ? old.o[d.opt.key] : d.opt.def } : {}
+    };
+    S.swap = null;
+  }
+  else if(t.dataset.rm!==undefined){ bay.stack.splice(+t.dataset.rm,1); S.swap = null; }
   else if(t.dataset.mv){ const i=+t.dataset.i, j=i+ +t.dataset.mv;
     if(j>=0&&j<bay.stack.length){ const [x]=bay.stack.splice(i,1); bay.stack.splice(j,0,x); } }
   else if(t.dataset.hh){ const s=bay.stack[+t.dataset.i], d=MODULES[s.m];
@@ -2146,15 +2355,32 @@ function quotePackage(){
     price:Math.round(cur.price.price), type:S.type,
     typeLabel: S.type==='reach-in'?'Reach-In Closets':S.type==='walk-in'?'Walk-In Closets':S.type==='pantry'?'Pantries':S.type==='garage'?'Garage Storage':'Laundry Rooms',
     room:S.room, mounting:S.mounting,
+    baseboard:{ height:S.base.h, thickness:S.base.t,
+                measuredFrom:S.base.measured,
+                handling: S.base.handling==='scribe' ? 'Panels notched round the baseboard on site'
+                        : S.base.handling==='remove' ? 'Baseboard taken off behind the run'
+                        : `Run stands ${S.base.t}" in front of the baseboard`,
+                standsOffWall: baseGap() },
     finish:cur.finish.n, frontFinish:cur.frontFinish.n,
     pull:cur.pull.name, pullFinish:cur.pullFinish.name,
     bays:cur.bays.map(b=>({wall:b.wall,width:+b.w.toFixed(1),topShelf:b.top!==false,
       stack:b.stack.map(s=>({module:MODULES[s.m].label, height:s.h, options:s.o||{}}))})),
     order:cur.order, warnings:cur.warnings,
     door: DOORS.find(d=>d.id===S.door)?.label || 'Open / no doors',
+    /* Everything the customer told us about this thing travels: which wall,
+       how far along it, how high off the floor, how big it is, and what they
+       said about it in their own words. Sending only the name meant the crew
+       arrived knowing there was an outlet and nothing else. */
     fittings: S.fittings.filter(f=>f.placed).map(f=>({
       item: FITTINGS.find(x=>x.id===f.k)?.label || f.k,
-      wall: WALL_LABEL[f.wall], inchesAlong: Math.round(f.at),
+      wall: WALL_LABEL[f.wall],
+      inchesAlong: Math.round(f.at),
+      ...(f.hi    != null ? { heightOffFloor: Math.round(f.hi) } : {}),
+      ...(f.w     != null ? { widthInches:    Math.round(f.w)  } : {}),
+      ...(f.cap   != null ? { sillOrLowPoint: Math.round(f.cap)} : {}),
+      ...(f.top   != null ? { tallInches:     Math.round(f.top)} : {}),
+      ...(f.depth != null ? { sticksOutInches:Math.round(f.depth)} : {}),
+      ...(f.spot  ? { where: f.spot === 'floor' ? 'In the floor' : 'On the wall' } : {}),
       note: f.note || '' })),
     generated:new Date().toISOString()
   };
@@ -2173,8 +2399,14 @@ $('#send').onclick=()=>{
     + line('Finish', q.finish === q.frontFinish ? q.finish : `${q.finish} carcass · ${q.frontFinish} fronts`)
     + line('Hardware', `${q.pull} in ${q.pullFinish}`)
     + line('Doors', q.door)
-    + (q.fittings.length ? line('On the walls',
-        q.fittings.map(f=>f.item + (f.note ? ' (' + f.note + ')' : '')).join(', ')) : '')
+    + line('Baseboard', `${q.baseboard.height}" tall, ${q.baseboard.thickness}" thick · `
+        + `measured ${q.baseboard.measuredFrom === 'wall' ? 'wall to wall' : 'baseboard to baseboard'} · `
+        + q.baseboard.handling)
+    + (q.fittings.length ? line('On the walls', q.fittings.map(f =>
+        [f.item, f.wall, f.inchesAlong + '" along',
+         f.heightOffFloor != null ? f.heightOffFloor + '" up' : null,
+         f.where, f.note ? '“' + f.note + '”' : null
+        ].filter(Boolean).join(' · ')).join('<br>')) : '')
     + line('Estimate', money(q.price) + ' for the cabinetry')
     + (q.warnings?.length ? `<div class="sl warn"><span>Worth saying</span><b>${q.warnings.join(' ')}</b></div>` : '');
   dl.showModal();
