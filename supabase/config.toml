@@ -1,0 +1,16 @@
+# Supabase project configuration.
+#
+# The website calls confirm-enquiry straight from the customer's browser, and
+# that browser has no logged-in user — the person filling the form is not a
+# user of anything. So this one function does not require a signed JWT.
+#
+# This is the documented way to say so (the CLI's --no-verify-jwt flag is not
+# in the current docs). It is safe here because the function will not send a
+# message body supplied by the caller: the wording is fixed in the function
+# itself, so the most a stranger can do by calling it is cause one closet
+# enquiry confirmation to be sent to an address they already typed.
+
+project_id = "dbcumsbssqjuowioaqqj"
+
+[functions.confirm-enquiry]
+verify_jwt = false

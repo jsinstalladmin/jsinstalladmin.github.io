@@ -798,6 +798,9 @@ export function buildDesign(cfg, cat){
      by the thickness of the base, and the side baseboards eat into the length
      of the run as well — which is exactly why it matters whether the number
      they measured was taken wall to wall or baseboard to baseboard. */
+  if(cfg.backs) warnings.push(
+    'Every section is built with a back panel, so the cabinetry is a closed box rather than open to the wall. That is extra board and extra hardware, and it is in the price.');
+
   const GAP = wallGap(cfg.base);
   if(GAP > 0) warnings.push(
     `The run sits in front of the baseboard, so it stands ${GAP.toFixed(2)}" off the wall`
@@ -885,6 +888,24 @@ export function buildDesign(cfg, cat){
 
       const inner = bay.w - SPEC.panel;
       const cx = x + bay.w/2;
+
+      /* ── The back panel ──────────────────────────────────────────────
+         A built-in closet's back is normally the wall, which is why this
+         was never built and never charged for. Some rooms want one all
+         the same: a bare block wall, a garage, somewhere the plaster is
+         a mess, or simply a customer who wants a finished box.
+
+         It is his own catalogue part with his own numbers — board by the
+         square foot plus six cams, six half dowels and six screw covers —
+         so turning it on prices it exactly the way his supplier bills it.
+         Off by default, because off is what gets installed most of the
+         time and a default nobody asked for is a default that overcharges. */
+      if(cfg.backs){
+        parts.push(P('BACK', 1, (bay.w * panelH) / 144, 0,
+          `Back panel ${bi+1} — ${run.wall}`));
+        local.push({ k:'back', p:[cx, floorY + panelH/2, -depth/2 + SPEC.panel/2],
+                     s:[bay.w, panelH, SPEC.panel], m:'carcass' });
+      }
 
       /* The top shelf used to go over EVERY section, no question asked, which
          is wrong: a double-hang section run to the ceiling has no shelf over

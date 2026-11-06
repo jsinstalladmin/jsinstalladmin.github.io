@@ -1016,3 +1016,111 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
 .gmore{display:flex;justify-content:center;margin-top:clamp(18px,2.2vw,28px)}
 @media(max-width:700px){.gwrap{max-height:520px}}
 @media(prefers-reduced-motion:reduce){.gwrap{transition:none}}
+
+/* ════════ The states, as boxes ════════
+   Five rows with a lot of air between them read as a list of links. Five
+   square boxes side by side read as a map legend, which is what they are.
+   The towns for whichever one you are pointing at open in one panel below
+   the row, so nothing underneath gets pushed down the page. */
+.regions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:clamp(7px,.8vw,11px);margin-top:clamp(20px,2.4vw,30px)}
+.rgx{position:relative;display:flex;flex-direction:column;justify-content:flex-end;
+  gap:.1em;aspect-ratio:1;min-width:0;cursor:pointer;font:inherit;text-align:left;
+  padding:clamp(10px,1.1vw,14px);border-radius:var(--r-sm);
+  border:1px solid var(--line-dk);background:rgba(248,245,240,.035);
+  color:var(--paper);
+  transition:border-color .22s var(--ease),background .22s var(--ease)}
+.rgx:hover,.rgx:focus-visible,.rgx.on{outline:0;
+  border-color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent)}
+.rgx b{font-family:'Archivo',sans-serif;font-weight:600;line-height:1;
+  font-size:clamp(1.15rem,2.1vw,1.7rem);letter-spacing:-.02em;
+  color:var(--accent);margin-bottom:.22em}
+.rgx.on b,.rgx:hover b{color:#F0E4CE}
+.rgx span{font-size:clamp(.68rem,.85vw,.78rem);line-height:1.25;
+  color:rgba(248,245,240,.88);overflow:hidden;text-overflow:ellipsis}
+.rgx em{font-style:normal;font-size:.63rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(248,245,240,.5)}
+
+/* All five panels live in ONE grid cell, stacked. The container is therefore
+   always as tall as the longest of them, so swapping between states cannot
+   change the height of anything — which is what was nudging the map up and
+   down by a few pixels every time the pointer moved. */
+.rgdetail{display:grid;margin-top:clamp(12px,1.4vw,18px);
+  border-top:1px solid var(--line-dk);padding-top:clamp(13px,1.5vw,18px)}
+.rgd{grid-area:1/1;opacity:0;visibility:hidden;
+  transition:opacity .22s var(--ease)}
+.rgd[data-on]{opacity:1;visibility:visible}
+.rgd > b{display:block;font-size:1.02rem;color:var(--paper);line-height:1.2}
+.rgd > span{display:block;font-size:.73rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent);margin-top:.3em}
+.rgd > p{margin:.6em 0 0;font-size:.88rem;line-height:1.65;
+  color:rgba(248,245,240,.72);max-width:62ch}
+
+/* The map itself never moves. The highlight is the whole point of it and a
+   map that shifts under the pointer is a map you cannot aim at. */
+.usmap,.usmap *{transform:none!important}
+.usmap .srv path,.usmap .lab text{transition:fill .22s var(--ease),stroke .22s var(--ease)}
+
+@media(max-width:880px){
+  .regions{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .rgx{aspect-ratio:auto;min-height:88px}
+}
+@media(max-width:430px){
+  .regions{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(prefers-reduced-motion:reduce){.rgd{transition:none}}
+
+/* ════════ The free measure form ════════
+   It was a flat run of twelve fields with the service area squeezed into a
+   column beside it. Three numbered groups, each asking one short question,
+   and the map gets a band of its own underneath. */
+.fgrp{border:1px solid var(--line);border-radius:var(--r-md);
+  padding:clamp(18px,2.2vw,26px);margin:0 0 clamp(14px,1.6vw,20px);
+  background:var(--paper-2)}
+.fgrp legend{display:flex;align-items:center;gap:.6em;padding:0 .6em;margin-left:-.6em;
+  font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+.fgrp legend i{display:grid;place-items:center;width:22px;height:22px;flex:0 0 auto;
+  border-radius:50%;background:var(--ink);color:var(--paper);
+  font-style:normal;font-size:.72rem;letter-spacing:0;font-weight:600}
+.fgrp .fld:last-child{margin-bottom:0}
+.fld small{display:block;margin-top:.45em;font-size:.78rem;color:var(--muted);line-height:1.5}
+
+/* what replaces the reference code */
+.sentbox{margin-top:1.4em;padding:clamp(20px,2.4vw,28px);
+  border:1px solid var(--line);border-radius:var(--r-md);background:var(--paper-2)}
+.sentbox h3{margin:0 0 .4em;font-size:1.25rem}
+.sentbox > p{margin:0 0 1em;line-height:1.6}
+.sentlist{margin:0 0 1.2em;display:grid;gap:0}
+.sentlist > div{display:grid;grid-template-columns:minmax(84px,auto) 1fr;gap:1em;
+  padding:.62em 0;border-bottom:1px solid var(--line)}
+.sentlist > div:last-child{border-bottom:0}
+.sentlist dt{margin:0;font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted)}
+.sentlist dd{margin:0;font-size:.93rem;line-height:1.5}
+.sentbox .dim{margin:0;font-size:.85rem}
+@media(max-width:560px){
+  .sentlist > div{grid-template-columns:1fr;gap:.15em}
+}
+
+/* the free measure sidebar */
+.ctcard{border:1px solid var(--line);border-radius:var(--r-md);
+  padding:clamp(20px,2.3vw,28px);background:var(--paper-2);
+  margin-bottom:clamp(14px,1.6vw,20px)}
+.ctcard:last-child{margin-bottom:0}
+.ctcard .label{display:block;margin-bottom:.5em}
+.ctcard .rule{margin:1.5em 0}
+.ctcard p{margin:0}
+.ctcard p + .label{margin-top:0}
+.ctphone{display:block;font-family:'Archivo',system-ui,sans-serif;font-weight:600;
+  font-size:clamp(1.5rem,2.3vw,1.85rem);letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;text-decoration:none;color:var(--ink);
+  margin-bottom:.25em}
+.ctphone:hover{color:var(--accent-ink)}
+.ctsteps{list-style:none;counter-reset:ct;margin:0;padding:0}
+.ctsteps li{counter-increment:ct;position:relative;padding:0 0 1.05em 2.3em}
+.ctsteps li:last-child{padding-bottom:0}
+.ctsteps li::before{content:counter(ct);position:absolute;left:0;top:.05em;
+  width:21px;height:21px;display:grid;place-items:center;border-radius:50%;
+  background:var(--ink);color:var(--paper);font-size:.71rem;font-weight:600}
+.ctsteps li b{display:block;font-size:.93rem;font-weight:500;color:var(--ink);line-height:1.35}
+.ctsteps li span{display:block;font-size:.85rem;color:var(--muted);line-height:1.55;margin-top:.15em}

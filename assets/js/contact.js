@@ -1,4 +1,4 @@
-import { pack, regionFor, describe, fullText } from './enquiry.js';
+import { regionFor, describe, fullText } from './enquiry.js';
 import { SUPA_REST, SUPA_KEY } from './supa-config.js';
 
 const f    = document.getElementById('leadform');
@@ -46,27 +46,33 @@ function gather(){
   };
 }
 
-function showCode(code, sent){
+/* ── what they see once it is sent ──────────────────────────────────────
+   There used to be a reference code here: a long line of base64 the customer
+   was asked to copy, keep safe and read back over the phone if anything went
+   wrong. Nothing ever went wrong with it, because the enquiry writes itself
+   into the office database the moment it is sent. Asking someone to be the
+   backup for a system that does not need one is not reassurance, it is
+   homework. It is gone. They get a confirmation email instead. */
+function showSent(pkg){
   if(!out) return;
   out.hidden = false;
+  out.className = 'sentbox';
+  const c = pkg.contact || {};
   out.innerHTML =
-    `<h3>${sent ? 'Sent. Here is your reference.' : 'Your reference code'}</h3>
-     <p class="dim">${sent
-        ? 'We have it. This code is the same enquiry in one line, so if anything goes astray you can read it back to us over the phone.'
-        : 'Copy this and email it to us, or read it out when you call. It carries your whole design.'}</p>
-     <textarea class="refcode" readonly rows="3"></textarea>
-     <div class="btnrow"><button class="btn btn-sm" type="button" id="copyref">Copy the code</button>
-       <a class="btn btn-sm btn-ghost" href="mailto:jsinstallationsclosets@gmail.com?subject=${
-         encodeURIComponent('Closet enquiry reference')}&body=${encodeURIComponent(code)}">Email it instead</a></div>`;
-  out.querySelector('.refcode').value = code;
-  out.querySelector('#copyref').onclick = async () => {
-    const b = out.querySelector('#copyref');
-    try{ await navigator.clipboard.writeText(code); b.textContent = 'Copied'; }
-    catch(e){ out.querySelector('.refcode').select(); b.textContent = 'Press ⌘C'; }
-    setTimeout(()=>{ b.textContent = 'Copy the code'; }, 2200);
-  };
+    `<h3>That is with us.</h3>
+     <p>We reply the same working day${c.email ? `, and a confirmation is on its way to <b>${esc(c.email)}</b>` : ''}.</p>
+     <dl class="sentlist">
+       ${c.name     ? `<div><dt>Name</dt><dd>${esc(c.name)}</dd></div>` : ''}
+       ${c.phone    ? `<div><dt>Phone</dt><dd>${esc(c.phone)}</dd></div>` : ''}
+       ${c.address || c.location ? `<div><dt>Where</dt><dd>${esc([c.address, c.location].filter(Boolean).join(', '))}</dd></div>` : ''}
+       ${c.project  ? `<div><dt>Room</dt><dd>${esc(c.project)}</dd></div>` : ''}
+       ${pkg.design ? `<div><dt>Your design</dt><dd>${esc(pkg.design.summary || 'attached')}</dd></div>` : ''}
+     </dl>
+     <p class="dim">If anything above is wrong, call <a href="tel:+16466679572">(646) 667-9572</a> and we will fix it.</p>`;
   out.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
+const esc = t => String(t ?? '').replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ── straight into the office ──
    The enquiry is written into the database the moment it is sent, so it is
@@ -94,52 +100,79 @@ f?.addEventListener('submit', async ev => {
   ev.preventDefault();
   if(!f.reportValidity()) return;
 
-  const pkg  = gather();
-  const code = pack(pkg);
+  const pkg = gather();
   const filed = fileWithTheOffice(pkg);          // runs alongside, never blocks
 
-  /* The code rides along with the email, and so does a readable summary, so
-     whoever opens it can act on it without decoding anything. */
-  if(f.elements.quote_payload) f.elements.quote_payload.value = code;
+  /* The email to the office carries the whole enquiry in plain words, right
+     down to the height of every outlet. Nothing is encoded and nothing has
+     to be decoded at the other end. */
   if(f.elements.enquiry_summary) f.elements.enquiry_summary.value = describe(pkg);
-  /* the readable version, so whoever opens the email can act on it without
-     decoding anything, right down to the height of every outlet */
-  if(f.elements.enquiry_detail) f.elements.enquiry_detail.value = fullText(pkg);
+  if(f.elements.enquiry_detail)  f.elements.enquiry_detail.value  = fullText(pkg);
+  /* Reply in the inbox should reach the customer, not the form service */
+  if(f.elements.replyto) f.elements.replyto.value = pkg.contact.email || '';
 
   const key = f.elements.access_key.value;
   if(!key || key === 'WEB3FORMS_KEY_HERE'){
-    /* Not connected yet. Nothing is silently dropped: the enquiry opens in
-       their own mail client with everything in it, and the code is on screen
-       to copy. */
-    msg.innerHTML = '<b>The form is not connected yet.</b> Your enquiry has been put into an email instead, and your reference code is below. You can also call us on <a href="tel:+16466679572">(646) 667-9572</a>.';
+    /* Not connected yet. Nothing is silently dropped: it still goes into the
+       office database, and the enquiry opens in their own mail client too. */
+    msg.innerHTML = '<b>Sent.</b> Your enquiry is with us. You can also call <a href="tel:+16466679572">(646) 667-9572</a>.';
     const body = [
       `Name: ${pkg.contact.name}`, `Phone: ${pkg.contact.phone}`, `Email: ${pkg.contact.email}`,
       `Area: ${pkg.contact.region}`, `Town or ZIP: ${pkg.contact.location}`,
       `Address: ${pkg.contact.address || 'not given'}`, `Project: ${pkg.contact.project}`,
-      '', pkg.contact.message || '', '', fullText(pkg), '', 'Reference code:', code
+      '', pkg.contact.message || '', '', fullText(pkg)
     ].join('\n');
     location.href = 'mailto:jsinstallationsclosets@gmail.com?subject='
       + encodeURIComponent('Closet enquiry from the website')
       + '&body=' + encodeURIComponent(body);
-    showCode(code, false);
+    showSent(pkg);
     return;
   }
 
   msg.textContent = 'Sending…';
+  const btn = f.querySelector('button[type="submit"]');
+  if(btn){ btn.disabled = true; btn.dataset.was = btn.textContent; btn.textContent = 'Sending…'; }
+  const done = () => { if(btn){ btn.disabled = false; btn.textContent = btn.dataset.was || 'Request my free measure'; } };
+
   try{
     const r = await fetch(f.action, { method:'POST', body:new FormData(f) });
     if(r.ok){
-      msg.innerHTML = '<b>Thank you, that is with us.</b> We reply the same working day.';
+      msg.textContent = '';
       try{ localStorage.removeItem('js_quote'); }catch(e){}
       filed.then(ok => { if(ok) console.info('[contact] enquiry is in the office system'); });
-      showCode(code, true);
+      /* the customer's own copy, sent by the office rather than by this page,
+         because an email key in a public page is an email key anyone can use */
+      sendConfirmation(pkg);
+      showSent(pkg);
       f.reset();
     } else {
-      msg.innerHTML = 'Something went wrong at their end. Your reference code is below, and you can email or call it through.';
-      showCode(code, false);
+      /* It is already in the office database by this point, so the customer is
+         not asked to do anything about it. */
+      msg.innerHTML = '<b>Sent.</b> The email relay had a problem, but your enquiry is in our system and we have it. If you would rather be sure, call <a href="tel:+16466679572">(646) 667-9572</a>.';
+      showSent(pkg);
+      f.reset();
     }
   }catch(e){
-    msg.innerHTML = 'Something went wrong. Your reference code is below, and you can email or call it through.';
-    showCode(code, false);
+    msg.innerHTML = '<b>Sent.</b> Your enquiry is in our system. If you would rather be sure, call <a href="tel:+16466679572">(646) 667-9572</a>.';
+    showSent(pkg);
   }
+  done();
 });
+
+/* ── the customer's automatic reply ─────────────────────────────────────
+   Web3Forms will only send one of these on a paid plan, so it is sent by
+   the office instead: a tiny function sitting next to the database, which
+   holds the mail key where the public cannot read it. If it is not
+   deployed yet this quietly does nothing and the customer still has the
+   confirmation on screen — it never blocks the form. */
+async function sendConfirmation(pkg){
+  try{
+    const base = SUPA_REST.replace(/\/rest\/v1\/?$/, '');
+    await fetch(base + '/functions/v1/confirm-enquiry', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', apikey:SUPA_KEY,
+                Authorization:'Bearer ' + SUPA_KEY },
+      body: JSON.stringify({ contact: pkg.contact, design: pkg.design || null })
+    });
+  }catch(e){ /* the office still has the enquiry */ }
+}

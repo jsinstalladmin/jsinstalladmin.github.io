@@ -122,6 +122,7 @@ export function fullText(e){
         ? 'baseboard to baseboard' : 'wall to wall');
     row('At the baseboard', d.baseboard.handling);
   }
+  row('Backs', d.backs);
   row('Doors', d.door);
   row('Finish', d.finish === d.frontFinish ? d.finish
       : `${d.finish} carcass · ${d.frontFinish} fronts`);

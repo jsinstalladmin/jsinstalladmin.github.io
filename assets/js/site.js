@@ -117,20 +117,42 @@ if(mb&&dr){
   }
 })();
 
-/* map ↔ region list, linked both ways */
+/* ── The states we work in, and the map beside them ──────────────────────
+   Five square boxes in a row rather than five full-width rows with air
+   between them, and the towns for whichever one you are pointing at open
+   in a single panel directly underneath, instead of each row growing and
+   shoving everything below it down the page.
+
+   Nothing moves. Hovering a box highlights that state on the map and
+   swaps the panel, and that is all: a map that jumps under the pointer
+   is a map you cannot aim at. The highlight stays, because that is the
+   part that tells you something. */
 (function(){
-  const map=document.querySelector('.usmap'); if(!map) return;
-  const set=(id,on)=>{
-    map.querySelectorAll(`.srv path[data-r="${id}"], .lab text[data-r="${id}"]`)
-       .forEach(e=>e.classList.toggle('hot',on));
-    document.querySelectorAll(`.rg[data-r="${id}"]`).forEach(e=>e.classList.toggle('on',on));
+  const map = document.querySelector('.usmap');
+  const boxes = [...document.querySelectorAll('.rgx[data-r]')];
+  if(!boxes.length) return;
+
+  const panels = [...document.querySelectorAll('.rgd[data-rd]')];
+  let locked = null;                       // set by a click, so touch works too
+
+  const show = id => {
+    boxes.forEach(b => b.classList.toggle('on', b.dataset.r === id));
+    panels.forEach(p => p.toggleAttribute('data-on', p.dataset.rd === id));
+    if(map) map.querySelectorAll('.srv path[data-r], .lab text[data-r]')
+      .forEach(e => e.classList.toggle('hot', e.dataset.r === id));
   };
-  const bind=(el)=>{
-    const id=el.dataset.r; if(!id) return;
-    el.addEventListener('mouseenter',()=>set(id,true));
-    el.addEventListener('mouseleave',()=>set(id,false));
-    el.addEventListener('focus',()=>set(id,true));
-    el.addEventListener('blur',()=>set(id,false));
-  };
-  document.querySelectorAll('.rg[data-r]').forEach(bind);
+  const first = boxes[0].dataset.r;
+  show(first);
+
+  boxes.forEach(b => {
+    const id = b.dataset.r;
+    b.addEventListener('mouseenter', () => show(id));
+    b.addEventListener('focus',      () => show(id));
+    /* A tap is a click, not a hover, so on a phone this is how you pick one.
+       Tapping the one already open releases it back to the first. */
+    b.addEventListener('click', () => { locked = (locked === id) ? null : id; show(locked || first); });
+  });
+
+  const host = boxes[0].closest('.regions');
+  host?.addEventListener('mouseleave', () => show(locked || first));
 })();

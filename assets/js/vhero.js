@@ -2,10 +2,14 @@
    vhero.js — variant B hero.
    The clip is a BUILD sequence: empty room → structure → dressed.
    Looping it makes the clothes flicker in and out, so instead we
-   play it through once, slowly, and settle on the finished closet.
+   play it through once and settle on the finished closet.
    It replays when it scrolls back into view.
    ============================================================ */
-const RATE = 0.8;            // 20s source → ~25s build. Cinematic, not sluggish.
+/* 0.8 stretched the 20-second build to 25 and it read as slow rather than
+   cinematic — you were waiting for the closet rather than watching it go in.
+   At 1.0 the clip runs at the speed it was filmed: the same sequence, a fifth
+   quicker, and the hold on the finished closet comes sooner. */
+const RATE = 1.0;            // 20s source → 20s build.
 const v = document.getElementById('hv');
 const swap = document.getElementById('heroswap');
 

@@ -112,6 +112,9 @@ const S = {
      and `measured` says whether the width they gave was taken wall to wall or
      between the baseboards, which changes how much wall there actually is. */
   base:{ h:4.5, t:0.75, measured:'wall', handling:'scribe' },
+  /* A back on every section. Off, because a built-in closet's back is the
+     wall and that is what gets installed. */
+  backs:false,
   /* When you ask to change ONE part of a section, this is which one. Null
      means the picker is showing everything, the way it always did. */
   swap:null,
@@ -315,7 +318,7 @@ function cfg(){
   }
   return { room:S.room, mounting:S.mounting, finish:S.finish,
            frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
-           door:S.door, base:S.base,
+           door:S.door, base:S.base, backs:S.backs,
            fittings:S.fittings.filter(f=>f.placed), runs };
 }
 
@@ -1306,6 +1309,13 @@ function paintPlan(){
         <button type="button" data-bmeas="wall" class="${S.base.measured==='wall'?'on':''}">Wall to wall</button>
         <button type="button" data-bmeas="baseboard" class="${S.base.measured==='baseboard'?'on':''}">Baseboard to baseboard</button>
       </div>
+      <em class="baseq">Do the sections need a back?</em>
+      <div class="segrow col">
+        <button type="button" data-backs="0" class="${S.backs?'':'on'}">
+          <b>No back &mdash; the wall is the back</b><span>How a built-in closet normally goes in. Nothing to pay for.</span></button>
+        <button type="button" data-backs="1" class="${S.backs?'on':''}">
+          <b>Build a back on every section</b><span>For a block wall, a garage, or plaster you would rather not look at. Adds board and hardware to every section.</span></button>
+      </div>
       <em class="baseq">And where the cabinetry meets it?</em>
       <div class="segrow col">
         <button type="button" data-bhand="scribe" class="${S.base.handling==='scribe'?'on':''}">
@@ -2064,7 +2074,9 @@ $('#fitlist').addEventListener('change', e=>{
     const m=e.target.closest('[data-bmeas]');
     if(m){ S.base.measured=m.dataset.bmeas; rebuild(true); return; }
     const h=e.target.closest('[data-bhand]');
-    if(h){ S.base.handling=h.dataset.bhand; rebuild(true); }
+    if(h){ S.base.handling=h.dataset.bhand; rebuild(true); return; }
+    const bk=e.target.closest('[data-backs]');
+    if(bk){ S.backs = bk.dataset.backs === '1'; rebuild(true); }
   });
 })();
 
@@ -2355,6 +2367,7 @@ function quotePackage(){
     price:Math.round(cur.price.price), type:S.type,
     typeLabel: S.type==='reach-in'?'Reach-In Closets':S.type==='walk-in'?'Walk-In Closets':S.type==='pantry'?'Pantries':S.type==='garage'?'Garage Storage':'Laundry Rooms',
     room:S.room, mounting:S.mounting,
+    backs: S.backs ? 'A back panel on every section' : 'No backs — the wall is the back',
     baseboard:{ height:S.base.h, thickness:S.base.t,
                 measuredFrom:S.base.measured,
                 handling: S.base.handling==='scribe' ? 'Panels notched round the baseboard on site'
@@ -2399,6 +2412,7 @@ $('#send').onclick=()=>{
     + line('Finish', q.finish === q.frontFinish ? q.finish : `${q.finish} carcass · ${q.frontFinish} fronts`)
     + line('Hardware', `${q.pull} in ${q.pullFinish}`)
     + line('Doors', q.door)
+    + line('Backs', q.backs)
     + line('Baseboard', `${q.baseboard.height}" tall, ${q.baseboard.thickness}" thick · `
         + `measured ${q.baseboard.measuredFrom === 'wall' ? 'wall to wall' : 'baseboard to baseboard'} · `
         + q.baseboard.handling)

@@ -11,9 +11,10 @@
    nothing needs the assistant: every record has an add, an edit and a
    delete, and every change is written to storage the moment it is made.
    ============================================================ */
-import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS, ROLES } from './store.js';
+import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS, ROLES,
+         PIPE, PIPE_ID, PIPE_LABEL, PIPE_COLOR } from './store.js';
 import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
-import { unpack, describe } from '../assets/js/enquiry.js';
+import { describe } from '../assets/js/enquiry.js';
 import { packWeek, mondayOf, addDays } from '../assets/js/crewlink.js';
 import { quoteDoc, quoteNumbers, linearFeet } from './quote.js';
 
@@ -81,6 +82,82 @@ function jobRow(j, withDate){
 /* ═══════════════ VIEWS ═══════════════ */
 const V = {};
 
+/* ═══════════════ THE PIPELINE ═══════════════
+   A list of rows tells you what exists. It does not tell you what is
+   stuck. Six columns do: every client sits in exactly one, the column
+   header carries how many and how much, and each card carries how many
+   days it has sat there. Drag a card to move someone along, or open it
+   and press a stage. That is the whole job.                            */
+
+const stageDot = id => `<i class="sdot" style="background:${PIPE_COLOR[id]}"></i>`;
+
+function pipeCard(c){
+  const v    = DB.clientValue(c.id);
+  const d    = DB.daysInStage(c);
+  const load = DB.clientLoad(c.id);
+  const next = DB.jobs('all').filter(j => j.client === c.id && j.date >= today())
+                 .sort((a,b) => a.date.localeCompare(b.date))[0];
+  const what = next ? `${next.kind} ${fmtD(next.date)}`
+             : load.quotes ? `${load.quotes} quote${load.quotes===1?'':'s'}`
+             : c.addr ? c.addr.split(',')[0] : (c.source || 'Website');
+  return `<article class="pcrd" draggable="true" data-card="${c.id}" data-stage="${c.stage}"
+            style="--c:${PIPE_COLOR[c.stage]}" tabindex="0"
+            aria-label="${esc(c.name)}, ${PIPE_LABEL[c.stage]}">
+      <b>${esc(c.name)}</b>
+      <span class="pcsub">${esc(what)}</span>
+      <span class="pcbot">
+        ${v ? `<em>${money(v)}</em><u>est</u>` : '<em class="novalue">No value yet</em>'}
+        <span class="pcage" title="How long this card has sat in this column">${d}d in stage</span>
+      </span>
+    </article>`;
+}
+
+V.pipeline = () => {
+  const cl = DB.clients();
+  const col = id => cl.filter(c => (c.stage || 'new') === id);
+  const rm  = DB.regionMeta();
+  const stuck = cl.filter(c => !['won','lost'].includes(c.stage) && DB.daysInStage(c) >= 5);
+
+  return head(
+      'Pipeline',
+      DB.region()==='all'
+        ? `Every client, every region, and how long each one has been waiting`
+        : `Every client in ${rm.name}, and how long each one has been waiting`,
+      `<button class="btn" data-act="newclient">+ Client</button>
+       <button class="btn btn-p" data-nav="inbox">Website leads</button>`)
+
+    + (stuck.length ? `<div class="stuckbar">
+        <b>${stuck.length} ${stuck.length===1?'card has':'cards have'} not moved in five days or more.</b>
+        ${stuck.slice(0,4).map(c=>`<button class="stuckpill" data-card-open="${c.id}">
+          ${esc(c.name)} <i>${DB.daysInStage(c)}d</i></button>`).join('')}
+        ${stuck.length>4?`<span class="sub">and ${stuck.length-4} more</span>`:''}
+      </div>` : '')
+
+    + `<div class="board">${PIPE.map(st => {
+        const items = col(st.id);
+        const val   = items.reduce((a,c) => a + DB.clientValue(c.id), 0);
+        return `<section class="bcol" data-col="${st.id}" style="--c:${st.c}">
+          <header title="${esc(st.note)}">
+            ${stageDot(st.id)}<b>${st.label}</b>
+            <span class="bcount">${items.length}${val?` &middot; ${money(val)}`:''}</span>
+          </header>
+          <div class="bdrop" data-drop="${st.id}">
+            ${items.length ? items
+                .sort((a,b) => DB.daysInStage(b) - DB.daysInStage(a))
+                .map(pipeCard).join('')
+              : `<p class="bempty">Nothing here</p>`}
+          </div></section>`;
+      }).join('')}</div>`;
+};
+
+/* One row of something that wants doing. The colour is what kind of thing
+   it is, so the list reads as a shape before it reads as words. */
+const doRow = (c, what, sub, go) =>
+  `<button class="dorow" style="--c:${c}" ${go}>
+     <span class="dobar"></span>
+     <span class="dotxt"><b>${what}</b><i>${sub}</i></span>
+     <span class="dogo">&rsaquo;</span></button>`;
+
 V.today = () => {
   const jobs = DB.jobs(), rm = DB.regionMeta();
   const live  = jobs.filter(j=>!['done','lost'].includes(j.stage));
@@ -92,12 +169,43 @@ V.today = () => {
   const crew  = DB.employees().filter(e=>e.active!==false);
   const where = DB.region()==='all' ? 'across every region' : 'in '+rm.short;
 
+  /* ── what actually wants doing, newest problem first ──
+     Website leads used to live only in the Inbox, so the first screen of
+     the morning could say "nothing booked, enjoy it" while three people
+     sat unanswered one tab away. */
+  const cls   = DB.clients();
+  const unread = DB.newLeads()
+    .filter(l => DB.region()==='all' || !l.region_id || l.region_id===DB.region());
+  const stale = cls.filter(c => !['won','lost'].includes(c.stage) && DB.daysInStage(c) >= 5)
+    .sort((a,b) => DB.daysInStage(b) - DB.daysInStage(a));
+  const waiting = DB.quotes().filter(q => q.status === 'sent');
+  const todo =
+      unread.map(l => doRow('#C2572F', `Reply to ${esc(l.contact?.name || 'a new enquiry')}`,
+          `${esc(l.source || 'Website')} &middot; came in ${fmtD((l.created||today()).slice(0,10))}`
+          + (l.design?.price ? ` &middot; ${money(l.design.price)} drawn` : ''),
+          `data-leadopen="${esc(l.id)}"`)).join('')
+    + waiting.map(q => doRow('#5C6FA8', `Chase the quote for ${esc(DB.clientName(q.client))}`,
+          `${money(q.total)} &middot; sent ${q.created ? fmtD(q.created) : 'recently'}, no answer yet`,
+          `data-nav="quotes"`)).join('')
+    + stale.slice(0,6).map(c => doRow('#B4832B', `${esc(c.name)} has not moved`,
+          `${PIPE_LABEL[c.stage]} &middot; ${DB.daysInStage(c)} days in that column`,
+          `data-card-open="${c.id}"`)).join('')
+    + td.map(j => doRow('#3F7A4D', `${esc(j.kind.charAt(0).toUpperCase()+j.kind.slice(1))} at ${esc(DB.clientName(j.client))}`,
+          `${esc(j.title)}${j.crew?` &middot; ${esc(j.crew)}`:' &middot; nobody assigned yet'}`,
+          `data-job="${j.id}"`)).join('');
+
   return head(
       DB.region()==='all' ? 'All regions' : rm.name,
       new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})
         + (DB.region()==='all' ? '' : ' · '+rm.base),
       `<button class="btn" data-act="newclient">+ Client</button>
        <button class="btn btn-p" data-act="newjob">+ Book a visit</button>`)
+
+  + panel('What wants doing',
+      todo ? `${unread.length?unread.length+' unanswered · ':''}${waiting.length?waiting.length+' awaiting an answer':''}` : '',
+      todo ? `<div class="dolist">${todo}</div>`
+           : empty('Nothing waiting on you. Every lead is answered and nothing is stuck.'),
+      unread.length ? 'accent' : '')
 
   + (td.length ? panel('On today', `${td.length} visit${td.length>1?'s':''}`,
       scroll(`<table><thead><tr><th>Client</th><th>Job</th><th>Visit</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Crew</th><th>Stage</th><th class="mono">Value</th></tr></thead>
@@ -106,7 +214,8 @@ V.today = () => {
   + `<div class="cards">
       <div class="card"><span class="k">Pipeline</span><div class="v">${money(pipe.reduce((a,x)=>a+x.value,0))}</div><span class="d">${pipe.length} live jobs</span></div>
       <div class="card"><span class="k">Installed this month</span><div class="v">${money(month.reduce((a,x)=>a+x.value,0))}</div><span class="d">${month.length} completed</span></div>
-      <div class="card"><span class="k">Waiting on a quote</span><div class="v">${leads.length}</div><span class="d">${leads.length?'Oldest '+fmtD([...leads].sort((a,b)=>a.date.localeCompare(b.date))[0].date):'All clear'}</span></div>
+      <div class="card ${unread.length?'hot':''}" data-nav="inbox"><span class="k">Unanswered leads</span><div class="v">${unread.length}</div><span class="d">${unread.length?'Straight off the website':'All answered'}</span></div>
+      <div class="card" data-nav="pipeline"><span class="k">Waiting on a quote</span><div class="v">${leads.length}</div><span class="d">${leads.length?'Oldest '+fmtD([...leads].sort((a,b)=>a.date.localeCompare(b.date))[0].date):'All clear'}</span></div>
       <div class="card"><span class="k">Clients</span><div class="v">${DB.clients().length}</div><span class="d">${where}</span></div>
       <div class="card"><span class="k">Crew on the books</span><div class="v">${crew.length}</div><span class="d">${where}</span></div>
      </div>`
@@ -164,28 +273,45 @@ V.schedule = () => {
 };
 
 /* ───────── clients ───────── */
+/* Which column of the pipeline the client list is filtered to. Everyone is
+   a client here — a lead is just a client nobody has rung yet — so the only
+   useful question is "show me the ones at this stage". */
+let CLI_STAGE = 'all';
 V.clients = () => {
-  const c = [...DB.clients()].sort((a,b)=>a.name.localeCompare(b.name));
-  const rm = DB.regionMeta();
+  const all = [...DB.clients()].sort((a,b)=>a.name.localeCompare(b.name));
+  const c   = CLI_STAGE === 'all' ? all : all.filter(x => (x.stage||'new') === CLI_STAGE);
+  const rm  = DB.regionMeta();
+  const count = id => all.filter(x => (x.stage||'new') === id).length;
   return head('Clients',
-      `${c.length}${DB.region()==='all'?' across every region':' in '+rm.name} · click any row to edit`,
+      `${all.length}${DB.region()==='all'?' across every region':' in '+rm.name} · every lead becomes a client here, click any row to open it`,
       `<button class="btn btn-p" data-act="newclient">+ Add client</button>`)
+  + `<div class="cfilter">
+      <button data-cstage="all" class="${CLI_STAGE==='all'?'on':''}">All <i>${all.length}</i></button>
+      ${PIPE.map(st=>`<button data-cstage="${st.id}" style="--c:${st.c}"
+        class="${CLI_STAGE===st.id?'on':''}" title="${esc(st.note)}">
+        <i class="sdot" style="background:${st.c}"></i>${st.label} <i>${count(st.id)}</i></button>`).join('')}
+     </div>`
   + panel('', '', c.length
-    ? scroll(`<table><thead><tr><th>Name</th><th>Phone</th><th>Address</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Source</th><th>Jobs</th><th>Last job done</th><th class="mono">Lifetime</th></tr></thead><tbody>
+    ? scroll(`<table><thead><tr><th>Name</th><th>Where they are</th><th>Phone</th><th>Address</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Source</th><th>Jobs</th><th class="mono">Lifetime</th></tr></thead><tbody>
       ${c.map(x=>{
         const js = DB.jobs('all').filter(j=>j.client===x.id);
         const done = js.filter(j=>j.stage==='done').sort((a,b)=>b.date.localeCompare(a.date));
+        const st = x.stage || 'new';
         return `<tr data-client="${x.id}">
           <td><b>${esc(x.name)}</b>${x.email?`<br><span class="sub">${esc(x.email)}</span>`:''}</td>
+          <td><span class="stagetag" style="--c:${PIPE_COLOR[st]}">
+            <i class="sdot" style="background:${PIPE_COLOR[st]}"></i>${PIPE_LABEL[st]}</span>
+            <br><span class="sub">${DB.daysInStage(x)}d in stage</span></td>
           <td class="mono">${esc(x.phone)||'&ndash;'}</td>
           <td class="addr">${x.addr?`<a href="#" data-map="${esc(x.addr)}">${esc(x.addr)}</a>`:'<span class="sub">No address yet</span>'}</td>
           ${regionCell(x)}
           <td><span class="pill muted">${esc(x.source||'—')}</span></td>
           <td>${js.length}</td>
-          <td class="mono">${done.length?fmtFull(done[0].date):'<span class="sub">&ndash;</span>'}</td>
           <td class="mono">${money(js.filter(j=>j.stage==='done').reduce((a,j)=>a+j.value,0))}</td></tr>`;
       }).join('')}</tbody></table>`)
-    : empty('No clients in this region yet. Add the first one with the button above.'));
+    : empty(CLI_STAGE==='all'
+        ? 'No clients in this region yet. Add the first one with the button above.'
+        : `Nobody is at &ldquo;${PIPE_LABEL[CLI_STAGE]}&rdquo; right now.`));
 };
 
 /* ───────── jobs ───────── */
@@ -313,19 +439,12 @@ V.inbox = () => {
       </tbody></table>`)
       : empty('Nothing filed yet.'))
 
-  + panel('Paste a reference code', 'Only needed if an enquiry arrived by email alone', `<div class="bd">
-      <div class="f"><label>Reference code</label>
-        <textarea id="inbox-code" rows="3" placeholder="JSC1...."></textarea></div>
-      <div class="btnrow">
-        <button class="btn btn-p" data-act="inbox-read">Read it</button>
-        <button class="btn" data-act="inbox-clear">Clear</button>
-      </div>
-      <div id="inbox-out"></div></div>`)
+  + `<div id="inbox-out"></div>`
 
   + panel('How a lead gets here', '', `<div class="bd"><div class="note">
-      <b>1.</b> The customer draws their closet at <b>/design/</b>, presses &ldquo;Send this to us&rdquo;, then fills in their name, phone, email, town and address.<br><br>
-      <b>2.</b> It is written straight into this Inbox the moment they press send, and you also get an email. Nothing to copy, nothing to paste.<br><br>
-      <b>3.</b> You press <b>Open it</b>, check it, and file it. The client, a measure visit and a draft quote are created in the region the ZIP belongs to, with the whole parts list on the quote.</div></div>`);
+      <b>1.</b> The customer fills in the free measure form, or draws their closet at <b>/design/</b> and presses &ldquo;Send this to us&rdquo;.<br><br>
+      <b>2.</b> It is written straight into this Inbox the moment they press send, they get an automatic reply, and you get an email. There is nothing to copy and nothing to paste.<br><br>
+      <b>3.</b> You press <b>Open it</b>, check it, and file it. The client, a measure visit and a draft quote are created in the region the ZIP belongs to, with the whole parts list on the quote, and the client lands in the first column of the <b>Pipeline</b>.</div></div>`);
 };
 
 function inboxPreview(e){
@@ -504,19 +623,19 @@ document.addEventListener('click', e => {
   const emp = e.target.closest('[data-emp]');  if(emp) return openEmployee(emp.dataset.emp);
   const job = e.target.closest('[data-job]');  if(job){ e.stopPropagation(); return openJob(job.dataset.job); }
   const qr  = e.target.closest('[data-quote]');if(qr)  return openQuote(qr.dataset.quote);
+  const cf  = e.target.closest('[data-cstage]');
+  if(cf){ CLI_STAGE = cf.dataset.cstage; render(); return; }
   const cl  = e.target.closest('[data-client]');if(cl) return openClient(cl.dataset.client);
+  const bc  = e.target.closest('[data-card],[data-card-open]');
+  if(bc) return openClient(bc.dataset.card || bc.dataset.cardOpen);
   const day = e.target.closest('.day');        if(day) return openDay(day.dataset.date);
 });
 
 function doAct(a){
-  if(a==='inbox-read'){
-    const out = $('#inbox-out');
-    try{ INBOX_DRAFT = unpack($('#inbox-code').value); out.innerHTML = inboxPreview(INBOX_DRAFT); }
-    catch(err){ INBOX_DRAFT = null;
-      out.innerHTML = `<div class="note warn"><b>${esc(err.message)}</b> Paste the whole line, starting with JSC1. It is at the bottom of the enquiry email.</div>`; }
-    return;
-  }
-  if(a==='inbox-clear'){ INBOX_DRAFT=null; $('#inbox-code').value=''; $('#inbox-out').innerHTML=''; return; }
+  /* The reference code is gone. A lead writes itself into the database the
+     moment it is sent, so asking anyone to copy a line of gibberish out of
+     an email and paste it back in was a workaround for a problem that no
+     longer exists. */
   if(a==='inbox-sync'){
     toast('Checking…');
     DB.refresh().then(()=>{ render(); toast('Up to date.'); })
@@ -608,8 +727,23 @@ function openClient(id){
    <div class="f2"><div class="f"><label>Phone</label><input id="m-p" value="${esc(c?.phone||'')}"></div>
      <div class="f"><label>Email</label><input id="m-e" type="email" value="${esc(c?.email||'')}"></div></div>
    <div class="f"><label>Address</label><input id="m-a" value="${esc(c?.addr||'')}" placeholder="Street, town, state, ZIP"></div>
-   <div class="f2"><div class="f"><label>Region</label><select id="m-r">${REGIONS.map(r=>`<option value="${r.id}"${(c?.region||DB.region())===r.id?' selected':''}>${esc(r.name)}</option>`).join('')}</select></div>
-     <div class="f"><label>Source</label><select id="m-s">${['Website','Referral','Google','Houzz','Trade','Walk-in','Assistant'].map(x=>`<option${c?.source===x?' selected':''}>${x}</option>`).join('')}</select></div></div>
+   <div class="f"><label>Where are they in the pipeline?</label>
+     <div class="pickrow" id="m-stage" data-pick="${esc(c?.stage||'new')}">
+       ${PIPE.map(st=>`<button type="button" data-stage-pick="${st.id}" style="--c:${st.c}"
+         class="${(c?.stage||'new')===st.id?'on':''}" title="${esc(st.note)}">
+         <i class="sdot" style="background:${st.c}"></i>${st.label}</button>`).join('')}
+     </div></div>
+   <div class="f"><label>Which state are they in?</label>
+     <div class="pickrow wide" id="m-r" data-pick="${esc(c?.region||DB.region()==='all'?(c?.region||'fl'):DB.region())}">
+       ${REGIONS.map(r=>`<button type="button" data-region-pick="${r.id}"
+         class="${(c?.region || (DB.region()==='all'?'fl':DB.region()))===r.id?'on':''}">
+         <b>${r.short}</b><span>${esc(r.name)}</span></button>`).join('')}
+     </div></div>
+   <div class="f"><label>Where did they come from?</label>
+     <div class="pickrow" id="m-s" data-pick="${esc(c?.source||'Website')}">
+       ${['Website','Referral','Google','Houzz','Trade','Walk-in'].map(x=>`<button type="button"
+         data-source-pick="${x}" class="${(c?.source||'Website')===x?'on':''}">${x}</button>`).join('')}
+     </div></div>
    <div class="f"><label>Notes</label><textarea id="m-no" rows="2">${esc(c?.notes||'')}</textarea></div>
    ${jobs.length?`<div class="dlglist"><label>Their jobs</label>${jobs.slice(0,6).map(j=>
       `<div class="dlrow"><span class="mono">${fmtD(j.date)}</span><b>${esc(j.title)}</b>
@@ -618,6 +752,16 @@ function openClient(id){
      <button class="btn" value="cancel">Cancel</button>
      <button class="btn btn-p" id="m-ok">${c?'Save changes':'Add client'}</button></div>`;
   dlg.showModal(); wireCancel();
+  /* A row of real buttons instead of a 140px dropdown. Same data, but you can
+     see every option at once and hit it with a thumb. */
+  dlg.querySelectorAll('.pickrow').forEach(row => {
+    row.addEventListener('click', ev => {
+      const b = ev.target.closest('button'); if(!b) return;
+      ev.preventDefault();
+      row.dataset.pick = b.dataset.stagePick || b.dataset.regionPick || b.dataset.sourcePick;
+      row.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    });
+  });
   $('#m-del')?.addEventListener('click',()=>{
     const msg = load.jobs||load.quotes
       ? `Delete ${c.name}? This also deletes ${load.jobs} job${load.jobs===1?'':'s'} and ${load.quotes} quote${load.quotes===1?'':'s'}. It cannot be undone.`
@@ -627,9 +771,18 @@ function openClient(id){
   $('#m-ok').onclick = () => {
     const name = $('#m-n').value.trim();
     if(!name){ $('#m-n').focus(); toast('A client needs a name.', true); return; }
+    const picked = sel => $(sel)?.dataset.pick || '';
+    const stage = picked('#m-stage') || 'new';
     const p = {name, phone:$('#m-p').value, email:$('#m-e').value, addr:$('#m-a').value,
-               region:$('#m-r').value, source:$('#m-s').value, notes:$('#m-no').value};
-    c ? DB.updateClient(c.id,p) : DB.addClient(p);
+               region:picked('#m-r') || 'fl', source:picked('#m-s') || 'Website',
+               notes:$('#m-no').value};
+    if(c){
+      DB.updateClient(c.id, p);
+      /* the stage is stamped with its own time, so it goes through its own door */
+      if(stage !== c.stage) DB.setClientStage(c.id, stage);
+    } else {
+      DB.addClient({ ...p, stage });
+    }
     close(); render(); toast(c?'Saved.':'Client added.');
   };
 }
@@ -658,6 +811,16 @@ function openJob(id, presetDate){
      <button class="btn" value="cancel">Cancel</button>
      <button class="btn btn-p" id="m-ok">${j?'Save changes':'Book it'}</button></div>`;
   dlg.showModal(); wireCancel();
+  /* A row of real buttons instead of a 140px dropdown. Same data, but you can
+     see every option at once and hit it with a thumb. */
+  dlg.querySelectorAll('.pickrow').forEach(row => {
+    row.addEventListener('click', ev => {
+      const b = ev.target.closest('button'); if(!b) return;
+      ev.preventDefault();
+      row.dataset.pick = b.dataset.stagePick || b.dataset.regionPick || b.dataset.sourcePick;
+      row.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    });
+  });
   $('#m-del')?.addEventListener('click',()=>{
     if(confirm('Delete this visit? It cannot be undone.')){ DB.removeJob(j.id); close(); render(); toast('Visit deleted.'); }});
   $('#m-ok').onclick = () => {
@@ -695,6 +858,16 @@ function openEmployee(id){
      <button class="btn" value="cancel">Cancel</button>
      <button class="btn btn-p" id="m-ok">${e?'Save changes':'Add to the crew'}</button></div>`;
   dlg.showModal(); wireCancel();
+  /* A row of real buttons instead of a 140px dropdown. Same data, but you can
+     see every option at once and hit it with a thumb. */
+  dlg.querySelectorAll('.pickrow').forEach(row => {
+    row.addEventListener('click', ev => {
+      const b = ev.target.closest('button'); if(!b) return;
+      ev.preventDefault();
+      row.dataset.pick = b.dataset.stagePick || b.dataset.regionPick || b.dataset.sourcePick;
+      row.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    });
+  });
   $('#m-del')?.addEventListener('click',()=>{
     if(confirm(`Remove ${e.name} from the crew? They come off every visit they are on. It cannot be undone.`)){
       DB.removeEmployee(e.id); close(); render(); toast('Removed from the crew.'); }});
@@ -763,6 +936,16 @@ function openQuote(id){
       <button class="btn" value="cancel">Close</button>
       <button class="btn btn-p" id="m-ok">${q?'Save changes':'Add quote'}</button></div>`;
   dlg.showModal(); wireCancel();
+  /* A row of real buttons instead of a 140px dropdown. Same data, but you can
+     see every option at once and hit it with a thumb. */
+  dlg.querySelectorAll('.pickrow').forEach(row => {
+    row.addEventListener('click', ev => {
+      const b = ev.target.closest('button'); if(!b) return;
+      ev.preventDefault();
+      row.dataset.pick = b.dataset.stagePick || b.dataset.regionPick || b.dataset.sourcePick;
+      row.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    });
+  });
   $('#m-del')?.addEventListener('click',()=>{
     if(confirm('Delete this quote? It cannot be undone.')){ DB.removeQuote(q.id); close(); render(); toast('Quote deleted.'); }});
   $('#m-ok').onclick = () => {
@@ -937,3 +1120,72 @@ function wireCalc(){
 }
 
 paintRegions(); render();
+
+
+/* ═══════════════ MOVING A CARD ALONG THE BOARD ═══════════════
+   Dragging is the obvious gesture and it is what the board is for, but a
+   drag is not available to everyone: it needs a pointer, a steady hand and
+   sight of the whole row. So the same move is also one keystroke — select
+   a card, press the left or right arrow — and the card itself is a button
+   that opens the client, where the six stages are a row of real buttons.
+   Three ways to the same change, none of them the only way.            */
+(function pipelineDnD(){
+  const main = document.getElementById('main');
+  if(!main) return;
+  let held = null;
+
+  const clearOver = () =>
+    main.querySelectorAll('.bdrop.over').forEach(d => d.classList.remove('over'));
+
+  main.addEventListener('dragstart', e => {
+    const card = e.target.closest('[data-card]'); if(!card) return;
+    held = card.dataset.card;
+    card.classList.add('lifting');
+    e.dataTransfer.effectAllowed = 'move';
+    /* Firefox refuses to start a drag without data on the transfer */
+    try{ e.dataTransfer.setData('text/plain', held); }catch(err){}
+  });
+  main.addEventListener('dragend', e => {
+    e.target.closest('[data-card]')?.classList.remove('lifting');
+    held = null; clearOver();
+  });
+  main.addEventListener('dragover', e => {
+    const drop = e.target.closest('[data-drop]'); if(!drop || !held) return;
+    e.preventDefault();                       // without this the drop never fires
+    e.dataTransfer.dropEffect = 'move';
+    if(!drop.classList.contains('over')){ clearOver(); drop.classList.add('over'); }
+  });
+  main.addEventListener('dragleave', e => {
+    const drop = e.target.closest('[data-drop]');
+    if(drop && !drop.contains(e.relatedTarget)) drop.classList.remove('over');
+  });
+  main.addEventListener('drop', e => {
+    const drop = e.target.closest('[data-drop]'); if(!drop) return;
+    e.preventDefault();
+    const id = held || (() => { try{ return e.dataTransfer.getData('text/plain'); }catch(err){ return ''; } })();
+    clearOver(); held = null;
+    if(!id) return;
+    moveCard(id, drop.dataset.drop);
+  });
+
+  /* the keyboard route */
+  main.addEventListener('keydown', e => {
+    const card = e.target.closest('[data-card]'); if(!card) return;
+    if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Enter' && e.key !== ' ') return;
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); return openClient(card.dataset.card); }
+    e.preventDefault();
+    const at = PIPE_ID.indexOf(card.dataset.stage);
+    const to = PIPE_ID[at + (e.key === 'ArrowRight' ? 1 : -1)];
+    if(to) moveCard(card.dataset.card, to, true);
+  });
+
+  function moveCard(id, stage, keepFocus){
+    const c = DB.client(id);
+    if(!c || c.stage === stage) return;
+    const from = PIPE_LABEL[c.stage];
+    DB.setClientStage(id, stage);
+    render();
+    if(keepFocus) document.querySelector(`[data-card="${id}"]`)?.focus();
+    toast(`${c.name}: ${from} → ${PIPE_LABEL[stage]}`);
+  }
+})();

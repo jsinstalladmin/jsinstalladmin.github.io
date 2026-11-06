@@ -29,6 +29,29 @@ export const REGIONS = [
   { id:'pa', name:'Pennsylvania',  short:'PA', base:'Bucks County, PA',
     areas:['Bucks County','Montgomery County','Philadelphia','Chester County','Delaware County'] }
 ];
+/* ───────── where a client is, which is the whole pipeline ─────────
+   A lead and a client were two different things, which meant the same
+   person existed twice and nobody could see where they had got to. There
+   is one record now — a client — and this is the only thing that moves.
+   The colour is the column's colour on the board and the dot on the card. */
+export const PIPE = [
+  { id:'new',       label:'New lead',        c:'#C2572F',
+    note:'Came in off the website. Nobody has spoken to them yet.' },
+  { id:'contacted', label:'Contacted',       c:'#B4832B',
+    note:'Someone has reached them. No measure booked.' },
+  { id:'measure',   label:'Measure booked',  c:'#4E7F93',
+    note:'A measure is on the calendar.' },
+  { id:'quoted',    label:'Quoted',          c:'#5C6FA8',
+    note:'A price has gone out and you are waiting on an answer.' },
+  { id:'won',       label:'Booked in',       c:'#3F7A4D',
+    note:'They said yes. This is work.' },
+  { id:'lost',      label:'Not going ahead', c:'#8A8178',
+    note:'Kept on file, so you know who to call back next year.' },
+];
+export const PIPE_ID    = PIPE.map(p => p.id);
+export const PIPE_LABEL = Object.fromEntries(PIPE.map(p => [p.id, p.label]));
+export const PIPE_COLOR = Object.fromEntries(PIPE.map(p => [p.id, p.c]));
+
 export const STAGES = ['lead','quoted','won','ordered','scheduled','done','lost'];
 export const STAGE_LABEL = {lead:'Lead',quoted:'Quoted',won:'Won',ordered:'Ordered',
   scheduled:'Scheduled',done:'Installed',lost:'Lost'};
@@ -78,9 +101,13 @@ const empOut = e => ({ region:e.region, name:e.name, role:e.role||'Installer', p
   email:e.email||'', active:e.active!==false, started:e.started||today(), notes:e.notes||'' });
 
 const cliIn  = r => ({ id:r.id, region:r.region, name:r.name, phone:r.phone||'', email:r.email||'',
-  addr:r.addr||'', source:r.source||'Website', notes:r.notes||'', created:(r.created||'').slice(0,10) });
+  addr:r.addr||'', source:r.source||'Website', notes:r.notes||'', created:(r.created||'').slice(0,10),
+  stage: PIPE_ID.includes(r.stage) ? r.stage : 'new',
+  stageAt: r.stage_at || r.created || null });
 const cliOut = c => ({ region:c.region, name:c.name, phone:c.phone||'', email:c.email||'',
-  addr:c.addr||'', source:c.source||'Website', notes:c.notes||'' });
+  addr:c.addr||'', source:c.source||'Website', notes:c.notes||'',
+  stage: PIPE_ID.includes(c.stage) ? c.stage : 'new',
+  stage_at: c.stageAt || new Date().toISOString() });
 
 /* the crew names on a job, derived rather than stored twice */
 const stampCrew = j => { j.crew = (j.crewIds||[]).map(id=>(db.employees.find(e=>e.id===id)||{}).name)
@@ -155,8 +182,35 @@ export const DB = {
 
   addClient: c => { const row = { id:tmpId(), created:today(),
       region:c.region||prefs.activeRegion, name:c.name, phone:c.phone||'', email:c.email||'',
-      addr:c.addr||'', source:c.source||'Website', notes:c.notes||'' };
+      addr:c.addr||'', source:c.source||'Website', notes:c.notes||'',
+      stage: PIPE_ID.includes(c.stage) ? c.stage : 'new',
+      stageAt: new Date().toISOString() };
     db.clients.push(row); push('clients', cliOut(row), row); return row; },
+
+  /* Moving someone along the board is the one action the whole office is
+     built around, so it stamps WHEN it moved. That is what lets a card say
+     "3d in stage", which is the number that tells you who is being left. */
+  setClientStage: (id, stage) => { const c = DB.client(id); if(!c) return null;
+    if(!PIPE_ID.includes(stage) || c.stage === stage) return c;
+    c.stage = stage; c.stageAt = new Date().toISOString();
+    patch('clients', id, { stage:c.stage, stage_at:c.stageAt }, 'could not move that client');
+    return c; },
+
+  /* What a client is worth: their quotes if any have been priced, otherwise
+     the jobs booked for them. Nothing invented — a client with no numbers
+     against them shows no number. */
+  clientValue: id => {
+    const q = db.quotes.filter(x => x.client === id && x.status !== 'rejected');
+    if(q.length) return q.reduce((a,x) => a + (+x.total || 0), 0);
+    return db.jobs.filter(x => x.client === id).reduce((a,x) => a + (+x.value || 0), 0);
+  },
+  /* whole days since the card last moved */
+  daysInStage: c => {
+    if(!c?.stageAt) return 0;
+    const t = new Date(c.stageAt).getTime();
+    if(!Number.isFinite(t)) return 0;
+    return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  },
   updateClient: (id,p) => { const c = DB.client(id); if(!c) return null;
     Object.assign(c,p); patch('clients', id, cliOut(c)); return c; },
   removeClient: id => { const i=db.clients.findIndex(c=>c.id===id); if(i<0) return false;

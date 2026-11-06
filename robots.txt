@@ -66,4 +66,4 @@ Disallow: /
 User-agent: Wget
 Disallow: /
 
-Sitemap: https://jsclosets.com/sitemap.xml
+Sitemap: https://jsinstalladmin.github.io/sitemap.xml
