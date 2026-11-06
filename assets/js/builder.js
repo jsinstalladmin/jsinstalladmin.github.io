@@ -43,16 +43,63 @@ const MOUNTS = [
 
 /* ───────── room shape: which walls the run goes on ───────── */
 const SHAPES = {
-  straight:{label:'Straight wall', walls:['back'],                art:'M3 17h18', note:'One run'},
+  straight:{label:'Straight',  walls:['back'],                 art:'M3 17h18', note:'One wall'},
   l       :{label:'L-shape',       walls:['back','left'],         art:'M3 17h18M3 17V5', note:'Two walls'},
-  u       :{label:'U-shape',       walls:['back','left','right'], art:'M3 5v12h18V5', note:'Three walls'}
+  u       :{label:'U-shape',       walls:['back','left','right'], art:'M3 5v12h18V5', note:'Three walls'},
+  /* Custom does not pick walls for you. It turns each wall on and off by hand,
+     because real closets are not always one of three shapes: an L that opens
+     the other way, a back wall plus the right return only, and so on. */
+  custom  :{label:'Custom',        walls:['back'], custom:true,
+            art:'M3 5h18v12H3z', note:'Pick the walls yourself', dash:true}
 };
+const WALL_LABEL = { back:'Back wall', left:'Left wall', right:'Right wall' };
+
+/* ══════════════════════════════════════════════════════════════════════
+   DOORS AND WALL FITTINGS
+
+   Everything a real closet has that a catalogue layout ignores. None of it
+   changes the cabinetry price, and it is not pretending to: it changes what
+   the installer finds when he turns up, so it travels with the enquiry and
+   onto the order list. An outlet 14 inches off the back wall is the
+   difference between a drawer bank that fits and one that does not.
+   ══════════════════════════════════════════════════════════════════════ */
+const DOORS = [
+  { id:'none',   label:'Open / no doors', note:'Nothing in the way',
+    art:'M4 5h16v14' },
+  { id:'swing-r',label:'Swing, right',    note:'Hinged on the right',
+    art:'M5 3h14v18H5z M19 12h2 M5 3a16 16 0 0 1 14 9' },
+  { id:'swing-l',label:'Swing, left',     note:'Hinged on the left',
+    art:'M5 3h14v18H5z M3 12h2 M19 3a16 16 0 0 0-14 9' },
+  { id:'double', label:'Double / french', note:'Two leaves, meet in the middle',
+    art:'M3 3h18v18H3z M12 3v18 M9 12h1 M14 12h1' },
+  { id:'bypass', label:'Sliding bypass',  note:'One leaf passes the other',
+    art:'M3 4h18v7H3z M3 13h18v7H3z M16 7.5h3 M5 16.5h3' },
+  { id:'bifold', label:'Bi-fold',         note:'Folds back in panels',
+    art:'M3 3h5v18H3z M8 3h5v18H8z M13 3h5v18h-5z M18 3h3v18h-3z' },
+  { id:'barn',   label:'Barn door',       note:'Rides on a rail outside',
+    art:'M2 5h20 M4 7h16v14H4z M12 13h2' },
+  { id:'pocket', label:'Pocket door',     note:'Slides into the wall',
+    art:'M3 3v18 M6 5h9v14H6z M17 12h3 M21 3v18' }
+];
+const FITTINGS = [
+  { id:'outlet',  label:'Outlet',          art:'M7 3h10v18H7z M11 8h2 M11 13h2' },
+  { id:'switch',  label:'Light switch',    art:'M7 3h10v18H7z M10 9h4v6h-4z' },
+  { id:'vent',    label:'HVAC vent',       art:'M3 5h18v14H3z M5 9h14 M5 12h14 M5 15h14' },
+  { id:'heater',  label:'Baseboard heater',art:'M2 8h20v8H2z M6 8v8 M10 8v8 M14 8v8 M18 8v8' },
+  { id:'column',  label:'Column',          art:'M8 3h8v18H8z M6 3h12 M6 21h12' },
+  { id:'slope',   label:'Sloped ceiling',  art:'M3 20h18 M3 20L21 6 M21 6v14' },
+  { id:'window',  label:'Window',          art:'M3 4h18v16H3z M12 4v16 M3 12h18' },
+  { id:'pipe',    label:'Pipe / bulkhead', art:'M4 3h6v18H4z M10 7h10v5H10z' }
+];
 
 const S = {
   type:'reach-in', shape:'straight', room:{w:72,d:24,h:96}, mounting:'floor',
   finish: cat.finishes.find(f=>f.x>=0)?.n || cat.finishes[0].n,
   frontFinish:null, pull:'bar4', pullFinish:'nickel',
-  runs:{}, sel:null, spin:false, evening:false
+  runs:{}, sel:null, spin:false, evening:false,
+  door:'none',
+  /* [{k, wall, at}] where at is inches along that wall from its left end */
+  fittings:[]
 };
 const qp=new URLSearchParams(location.search);
 const qt=qp.get('type')||'';
@@ -90,15 +137,32 @@ function fitRun(wall){
   const len=wallLength(wall), each=+(len/r.bays.length).toFixed(1);
   r.bays.forEach(b=>b.w=each);
 }
-function applyShape(s){
+function applyShape(s, keep){
   S.shape = SHAPES[s] ? s : 'straight';
-  const walls = SHAPES[S.shape].walls;
+  const def = SHAPES[S.shape];
+  /* Custom keeps whatever walls were already on, so switching to it from an
+     L-shape starts from that L rather than wiping the design. */
+  const walls = def.custom
+    ? (keep && Object.keys(S.runs).filter(w => S.runs[w]?.on).length
+        ? Object.keys(S.runs).filter(w => S.runs[w]?.on) : def.walls)
+    : def.walls;
+  const prev = S.runs || {};
   S.runs = {};
   /* two passes: every run has to exist before wallLength() can subtract the
      side runs' depth from the back wall */
-  for(const w of walls) S.runs[w] = { on:true, depth:SPEC.hangDepth, bays:[] };
-  for(const w of walls) S.runs[w].bays = seedBays(w);
-  S.sel = {wall:'back', i:0};
+  for(const w of walls) S.runs[w] = { on:true, depth:prev[w]?.depth ?? SPEC.hangDepth, bays:[] };
+  for(const w of walls) S.runs[w].bays = (keep && prev[w]?.bays?.length) ? prev[w].bays : seedBays(w);
+  S.sel = walls.includes(S.sel?.wall) ? S.sel : { wall:walls[0], i:0 };
+}
+/* turn one wall on or off without losing the others */
+function toggleWall(w){
+  if(S.runs[w]?.on){
+    if(Object.values(S.runs).filter(r=>r?.on).length < 2) return;   // never zero walls
+    delete S.runs[w];
+  } else {
+    S.runs[w] = { on:true, depth:SPEC.hangDepth, bays:[] };
+  }
+  if(!S.runs[S.sel?.wall]) S.sel = { wall:Object.keys(S.runs)[0], i:0 };
 }
 function applyType(t){
   S.type=t; const T=TYPES[t];
@@ -682,7 +746,7 @@ function rebuild(reframe){
   if(reframe){ resize(); frame(); }
   paintAll();
 }
-function paintAll(){ paintSteps(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); markSteps();
+function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); markSteps();
   /* steps 3 and 5 look at one section, so changing which one is selected has
      to move the camera too, not just the panel */
   const st = document.body.dataset.step;
@@ -727,9 +791,122 @@ function paintSteps(){
   $('#mount').innerHTML=MOUNTS.map(m=>
     iconBtn('data-m', m.k, m.k===S.mounting, m.art, m.label, m.note)).join('');
   $('#walls').hidden = false;
-  $('#walls').innerHTML = `<h4 class="subh">Shape of the run</h4><div class="pills icons icons-3">`+
-    Object.entries(SHAPES).map(([k,s])=>
-      iconBtn('data-shape', k, k===S.shape, s.art, s.label, s.note)).join('')+`</div>`;
+  const onWalls = Object.keys(S.runs).filter(w=>S.runs[w]?.on);
+  $('#walls').innerHTML = `<h4 class="subh">Shape of the run</h4>
+    <div class="pills icons icons-4">`+
+    Object.entries(SHAPES).map(([k,sh])=>
+      iconBtn('data-shape', k, k===S.shape, sh.art, sh.label, sh.note)).join('')+`</div>`+
+    (SHAPES[S.shape].custom ? `<div class="wallpick">
+      <span class="addlbl">Which walls get cabinetry</span>
+      <div class="wallgrid">${['back','left','right'].map(w=>`
+        <button data-wall-t="${w}" aria-pressed="${onWalls.includes(w)}">
+          <svg viewBox="0 0 24 22" aria-hidden="true"><path d="${
+            w==='back' ? 'M3 6h18M3 6v10M21 6v10' :
+            w==='left' ? 'M6 3v16M6 3h12M6 19h12' :
+                         'M18 3v16M6 3h12M6 19h12'}"/></svg>
+          <i>${WALL_LABEL[w]}</i>
+          <u>${onWalls.includes(w) ? `${wallLength(w).toFixed(0)}" run` : 'Not used'}</u>
+        </button>`).join('')}</div>
+    </div>` : '');
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE FLOOR PLAN
+
+   A plan view of the room with the measurements ON the drawing, which is how
+   anybody who has ever measured a closet thinks about it: width across the
+   back, depth down the sides, height up. Typing into the plan is the same
+   state as the steppers above it, so the two can never disagree.
+
+   Fittings are dropped onto a wall and dragged along it. Their position is
+   stored in inches from that wall's left end, so it survives a resize.
+   ══════════════════════════════════════════════════════════════════════ */
+const PLAN_W = 400, PLAN_H = 300, PLAN_PAD = 46;
+
+function planGeom(){
+  const { w:W, d:D } = S.room;
+  const sx = (PLAN_W - PLAN_PAD * 2) / Math.max(W, 1);
+  const sy = (PLAN_H - PLAN_PAD * 2) / Math.max(D, 1);
+  const k  = Math.min(sx, sy);
+  const w  = W * k, d = D * k;
+  return { k, w, d, x0:(PLAN_W - w) / 2, y0:(PLAN_H - d) / 2 };
+}
+
+/* where a fitting sits, in plan coordinates */
+function fitXY(f, g){
+  const { w:W, d:D } = S.room;
+  const t = Math.max(0, Math.min(1, f.at / Math.max(1, f.wall === 'back' ? W : D)));
+  if(f.wall === 'back')  return { x:g.x0 + t * g.w, y:g.y0,            a:0   };
+  if(f.wall === 'left')  return { x:g.x0,           y:g.y0 + t * g.d,  a:90  };
+  return                        { x:g.x0 + g.w,     y:g.y0 + t * g.d,  a:-90 };
+}
+
+function paintPlan(){
+  const host = $('#plan'); if(!host) return;
+  const g = planGeom();
+  const onWalls = Object.keys(S.runs).filter(w => S.runs[w]?.on);
+  const depth = k => (S.runs[k]?.depth ?? SPEC.hangDepth) * g.k;
+
+  /* the cabinetry footprint, so the plan shows what the 3D shows */
+  const runRects = onWalls.map(w =>
+      w === 'back'  ? `<rect class="prun" x="${g.x0}" y="${g.y0}" width="${g.w}" height="${depth(w)}"/>`
+    : w === 'left'  ? `<rect class="prun" x="${g.x0}" y="${g.y0}" width="${depth(w)}" height="${g.d}"/>`
+    :                 `<rect class="prun" x="${g.x0 + g.w - depth(w)}" y="${g.y0}" width="${depth(w)}" height="${g.d}"/>`
+  ).join('');
+
+  const pins = S.fittings.map((f, i) => {
+    const p = fitXY(f, g), def = FITTINGS.find(x => x.id === f.k);
+    return `<g class="ppin ${S.pinSel === i ? 'on' : ''}" data-pin="${i}"
+               transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${p.a})">
+      <rect x="-9" y="-9" width="18" height="18" rx="5"/>
+      <svg x="-6" y="-6" width="12" height="12" viewBox="0 0 24 24"><path d="${def?.art||''}"/></svg>
+    </g>`;
+  }).join('');
+
+  host.innerHTML = `
+    <svg class="plansvg" viewBox="0 0 ${PLAN_W} ${PLAN_H}" role="img"
+         aria-label="Floor plan of the closet">
+      <defs><pattern id="pgrid" width="12" height="12" patternUnits="userSpaceOnUse">
+        <path d="M12 0H0V12" fill="none" stroke="rgba(26,18,10,.06)" stroke-width="1"/></pattern></defs>
+      <rect width="${PLAN_W}" height="${PLAN_H}" fill="url(#pgrid)"/>
+      <rect class="proom" x="${g.x0}" y="${g.y0}" width="${g.w}" height="${g.d}"/>
+      ${runRects}
+      <line class="pdim" x1="${g.x0}" y1="${g.y0-18}" x2="${g.x0+g.w}" y2="${g.y0-18}"/>
+      <line class="ptick" x1="${g.x0}" y1="${g.y0-23}" x2="${g.x0}" y2="${g.y0-13}"/>
+      <line class="ptick" x1="${g.x0+g.w}" y1="${g.y0-23}" x2="${g.x0+g.w}" y2="${g.y0-13}"/>
+      <line class="pdim" x1="${g.x0-18}" y1="${g.y0}" x2="${g.x0-18}" y2="${g.y0+g.d}"/>
+      <line class="ptick" x1="${g.x0-23}" y1="${g.y0}" x2="${g.x0-13}" y2="${g.y0}"/>
+      <line class="ptick" x1="${g.x0-23}" y1="${g.y0+g.d}" x2="${g.x0-13}" y2="${g.y0+g.d}"/>
+      ${pins}
+    </svg>
+    <label class="pfield pf-w" style="left:50%;top:${((g.y0-34)/PLAN_H*100).toFixed(2)}%">
+      <span>Width</span><input type="number" data-dim="w" value="${S.room.w}" min="36" max="288" aria-label="Wall width in inches"><i>in</i></label>
+    <label class="pfield pf-d" style="left:${((g.x0-26)/PLAN_W*100).toFixed(2)}%;top:50%">
+      <span>Depth</span><input type="number" data-dim="d" value="${S.room.d}" min="12" max="48" aria-label="Room depth in inches"><i>in</i></label>
+    <label class="pfield pf-h" style="left:50%;top:50%">
+      <span>Ceiling</span><input type="number" data-dim="h" value="${S.room.h}" min="84" max="132" aria-label="Ceiling height in inches"><i>in</i></label>`;
+}
+
+function paintDoors(){
+  const d = $('#doors'); if(!d) return;
+  d.innerHTML = DOORS.map(x =>
+    iconBtn('data-door', x.id, x.id === S.door, x.art, x.label, x.note)).join('');
+  const f = $('#fittings'); if(!f) return;
+  f.innerHTML = FITTINGS.map(x =>
+    `<button class="fitbtn" data-fit="${x.id}" title="Add ${x.label.toLowerCase()} to the back wall">
+       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${x.art}"/></svg>
+       <i>${x.label}</i></button>`).join('');
+  const list = $('#fitlist'); if(!list) return;
+  list.innerHTML = S.fittings.length
+    ? S.fittings.map((x,i) => {
+        const def = FITTINGS.find(y => y.id === x.k);
+        return `<div class="fitrow ${S.pinSel===i?'on':''}" data-pinrow="${i}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${def?.art||''}"/></svg>
+          <b>${def?.label || x.k}</b>
+          <span>${WALL_LABEL[x.wall]} &middot; ${x.at.toFixed(0)}" along</span>
+          <button data-fitrm="${i}" title="Remove">&times;</button></div>`;
+      }).join('')
+    : `<p class="note">Nothing marked yet. Anything you add here travels with the enquiry so the crew knows before they turn up.</p>`;
 }
 
 /* ───────── step 2: bays ───────── */
@@ -822,6 +999,12 @@ function paintStack(){
      now draws the actual stack, top module above bottom module, in the same
      order it will be built. */
   const partImg = id => (window.BASE||'') + 'img/parts/' + id.toLowerCase().replace(/_/g,'-') + '.jpg';
+  /* Which ready-made layout is this section already set to? Compare the
+     module order, so switching between layouts shows you what you are on
+     rather than making you guess. */
+  const sig = st => st.map(x => x.m).join('>');
+  const nowSig = sig(bay.stack);
+  const matched = PRESETS.find(p => sig(p.stack) === nowSig);
   const presetCards = PRESETS.map(pre => {
     const price = presetDelta(pre, bay.w, usable, cat, S.finish);
     const delta = (price != null && cheapest != null) ? Math.round(price - cheapest) : null;
@@ -832,9 +1015,11 @@ function paintStack(){
           `<img src="${partImg(id)}" alt="" loading="lazy" decoding="async">`).join('')}</span>`
       : `<img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async"
              width="420" height="315">`;
-    return `<button class="pcard ready" data-preset="${pre.id}" title="${pre.desc.replace(/"/g,'&quot;')}">
+    const on = matched?.id === pre.id;
+    return `<button class="pcard ready" data-preset="${pre.id}" aria-pressed="${on}"
+                    title="${pre.desc.replace(/"/g,'&quot;')}">
       ${art}<i>${pre.name}</i><em>${pre.desc}</em>
-      <span class="pbadge">Ready-made</span>${tag ? `<u>${tag}</u>` : ''}</button>`;
+      <span class="pbadge">${on ? 'Current' : 'Ready-made'}</span>${tag ? `<u>${tag}</u>` : ''}</button>`;
   }).join('');
 
   const partCards = MODULE_IDS.map(id => {
@@ -874,8 +1059,10 @@ function paintStack(){
         </span></div>`;
     }).join('')}</div>` : `<p class="note emptybay">This section is empty. Pick anything below to put in it.</p>`}
 
-    <h4 class="subh">What goes in this section</h4>
-    <p class="note" style="margin:-2px 0 10px">Ready-made layouts first, then single parts. Everything can be changed after.</p>
+    <h4 class="subh">${bay.stack.length ? 'Change this section to' : 'What goes in this section'}</h4>
+    <p class="note" style="margin:-2px 0 10px">${bay.stack.length
+      ? `Currently ${matched ? `<b>${matched.name}</b>` : 'a custom stack'}. Pick another layout to swap it, or add a single part below it.`
+      : 'Ready-made layouts first, then single parts. Everything can be changed after.'}</p>
     <div class="pgrid">${presetCards}${partCards}</div>`;
 }
 
@@ -961,7 +1148,16 @@ function paintQuote(){
       <span><span class="ql">Estimated total</span><em>Cabinetry only · installation quoted separately</em></span>
       <b>${money(q.total)}</b>
     </div>
-  </div>`;
+  </div>
+  ${(S.door !== 'none' || S.fittings.length) ? `<div class="qnotes">
+    <span class="ql">For the crew</span>
+    ${S.door !== 'none' ? `<div class="qnrow"><b>Doors</b><span>${
+      DOORS.find(d=>d.id===S.door)?.label || ''}</span></div>` : ''}
+    ${S.fittings.map(f=>`<div class="qnrow"><b>${
+      FITTINGS.find(x=>x.id===f.k)?.label || f.k}</b><span>${
+      WALL_LABEL[f.wall]} &middot; ${Math.round(f.at)}" along</span></div>`).join('')}
+    <p class="qnnote">None of this changes the cabinetry price. It goes on the job sheet so the crew knows before the van is loaded.</p>
+  </div>` : ''}`;
 }
 /* A short handle so he and the customer are looking at the same design.
    Deterministic: same choices in, same code out. */
@@ -1005,9 +1201,68 @@ $('#dims').onclick=e=>{const b=e.target.closest('button');if(!b)return;
     r.bays = r.bays.filter(b => (room -= b.w) >= -0.01);
   }
   rebuild(true)};
+/* ---- floor plan: doors, fittings, and dragging a fitting along a wall ---- */
+$('#doors').onclick=e=>{const b=e.target.closest('[data-door]');if(!b)return;
+  S.door=b.dataset.door; paintDoors(); };
+$('#fittings').onclick=e=>{const b=e.target.closest('[data-fit]');if(!b)return;
+  /* drop it mid-way along the back wall; it is dragged from there */
+  S.fittings.push({ k:b.dataset.fit, wall:'back', at:+(S.room.w/2).toFixed(0) });
+  S.pinSel = S.fittings.length-1; paintPlan(); paintDoors(); };
+$('#fitlist').onclick=e=>{
+  const rm=e.target.closest('[data-fitrm]');
+  if(rm){ S.fittings.splice(+rm.dataset.fitrm,1); S.pinSel=null; paintPlan(); paintDoors(); return; }
+  const row=e.target.closest('[data-pinrow]');
+  if(row){ S.pinSel=+row.dataset.pinrow; paintPlan(); paintDoors(); }
+};
+/* Drag a pin and it slides along whichever wall is nearest, so moving an
+   outlet from the back wall to the left return is one gesture. */
+(function planDrag(){
+  const host=$('#plan'); if(!host) return;
+  let live=null;
+  const pt=(ev)=>{ const r=host.querySelector('.plansvg').getBoundingClientRect();
+    return { x:(ev.clientX-r.left)/r.width*PLAN_W, y:(ev.clientY-r.top)/r.height*PLAN_H }; };
+  host.addEventListener('pointerdown', e=>{
+    const g=e.target.closest('[data-pin]'); if(!g) return;
+    live=+g.dataset.pin; S.pinSel=live;
+    /* Do NOT repaint here. Repainting replaces the node under the pointer,
+       Chrome fires pointercancel on the element that vanished, and the drag
+       dies on the first frame. Mark the selection on the live node instead
+       and let pointermove do the drawing. */
+    host.querySelectorAll('[data-pin]').forEach(n=>n.classList.toggle('on', n===g));
+    try{ host.setPointerCapture(e.pointerId); }catch(_){}
+    e.preventDefault();
+  });
+  host.addEventListener('pointermove', e=>{
+    if(live==null) return;
+    const g=planGeom(), p=pt(e), f=S.fittings[live]; if(!f) return;
+    /* nearest wall wins, then clamp along it */
+    const dBack=Math.abs(p.y-g.y0), dLeft=Math.abs(p.x-g.x0), dRight=Math.abs(p.x-(g.x0+g.w));
+    const m=Math.min(dBack,dLeft,dRight);
+    if(m===dBack){ f.wall='back';  f.at=+Math.max(0,Math.min(S.room.w,(p.x-g.x0)/g.k)).toFixed(0); }
+    else if(m===dLeft){ f.wall='left';  f.at=+Math.max(0,Math.min(S.room.d,(p.y-g.y0)/g.k)).toFixed(0); }
+    else { f.wall='right'; f.at=+Math.max(0,Math.min(S.room.d,(p.y-g.y0)/g.k)).toFixed(0); }
+    paintPlan(); paintDoors();
+  });
+  const stop=()=>{ if(live!=null){ live=null; paintDoors(); } };
+  host.addEventListener('pointerup', stop);
+  host.addEventListener('pointercancel', stop);
+  /* typing into the plan is the same state as the steppers above it */
+  host.addEventListener('change', e=>{
+    const i=e.target.closest('input[data-dim]'); if(!i) return;
+    const k=i.dataset.dim, v=Math.round(Number(i.value));
+    S.room[k]=Number.isFinite(v)?Math.min(+i.max,Math.max(+i.min,v)):S.room[k];
+    rebuild(true);
+  });
+  host.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && e.target.matches('input[data-dim]')){ e.preventDefault(); e.target.blur(); }
+  });
+})();
+
 $('#walls').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.wallT){ toggleWall(b.dataset.wallT); rebuild(true); return; }
   if(!b.dataset.shape || b.dataset.shape===S.shape) return;
-  applyShape(b.dataset.shape); rebuild(true)};
+  /* keep the walls already chosen when stepping into Custom */
+  applyShape(b.dataset.shape, SHAPES[b.dataset.shape]?.custom); rebuild(true)};
 $('#bays').onclick=e=>{
   const bay=e.target.closest('[data-bay]');
   if(bay){
@@ -1145,6 +1400,10 @@ $('#send').onclick=()=>{
     bays:cur.bays.map(b=>({wall:b.wall,width:+b.w.toFixed(1),
       stack:b.stack.map(s=>({module:MODULES[s.m].label, height:s.h, options:s.o||{}}))})),
     order:cur.order, warnings:cur.warnings,
+    door: DOORS.find(d=>d.id===S.door)?.label || 'Open / no doors',
+    fittings: S.fittings.map(f=>({
+      item: FITTINGS.find(x=>x.id===f.k)?.label || f.k,
+      wall: WALL_LABEL[f.wall], inchesAlong: Math.round(f.at) })),
     generated:new Date().toISOString()
   }));
   location.href='/contact.html';
