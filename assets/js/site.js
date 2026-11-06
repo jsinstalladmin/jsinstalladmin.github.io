@@ -10,9 +10,27 @@ if(hdr){
   };
   addEventListener('scroll', onScroll, {passive:true}); onScroll();
 }
+/* ── reveal on scroll ─────────────────────────────────────────────────────
+   Only the hand-marked headings used to move. Everything that reads as a
+   block of its own now comes in as you reach it, and rows of cards come in
+   one after another rather than all at once. Marked in JS rather than by
+   hand in the HTML so a new section gets it for free. */
 const io = new IntersectionObserver((es)=>{
   for(const e of es) if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
 },{rootMargin:'0px 0px -8% 0px', threshold:.08});
+
+const REVEAL = [
+  '.sec > .shell > h2', '.sec-tight > .shell > h2', '.sec .lede', '.sec-tight .lede',
+  '.ed > div > p', '.ed > div > ul', '.infobox', '.stepbox', '.svccard', '.relcard',
+  '.faqitem', '.dcard', '.rg', '.inc', '.gcell', '.statrow', '.cta-band'
+];
+document.querySelectorAll(REVEAL.join(',')).forEach(el=>{
+  if(!el.hasAttribute('data-rv')) el.setAttribute('data-rv','up');
+});
+/* a card in a row waits its turn, so a grid lands like a hand of cards */
+document.querySelectorAll('.svcgrid, .relgrid, .designs, .stepgrid, .regions, .incs').forEach(g=>{
+  [...g.children].forEach((c,i)=>c.style.setProperty('--rvd', (Math.min(i,7)*70)+'ms'));
+});
 document.querySelectorAll('[data-rv]').forEach(el=>io.observe(el));
 
 /* mobile drawer */

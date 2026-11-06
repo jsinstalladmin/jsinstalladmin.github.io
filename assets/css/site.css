@@ -447,7 +447,12 @@ body[data-hero="dark"]  .hero-veil{background:
    changes: cap how far the heading tracks, mark it so the column reads as
    deliberate structure rather than a hole, and take the air out of the
    oversized section padding. */
-.ed > h2{top:clamp(96px,14vh,140px);padding-top:.55em;position:relative}
+/* This used to say position:relative, which both killed the sticky heading
+   and turned its `top` into a 133px shove downwards — so every two-column
+   section had its heading sitting a third of the way down the page while the
+   paragraph beside it started at the top. Sticky positions the ::before rule
+   just as well, and the two columns start on the same line. */
+.ed > h2{position:sticky;top:clamp(96px,14vh,140px);padding-top:.55em}
 .ed > h2::before{content:'';position:absolute;top:0;left:0;width:34px;height:2px;
   background:var(--accent);border-radius:2px;opacity:.9}
 .sec-dark .ed > h2::before{background:var(--paper);opacity:.5}
@@ -586,7 +591,20 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
    which carries almost no weight. These are chosen per page, with anchor text
    that says what is on the other end, which is the part that counts for
    search and the part a reader actually uses. */
-.relsec{border-top:1px solid var(--line)}
+/* A bare rule across the page above this block read as a stray line left
+   over from the section before it, especially under a dark band. The block
+   separates itself with its own tint instead. */
+.relsec{background:var(--paper-2,rgba(23,18,14,.022))}
+.relcard{flex-direction:row;align-items:flex-start;gap:.85em}
+.relcard .relico{flex:0 0 auto;display:grid;place-items:center;width:34px;height:34px;
+  border-radius:10px;border:1px solid var(--line);background:var(--paper);
+  transition:background .3s,border-color .3s}
+.relcard .relico svg{width:18px;height:18px;fill:none;stroke:var(--ink);stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.relcard:hover .relico{background:var(--ink);border-color:var(--ink)}
+.relcard:hover .relico svg{stroke:var(--paper)}
+.relcard > b{display:block;margin-bottom:.3em}
+.relcard .reltx{display:flex;flex-direction:column;gap:.3em;min-width:0}
 .relhd{font-size:clamp(1.35rem,2.4vw,1.9rem);max-width:22ch;margin:0 0 1.2em}
 .relgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
 .relcard{display:flex;flex-direction:column;gap:.4em;text-decoration:none;
@@ -625,3 +643,107 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
 .faqitem .faqa{padding:0 1.2em 1.15em;margin:0;font-size:.95rem;line-height:1.65;
   color:var(--muted);max-width:62ch}
 .faqitem .faqa a{color:var(--ink)}
+
+/* ── motion ──────────────────────────────────────────────────────────────
+   One transition, one easing, one distance, used everywhere. --rvd is the
+   per-card delay site.js sets so a row arrives in sequence. */
+[data-rv="up"]{opacity:0;transform:translateY(22px);
+  transition:opacity .72s var(--ease-out) var(--rvd,0ms),
+             transform .72s var(--ease-out) var(--rvd,0ms)}
+.in[data-rv="up"]{opacity:1;transform:none}
+
+/* ── a block of information in its own box ──
+   Sections that are a statement rather than a list get a rounded panel, the
+   same radius and rule as the cards, so the page reads as a stack of objects
+   instead of text floating on a background. */
+.infobox{position:relative;border:1px solid var(--line,var(--rule));
+  border-radius:clamp(16px,1.6vw,26px);background:var(--paper);
+  padding:clamp(24px,3.4vw,52px);transition:transform .4s var(--ease-out),
+  box-shadow .4s var(--ease-out),border-color .4s var(--ease-out)}
+.infobox:hover{transform:translateY(-3px);border-color:var(--accent,#A8824C);
+  box-shadow:0 16px 44px rgba(23,18,14,.07)}
+.infobox > .label{display:block;margin-bottom:.7em}
+.infobox h2{margin:0 0 .5em;max-width:24ch}
+.infobox p{max-width:68ch}
+.infobox p:last-child{margin-bottom:0}
+
+/* the four-step process, each step its own box that lifts on hover */
+.stepgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));
+  margin-top:clamp(22px,2.6vw,38px)}
+.stepbox{border:1px solid var(--line,var(--rule));border-radius:clamp(14px,1.3vw,20px);
+  background:var(--paper);padding:clamp(18px,1.9vw,26px);
+  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),
+  border-color .4s var(--ease-out)}
+.stepbox:hover{transform:translateY(-4px);border-color:var(--accent,#A8824C);
+  box-shadow:0 14px 36px rgba(23,18,14,.08)}
+.stepbox .stepn{display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--paper);
+  font-family:Archivo,system-ui,sans-serif;font-size:.8rem;margin-bottom:.9em}
+.stepbox h3{font-size:1.05rem;font-weight:500;margin:0 0 .45em}
+.stepbox p{font-size:.92rem;line-height:1.6;color:var(--muted);margin:0}
+
+/* cards that already existed now lift the same way as the new ones */
+.dcard,.rg,.gcell{transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out)}
+.dcard:hover,.rg:hover{transform:translateY(-4px)}
+@media (prefers-reduced-motion:reduce){
+  .infobox:hover,.stepbox:hover,.dcard:hover,.rg:hover,.relcard:hover{transform:none}
+}
+
+/* ── finish swatches line up ──
+   The name runs to one line or two depending on the finish, which pushed the
+   level line to a different height on every card and made each row look
+   ragged. Three fixed rows: swatch, name, level — so the swatches line up
+   across rows and the level line always sits on the same baseline. */
+.fsw{display:grid;grid-template-rows:auto 1fr auto;gap:.45em;align-content:start;
+  text-align:left;background:none;border:0;padding:0;cursor:pointer;min-width:0}
+.fsw .nm{font-size:.82rem;line-height:1.3;color:var(--ink);align-self:start}
+.fsw .lv{font-family:Archivo,system-ui,sans-serif;font-size:.68rem;color:var(--muted);
+  font-variant-numeric:tabular-nums;align-self:end}
+.fsw[aria-pressed="true"] .chip2{box-shadow:inset 0 0 0 1px var(--ink),0 0 0 2px var(--ink)}
+
+/* what a finish level actually is */
+.lvbox{margin-top:clamp(34px,4vw,60px)}
+.lvgrid{display:grid;gap:10px;margin:1.3em 0}
+.lvrow{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:.9em;align-items:baseline;
+  border:1px solid var(--line,var(--rule));border-radius:12px;padding:.8em 1em;
+  background:var(--paper-2,rgba(23,18,14,.02));transition:border-color .3s,transform .3s}
+.lvrow:hover{border-color:var(--accent,#A8824C);transform:translateY(-2px)}
+.lvrow b{font-size:.9rem;font-weight:500;color:var(--ink)}
+.lvrow span{font-size:.88rem;line-height:1.55;color:var(--muted)}
+.lvrow u{text-decoration:none;font-family:Archivo,system-ui,sans-serif;font-size:.7rem;
+  color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:640px){ .lvrow{grid-template-columns:1fr;gap:.25em} .lvrow u{justify-self:start} }
+
+/* a photograph inside an article, with a caption that says something */
+.artfig{margin:clamp(28px,3.4vw,52px) 0;max-width:100%}
+.artfig img{width:100%;height:auto;display:block;border-radius:clamp(12px,1.2vw,18px);
+  background:var(--paper-3)}
+.artfig figcaption{margin-top:.75em;font-size:.86rem;line-height:1.55;color:var(--muted);
+  max-width:62ch}
+
+/* ── the services grid ──
+   Three across on a desktop, each card an icon, a name and a line that says
+   what it actually is. They lift on hover and arrive in sequence on scroll. */
+.svcsec{background:var(--paper-2,rgba(23,18,14,.022))}
+.svcgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,268px),1fr))}
+.svccard{display:flex;flex-direction:column;gap:.55em;text-decoration:none;
+  border:1px solid var(--line,var(--rule));border-radius:clamp(14px,1.3vw,20px);
+  background:var(--paper);padding:clamp(20px,2vw,28px);
+  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),
+  border-color .4s var(--ease-out)}
+.svccard:hover{transform:translateY(-4px);border-color:var(--accent,#A8824C);
+  box-shadow:0 16px 40px rgba(23,18,14,.08)}
+.svcico{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;
+  border:1px solid var(--line,var(--rule));background:var(--paper-2,rgba(23,18,14,.03));
+  margin-bottom:.35em;transition:background .3s,border-color .3s}
+.svcico svg{width:21px;height:21px;fill:none;stroke:var(--ink);stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.svccard:hover .svcico{background:var(--ink);border-color:var(--ink)}
+.svccard:hover .svcico svg{stroke:var(--paper)}
+.svccard h3{font-size:1.06rem;font-weight:500;margin:0;color:var(--ink)}
+.svccard p{font-size:.92rem;line-height:1.6;color:var(--muted);margin:0;flex:1}
+.svcgo{display:inline-flex;align-items:center;gap:.4em;font-size:.78rem;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--accent,#A8824C);margin-top:.5em}
+.svcgo svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .3s var(--ease-out)}
+.svccard:hover .svcgo svg{transform:translateX(3px)}

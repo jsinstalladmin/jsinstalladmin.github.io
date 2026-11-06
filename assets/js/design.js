@@ -63,26 +63,42 @@ export const DOOR_SPEC = {
    can change any of them. */
 export const FIT_SPEC = {
   outlet: { w:4,  rule:'keepClear',  label:'Outlet',
-    note:'Has to stay reachable, so the section over it stays open at the back.' },
+    note:'The back of that section stays open so you can still reach the socket.',
+    ask:'Roughly how high off the floor, and does anything need to plug into it?' },
   switch: { w:4,  rule:'keepClear',  label:'Light switch',
-    note:'Has to stay reachable, so nothing solid goes in front of it.' },
-  vent:   { w:14, rule:'floorClear', label:'HVAC vent',
-    note:'The toe kick over it gets a grille cut so the air still gets out.' },
+    note:'Nothing solid goes in front of it, so it still works with the closet in.',
+    ask:'Inside the closet or beside the door? Roughly how high?' },
+  /* A vent in the floor and a vent on the wall are two different jobs. The
+     toe-kick grille only makes sense for a floor vent — saying it about a wall
+     vent, which is what this used to do, is nonsense to anyone who has ever
+     seen one. */
+  vent:   { w:14, rule:'keepClear', spot:'wall', label:'HVAC vent',
+    note:'On the wall, so that section stays open at the back and the air still moves.',
+    noteFloor:'In the floor under the run, so that length of toe kick is cut for a grille.',
+    ask:'High on the wall, low down, or in the floor? Does it blow into the closet?' },
   heater: { w:48, top:9, rule:'baseLift', label:'Baseboard heater',
-    note:'Nothing sits on the floor over baseboard heat. The run goes wall hung, clear of the element.' },
+    note:'Nothing sits on the floor over baseboard heat. The run goes wall hung, clear of the element, and the toe kick comes off.',
+    ask:'How long is the heater, and does it run the whole wall or part of it?' },
   column: { w:6,  rule:'stealWidth', label:'Column',
-    note:'Takes its width straight off the wall. The run stops at it.' },
+    note:'Takes its width straight off the wall. The run stops at it.',
+    ask:'Which corner is it in, and is it square or boxed out?' },
   slope:  { w:24, cap:60, rule:'capHeight', label:'Sloped ceiling',
-    note:'Caps the partitions under it at the low point of the slope.' },
+    note:'Caps the partitions under it at the low point of the slope.',
+    ask:'How low does it get at the lowest point, and which end of the wall?' },
   window: { w:36, cap:34, rule:'capHeight', label:'Window',
-    note:'The run under it stops at the sill so the glass stays clear.' },
+    note:'The run under it stops at the sill so the glass stays clear.',
+    ask:'How wide is it, how high is the sill, and do you want the run to pass under it?' },
   pipe:   { w:6,  depth:4, rule:'stealDepth', label:'Pipe / bulkhead',
-    note:'Pushes the run forward by its own depth where it passes.' }
+    note:'Pushes the run forward by its own depth where it passes.',
+    ask:'Floor to ceiling, or a boxed bulkhead across the top? How far does it stick out?' }
 };
 
 /* clearance between a baseboard heater element and anything above it */
 const HEATER_CLEAR = 2;
 
+/* The fitting's own fields win over the defaults, so a vent the customer says
+   is in the floor carries rule:'floorClear' and one on the wall carries
+   rule:'keepClear'. */
 const fitSpec = f => ({ ...FIT_SPEC[f.k], ...f });
 const fitsOn  = (fittings, wall, rule) =>
   (fittings||[]).filter(f => FIT_SPEC[f.k] && f.wall === wall && fitSpec(f).rule === rule);
@@ -438,11 +454,15 @@ export const PRESETS = [
     desc:'Two rods: shirts up top, trousers below. The most storage per foot.',
     stack:[{m:'DOUBLE_HANG',h:null,o:{}}] },
 
+  { id:'double-open', name:'Double Hanging, Open Top', img:'double-hang', art:'double-open', top:false,
+    desc:'The same two rods, run clear to the top with no shelf capping it. Taller hanging, nothing sitting above your head.',
+    stack:[{m:'DOUBLE_HANG',h:null,o:{}}] },
+
   { id:'long-hang',   name:'Long Hanging',     img:'long-hang',
     desc:'One full-height rod for dresses and coats.',
     stack:[{m:'LONG_HANG',h:null,o:{}}] },
 
-  { id:'hang-shelf',  name:'Hanging + Shelves', img:'shelves',
+  { id:'hang-shelf',  name:'Hanging + Shelves', img:'shelves', art:'hang-shelf',
     desc:'A rod below, folded storage above.',
     stack:[{m:'LONG_HANG',h:null,o:{}},{m:'SHELVES',h:18,o:{n:2}}] },
 
@@ -450,15 +470,15 @@ export const PRESETS = [
     desc:'Six shelves on 32mm centres. Move any of them later.',
     stack:[{m:'SHELVES',h:null,o:{n:6}}] },
 
-  { id:'drawer-tower',name:'Drawer Tower',     img:'drawers',
+  { id:'drawer-tower',name:'Drawer Tower',     img:'drawers', art:'drawer-tower',
     desc:'A bank of soft-close drawers with shelving over it.',
     stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'SHELVES',h:null,o:{n:3}}] },
 
-  { id:'hang-drawers',name:'Hanging + Drawers', img:'drawers',
+  { id:'hang-drawers',name:'Hanging + Drawers', img:'drawers', art:'hang-drawers',
     desc:'Drawers at the bottom, a hanging rod above. The usual bedroom answer.',
     stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'DOUBLE_HANG',h:null,o:{}}] },
 
-  { id:'baskets',     name:'Pull-Out Baskets',  img:'baskets',
+  { id:'baskets',     name:'Pull-Out Baskets',  img:'baskets', art:'basket-shelf',
     desc:'Chrome wire on full-extension glides, shelving above.',
     stack:[{m:'BASKETS',h:30,o:{n:3}},{m:'SHELVES',h:null,o:{n:3}}] },
 
@@ -466,7 +486,7 @@ export const PRESETS = [
     desc:'Angled shoe shelving the full height of the section.',
     stack:[{m:'SHOE_SLANT',h:null,o:{}}] },
 
-  { id:'hamper',      name:'Hamper + Hanging',  img:'hamper',
+  { id:'hamper',      name:'Hamper + Hanging',  img:'hamper', art:'hamper-hang',
     desc:'Tilt-out laundry hamper under a hanging rod.',
     stack:[{m:'HAMPER',h:28,o:{}},{m:'DOUBLE_HANG',h:null,o:{}}] },
 
@@ -477,12 +497,15 @@ export const PRESETS = [
 
 /* the price difference a preset makes, against the cheapest one, so the
    list can read "Incl." / "+$85" the way a customer expects */
+/* The open-top variant builds no top shelf, so it is genuinely cheaper. The
+   card used to quote both at the same number because this only looked at the
+   stack. */
 export function presetDelta(preset, bayW, usableH, cat, finish){
   try{
-    const mk = st => buildDesign({ room:{w:bayW+1.5,d:24,h:96}, mounting:'floor',
+    const mk = (st, top) => buildDesign({ room:{w:bayW+1.5,d:24,h:96}, mounting:'floor',
       finish, frontFinish:finish, pull:'bar4', pullFinish:'nickel',
-      runs:[{wall:'back',start:0,depth:24,bays:[{w:bayW,stack:structuredClone(st)}]}] }, cat).price.price;
-    return mk(preset.stack);
+      runs:[{wall:'back',start:0,depth:24,bays:[{w:bayW,stack:structuredClone(st),top}]}] }, cat).price.price;
+    return mk(preset.stack, preset.top !== false);
   }catch(e){ return null; }
 }
 
@@ -516,11 +539,11 @@ function addPull(G, pull, cx, cy, faceZ, w, h, vertical){
 /* ============================================================
    BUILD — runs → bays → stacks → geometry + order list
    ============================================================ */
-export function makeBay(width, stack){
+export function makeBay(width, stack, top){
   /* A new bay is EMPTY on purpose. The old default dropped a double-hang into
      every bay, which meant the customer was handed a finished closet and asked
      to nudge it. They are supposed to build it. */
-  return { w: width, stack: stack || [] };
+  return { w: width, stack: stack || [], top: top !== false };
 }
 export function defaultStackFor(type){
   return ({
@@ -616,9 +639,16 @@ export function buildDesign(cfg, cat){
       const inner = bay.w - SPEC.panel;
       const cx = x + bay.w/2;
 
-      // top shelf over this bay, at this bay's own ceiling
-      parts.push(P('TOP',1,(inner*depth)/144,(inner+depth*2)/12,`Top shelf at ${myTop.toFixed(0)}"`));
-      local.push({k:'shelf', p:[cx, myTop, 0], s:[inner, SPEC.panel, depth], m:'carcass'});
+      /* The top shelf used to go over EVERY section, no question asked, which
+         is wrong: a double-hang section run to the ceiling has no shelf over
+         it, and forcing one on costs the customer a shelf they did not want
+         and 12" of hanging they did. `bay.top === false` builds it open, and
+         the hanging then uses the full height. */
+      const wantsTop = bay.top !== false;
+      if(wantsTop){
+        parts.push(P('TOP',1,(inner*depth)/144,(inner+depth*2)/12,`Top shelf at ${myTop.toFixed(0)}"`));
+        local.push({k:'shelf', p:[cx, myTop, 0], s:[inner, SPEC.panel, depth], m:'carcass'});
+      }
 
       /* access checks, all tied to this bay by number so the installer and the
          customer are reading the same sheet */
@@ -642,8 +672,9 @@ export function buildDesign(cfg, cat){
         warnings.push(`A floor vent runs under section ${bi+1} on the ${run.wall} wall, so that length of toe kick is cut for a grille.`);
       }
 
-      // the stack
-      const mods = resolveHeights(bay.stack, bayH);
+      /* Without a shelf capping it, the section has the shelf's own thickness
+         back to divide between its parts. */
+      const mods = resolveHeights(bay.stack, wantsTop ? bayH : bayH + SPEC.panel);
       let y = floorY;
       for(const s of mods){
         const sub = [];

@@ -59,7 +59,7 @@ const SEED = {
   ],
   settings:{
     business:'JS Installations & Closets', email:'jsinstallationsclosets@gmail.com',
-    phone:'(561) 000-0000', markup:2.8,
+    phone:'(646) 667-9572', markup:2.8,
     anthropicKey:'', model:'claude-sonnet-4-6',
     web3forms:'', resendKey:'', mapsEmbed:''
   }

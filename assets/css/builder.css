@@ -617,6 +617,14 @@ body[data-step="6"] .pacts{margin-top:0}
 .ppin.on rect{fill:var(--ink);stroke:var(--accent,#A8824C);stroke-width:2}
 .ppin.on svg path{stroke:var(--paper)}
 
+/* The three measurements used to float ON the drawing, absolutely positioned
+   off the room rectangle. Width sat on top of its own dimension line and
+   Depth hung off the left edge of a 400-unit viewBox and was clipped away.
+   They are a row under the plan now: three equal fields, nothing overlapping,
+   nothing hidden, and the dimension lines stay on the drawing where they
+   belong. */
+.pfields{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.pfields .pfield{position:static;translate:none;width:100%;justify-content:center}
 .pfield{position:absolute;translate:-50% -50%;display:flex;align-items:baseline;gap:3px;
   background:var(--paper);border:1px solid var(--line);border-radius:8px;
   padding:3px 6px;box-shadow:0 2px 8px rgba(26,18,10,.08)}
@@ -673,8 +681,19 @@ body[data-step="6"] .pacts{margin-top:0}
    Three across, not two. The card carries its name and nothing else, because
    a wall of paragraphs is not a picker. The description slides up on hover
    and on keyboard focus, so it is still reachable without a mouse. */
-.pgrid{grid-template-columns:repeat(3,1fr)}
-@media(max-width:560px){ .pgrid{grid-template-columns:repeat(2,1fr)} }
+/* Two across, not three. At three the card is ~118px wide in a 448px panel
+   and the 4:3 photo is cropped so hard you cannot tell a drawer bank from a
+   shoe shelf, which is the one thing the picture is there to do. */
+.pgrid{grid-template-columns:repeat(2,1fr)}
+@media(max-width:420px){ .pgrid{grid-template-columns:1fr} }
+/* The art is a tall closet section sitting in a wide frame. Cropping it to
+   4:3 cut the top and bottom off the very thing the picture is for, and
+   letterboxing it inside 4:3 shrank it to a thumbnail. A portrait frame fits
+   the subject: the piece fills the card, and what gets cropped is the empty
+   background either side of it. */
+.pcard img{aspect-ratio:3/4;object-fit:cover;object-position:center;background:var(--paper-3)}
+.pcard .pstack{grid-template-rows:1fr 1fr}
+.pcard .pstack img{aspect-ratio:auto;height:100%;object-fit:cover}
 .pcard{position:relative;overflow:hidden}
 .pcard i{padding:.5em .55em .55em;font-size:.72rem;text-align:center}
 .pcard em{font-style:normal;padding:0;display:block}
@@ -740,3 +759,83 @@ body[data-step="6"] .pacts{margin-top:0}
   stroke-width:1.2;stroke-dasharray:none}
 .ppin.on rect.pspan{fill:var(--accent,#A8824C);fill-opacity:.42;stroke-width:1.6}
 .ppin.draft rect.pspan{fill-opacity:.1;stroke-dasharray:3 2}
+
+/* ── the free stretch of wall is a target, not a label ──
+   It sits in the strip exactly where a new section would go, so clicking it
+   puts one there, beside what is already built. */
+.bay.gap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2em;
+  border:1px dashed var(--line);border-radius:10px;background:
+  repeating-linear-gradient(135deg,transparent 0 7px,rgba(23,18,14,.035) 7px 14px);
+  color:var(--muted);font-size:.66rem;cursor:default;min-width:0;overflow:hidden}
+.bay.gap .gapn{font-family:Archivo,system-ui,sans-serif;font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+.bay.gap .gapadd{font-size:.6rem;letter-spacing:.06em;color:var(--accent,#A8824C);
+  opacity:0;transition:opacity .2s;white-space:nowrap}
+.bay.gap.can{cursor:pointer}
+.bay.gap.can:hover{border-color:var(--accent,#A8824C);border-style:solid;
+  background:rgba(168,130,76,.07)}
+.bay.gap.can:hover .gapadd{opacity:1}
+.bay.gap.can:hover .gapn{color:var(--ink)}
+
+/* the top shelf is a per-section choice, shown next to the section's width */
+.toptog{display:inline-flex;align-items:center;gap:.35em;border:1px solid var(--line);
+  border-radius:8px;padding:.3em .55em;background:var(--paper);cursor:pointer;
+  color:var(--muted);transition:border-color .2s,color .2s,background .2s}
+.toptog svg{width:16px;height:11px;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round}
+.toptog i{font-style:normal;font-size:.66rem;white-space:nowrap}
+.toptog.on{border-color:var(--ink);color:var(--ink);background:var(--paper)}
+.toptog:not(.on){opacity:.6;border-style:dashed}
+.toptog:hover{border-color:var(--accent,#A8824C);color:var(--ink)}
+
+/* wall picker: a plan of the room with the chosen wall drawn solid */
+.wallgrid .wico{width:34px;height:29px}
+.wallgrid .wico .wrm{fill:none;stroke:var(--line);stroke-width:1.4}
+.wallgrid .wico .wbar{fill:var(--line);stroke:none}
+.wallgrid .wico .wtk{fill:none;stroke:var(--line);stroke-width:1.4;stroke-linecap:round}
+.wallgrid button[aria-pressed="true"] .wico .wrm{stroke:rgba(248,245,240,.4)}
+.wallgrid button[aria-pressed="true"] .wico .wbar{fill:var(--accent,#A8824C)}
+.wallgrid button[aria-pressed="true"] .wico .wtk{stroke:rgba(248,245,240,.55)}
+.wallgrid button:hover .wico .wbar{fill:var(--accent,#A8824C)}
+
+/* ── a fitting's row: which wall, how far along, and what they want to say ── */
+.fitrow .fwall{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:.35em;
+  margin-top:.3em}
+.fitrow .fwall em{font-style:normal;font-size:.66rem;color:var(--muted);flex:1 0 100%}
+.fitrow .fwall button{width:auto;height:auto;padding:.3em .7em;border:1px solid var(--line);
+  border-radius:7px;font-size:.68rem;color:var(--ink);background:var(--card,#fff)}
+.fitrow .fwall button:hover:not(:disabled){background:var(--ink);color:#fff;border-color:var(--ink)}
+.fitrow .fwall button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.fitrow .fwall button:disabled{opacity:.35;cursor:not-allowed}
+.fitrow .fat{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:.4em;margin-top:.3em}
+.fitrow .fat em{font-style:normal;font-size:.66rem;color:var(--muted);flex:1 0 100%}
+.fitrow .fnote{grid-column:1 / -1;display:block;margin-top:.45em}
+.fitrow .fnote em{font-style:normal;font-size:.66rem;color:var(--muted);display:block;
+  margin-bottom:.25em}
+.fitrow .fnote textarea{width:100%;border:1px solid var(--line);border-radius:8px;
+  padding:.5em .6em;font:inherit;font-size:.74rem;line-height:1.45;color:var(--ink);
+  background:var(--card,#fff);resize:vertical;min-height:2.6em}
+.fitrow .fnote textarea:focus{outline:none;border-color:var(--accent,#A8824C);
+  box-shadow:0 0 0 2px rgba(168,130,76,.18)}
+.fitrow .fnote textarea::placeholder{color:var(--muted);opacity:.75}
+
+/* the customer's own words about something on their wall, kept verbatim */
+.qnsaid{display:block;grid-column:1 / -1;font-size:.78rem;line-height:1.5;color:var(--ink);
+  border-left:2px solid var(--accent,#A8824C);padding-left:.7em;margin:.4em 0 .1em;
+  font-style:italic}
+.qnrow{flex-wrap:wrap}
+
+/* ── the bottom of the designer was being cut off ──
+   .bwrap is height:calc(100svh - 84px) with 14px of its own padding, but
+   .bpanel still carried max-height:calc(100svh - 68px) and .bstage a
+   min-height of 64svh. Both were sized against the OLD frame, so the panel
+   and the canvas came out 30px taller than the box holding them, and
+   overflow:hidden sliced the bottom off the price card and the drawing.
+   The two children now simply fill the grid row they are in. */
+@media(min-width:1061px){
+  .bwrap{box-sizing:border-box}
+  .bwrap > .bstage,
+  .bwrap > .bpanel{min-height:0;max-height:100%;height:100%}
+}
+.pscroll{min-height:0}
+.pfoot{flex:0 0 auto}
