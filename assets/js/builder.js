@@ -563,11 +563,94 @@ const ndcFrom=(e)=>{ const r=canvas.getBoundingClientRect();
 canvas.addEventListener('pointermove', e=>{
   if(e.buttons) return;                               // orbiting, not hovering
   ray.setFromCamera(ndcFrom(e), cam);
-  canvas.style.cursor = ray.intersectObjects(picks.children,false).length ? 'pointer' : 'grab';
+  canvas.style.cursor = ray.intersectObjects(picks.children,false).length ? 'ew-resize' : 'grab';
 });
-canvas.addEventListener('pointerdown',e=>{ canvas._dx=e.clientX; canvas._dy=e.clientY; });
+/* ══════════════════════════════════════════════════════════════════════
+   DRAG A SECTION ALONG ITS WALL, IN THE DRAWING
+
+   Up to now a section could only be reordered from the little strip in the
+   side panel, which nobody found. Press on a section in the 3D view and pull
+   it left or right and it walks along the run, swapping with its neighbours
+   as it passes them. The orbit controls are switched off for the duration so
+   the camera does not spin while you are placing cabinetry.
+
+   The maths: project the run's own left-to-right axis into screen space once
+   on pointerdown, then every move is a dot product of the pointer delta onto
+   that axis. That way dragging right always moves the section right no
+   matter where the camera happens to be standing.
+   ══════════════════════════════════════════════════════════════════════ */
+let SDRAG = null;
+
+function runAxisScreen(wall){
+  /* two points one inch apart along the run, projected to screen */
+  const { w:W, d:D } = S.room, dep = S.runs[wall]?.depth ?? SPEC.hangDepth;
+  const a = new THREE.Vector3(), b = new THREE.Vector3();
+  if(wall === 'left')       { a.set(dep/2, 40, 0);       b.set(dep/2, 40, 1); }
+  else if(wall === 'right') { a.set(W-dep/2, 40, 0);     b.set(W-dep/2, 40, 1); }
+  else                      { a.set(0, 40, dep/2);       b.set(1, 40, dep/2); }
+  a.project(cam); b.project(cam);
+  const vx = (b.x - a.x), vy = -(b.y - a.y);           // NDC y is flipped
+  const len = Math.hypot(vx, vy) || 1;
+  return { x:vx/len, y:vy/len, pxPerInch: len * canvas.clientWidth / 2 };
+}
+
+canvas.addEventListener('pointerdown', e=>{
+  canvas._dx = e.clientX; canvas._dy = e.clientY;
+  ray.setFromCamera(ndcFrom(e), cam);
+  const hit = ray.intersectObjects(picks.children, false)[0];
+  if(!hit) return;
+  const { wall, i } = hit.object.userData;
+  const bays = S.runs[wall]?.bays; if(!bays || bays.length < 2) return;
+  SDRAG = { wall, i, from:i, axis:runAxisScreen(wall), x0:e.clientX, y0:e.clientY, moved:false };
+  ctl.enabled = false;
+  canvas.setPointerCapture?.(e.pointerId);
+  canvas.style.cursor = 'grabbing';
+});
+
+canvas.addEventListener('pointermove', e=>{
+  if(!SDRAG) return;
+  const bays = S.runs[SDRAG.wall].bays;
+  /* how far along the wall, in inches, has the pointer travelled */
+  const dx = e.clientX - SDRAG.x0, dy = e.clientY - SDRAG.y0;
+  const along = (dx * SDRAG.axis.x + dy * SDRAG.axis.y) / Math.max(1, SDRAG.axis.pxPerInch);
+  if(Math.abs(along) > 1) SDRAG.moved = true;
+
+  /* walk past a neighbour once you have travelled half its width */
+  let i = SDRAG.i, moved = true;
+  while(moved){
+    moved = false;
+    const travelled = along - offsetOf(bays, SDRAG.from, i);
+    if(travelled > 0 && i < bays.length - 1 && travelled > bays[i+1].w / 2){
+      [bays[i], bays[i+1]] = [bays[i+1], bays[i]]; i++; moved = true;
+    } else if(travelled < 0 && i > 0 && -travelled > bays[i-1].w / 2){
+      [bays[i], bays[i-1]] = [bays[i-1], bays[i]]; i--; moved = true;
+    }
+  }
+  if(i !== SDRAG.i){
+    SDRAG.i = i; S.sel = { wall:SDRAG.wall, i };
+    rebuild(false);                       // redraw with the new order
+  }
+});
+
+/* inches between where the section started and where it sits now */
+function offsetOf(bays, from, now){
+  let d = 0;
+  if(now > from) for(let k = from; k < now; k++) d += bays[k].w;
+  else           for(let k = now; k < from; k++) d -= bays[k].w;
+  return d;
+}
+
+const endSectionDrag = () => {
+  if(!SDRAG) return;
+  const wasMove = SDRAG.moved;
+  SDRAG = null; ctl.enabled = true; canvas.style.cursor = 'grab';
+  if(wasMove) rebuild(true);              // reprice once, at the end
+};
+canvas.addEventListener('pointerup', endSectionDrag);
+canvas.addEventListener('pointercancel', endSectionDrag);
 canvas.addEventListener('pointerup',e=>{
   if(Math.hypot(e.clientX-canvas._dx, e.clientY-canvas._dy)>5) return;   // that was a drag
+  if(SDRAG?.moved) return;                                               // that was a reorder
   const r=canvas.getBoundingClientRect();
   ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
   ray.setFromCamera(ndc,cam);
@@ -773,7 +856,24 @@ const iconBtn = (attr, val, on, art, label, note) =>
 function paintSteps(){
   $('#types').className='pills icons icons-3';
   $('#types').innerHTML=Object.entries(TYPES).map(([k,t])=>
-    iconBtn('data-t', k, k===S.type, t.art, t.label, t.note)).join('');
+    iconBtn('data-t', k, k===S.type && S.shape!=='custom', t.art, t.label, t.note)).join('')
+    + iconBtn('data-shape', 'custom', S.shape==='custom', SHAPES.custom.art,
+              'Custom', 'Pick the walls yourself');
+
+  /* Custom is the only mode that asks which walls, because it is the only
+     one where the answer is not already implied. */
+  const onWalls = Object.keys(S.runs).filter(w=>S.runs[w]?.on);
+  $('#wallpick').innerHTML = S.shape==='custom' ? `
+      <span class="addlbl">Which walls get cabinetry</span>
+      <div class="wallgrid">${['back','left','right'].map(w=>`
+        <button data-wall-t="${w}" aria-pressed="${onWalls.includes(w)}">
+          <svg viewBox="0 0 24 22" aria-hidden="true"><path d="${
+            w==='back' ? 'M3 6h18M3 6v10M21 6v10' :
+            w==='left' ? 'M6 3v16M6 3h12M6 19h12' :
+                         'M18 3v16M6 3h12M6 19h12'}"/></svg>
+          <i>${WALL_LABEL[w]}</i>
+          <u>${onWalls.includes(w) ? `${wallLength(w).toFixed(0)}" run` : 'Not used'}</u>
+        </button>`).join('')}</div>` : '';
   /* Three stacked rows each with one number in the middle wasted most of the
      panel and you could not type a real measurement into any of them. Three
      columns, and the number is an input: type 103 if the wall is 103. */
@@ -791,23 +891,11 @@ function paintSteps(){
   $('#mount').innerHTML=MOUNTS.map(m=>
     iconBtn('data-m', m.k, m.k===S.mounting, m.art, m.label, m.note)).join('');
   $('#walls').hidden = false;
-  const onWalls = Object.keys(S.runs).filter(w=>S.runs[w]?.on);
-  $('#walls').innerHTML = `<h4 class="subh">Shape of the run</h4>
-    <div class="pills icons icons-4">`+
-    Object.entries(SHAPES).map(([k,sh])=>
-      iconBtn('data-shape', k, k===S.shape, sh.art, sh.label, sh.note)).join('')+`</div>`+
-    (SHAPES[S.shape].custom ? `<div class="wallpick">
-      <span class="addlbl">Which walls get cabinetry</span>
-      <div class="wallgrid">${['back','left','right'].map(w=>`
-        <button data-wall-t="${w}" aria-pressed="${onWalls.includes(w)}">
-          <svg viewBox="0 0 24 22" aria-hidden="true"><path d="${
-            w==='back' ? 'M3 6h18M3 6v10M21 6v10' :
-            w==='left' ? 'M6 3v16M6 3h12M6 19h12' :
-                         'M18 3v16M6 3h12M6 19h12'}"/></svg>
-          <i>${WALL_LABEL[w]}</i>
-          <u>${onWalls.includes(w) ? `${wallLength(w).toFixed(0)}" run` : 'Not used'}</u>
-        </button>`).join('')}</div>
-    </div>` : '');
+  /* "Shape of the run" used to be its own question underneath, which asked
+     the customer the same thing twice: a walk-in already implies more than
+     one wall. The walls are now part of choosing the closet, and Custom is
+     the last card in that same row. */
+  $('#walls').innerHTML = '';
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -856,7 +944,7 @@ function paintPlan(){
 
   const pins = S.fittings.map((f, i) => {
     const p = fitXY(f, g), def = FITTINGS.find(x => x.id === f.k);
-    return `<g class="ppin ${S.pinSel === i ? 'on' : ''}" data-pin="${i}"
+    return `<g class="ppin ${S.pinSel === i ? 'on' : ''} ${f.placed ? '' : 'draft'}" data-pin="${i}"
                transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${p.a})">
       <rect x="-9" y="-9" width="18" height="18" rx="5"/>
       <svg x="-6" y="-6" width="12" height="12" viewBox="0 0 24 24"><path d="${def?.art||''}"/></svg>
@@ -900,10 +988,12 @@ function paintDoors(){
   list.innerHTML = S.fittings.length
     ? S.fittings.map((x,i) => {
         const def = FITTINGS.find(y => y.id === x.k);
-        return `<div class="fitrow ${S.pinSel===i?'on':''}" data-pinrow="${i}">
+        return `<div class="fitrow ${S.pinSel===i?'on':''} ${x.placed?'':'unplaced'}" data-pinrow="${i}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${def?.art||''}"/></svg>
           <b>${def?.label || x.k}</b>
-          <span>${WALL_LABEL[x.wall]} &middot; ${x.at.toFixed(0)}" along</span>
+          <span>${x.placed
+            ? `${WALL_LABEL[x.wall]} &middot; ${x.at.toFixed(0)}" along`
+            : 'Drag it onto the wall it is on'}</span>
           <button data-fitrm="${i}" title="Remove">&times;</button></div>`;
       }).join('')
     : `<p class="note">Nothing marked yet. Anything you add here travels with the enquiry so the crew knows before they turn up.</p>`;
@@ -957,9 +1047,8 @@ function paintBays(){
             <span class="wbar"><span style="width:100%"></span></span>
             <b>Rest ${clampBay(left).toFixed(0)}"</b></button>` : ''}
         </div>
-        ${r.bays.length ? `<div class="addutil">
+        ${r.bays.length > 1 ? `<div class="addutil one">
           <button class="mini" data-bay="even" data-wall="${wall}">Even them up</button>
-          <button class="mini danger" data-bay="del" data-wall="${wall}">Remove last</button>
         </div>` : ''}
       </div>`;
     host.appendChild(d);
@@ -1018,7 +1107,8 @@ function paintStack(){
     const on = matched?.id === pre.id;
     return `<button class="pcard ready" data-preset="${pre.id}" aria-pressed="${on}"
                     title="${pre.desc.replace(/"/g,'&quot;')}">
-      ${art}<i>${pre.name}</i><em>${pre.desc}</em>
+      ${art}<i>${pre.name}</i>
+      <span class="phov"><em>${pre.desc}</em></span>
       <span class="pbadge">${on ? 'Current' : 'Ready-made'}</span>${tag ? `<u>${tag}</u>` : ''}</button>`;
   }).join('');
 
@@ -1029,7 +1119,9 @@ function paintStack(){
     return `<button class="pcard" data-add="${id}" ${chk.ok?'':'disabled'} title="${tip}">
       <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
            width="420" height="315">
-      <i>${d.label}</i><em>${(d.spec||'').replace(/"/g,'&quot;')}</em>
+      <i>${d.label}</i>
+      <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
+        <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
       ${chk.ok ? '' : '<u class="full">No room</u>'}</button>`;
   }).join('');
 
@@ -1149,11 +1241,11 @@ function paintQuote(){
       <b>${money(q.total)}</b>
     </div>
   </div>
-  ${(S.door !== 'none' || S.fittings.length) ? `<div class="qnotes">
+  ${(S.door !== 'none' || S.fittings.some(f=>f.placed)) ? `<div class="qnotes">
     <span class="ql">For the crew</span>
     ${S.door !== 'none' ? `<div class="qnrow"><b>Doors</b><span>${
       DOORS.find(d=>d.id===S.door)?.label || ''}</span></div>` : ''}
-    ${S.fittings.map(f=>`<div class="qnrow"><b>${
+    ${S.fittings.filter(f=>f.placed).map(f=>`<div class="qnrow"><b>${
       FITTINGS.find(x=>x.id===f.k)?.label || f.k}</b><span>${
       WALL_LABEL[f.wall]} &middot; ${Math.round(f.at)}" along</span></div>`).join('')}
     <p class="qnnote">None of this changes the cabinetry price. It goes on the job sheet so the crew knows before the van is loaded.</p>
@@ -1177,7 +1269,14 @@ function paintOrder(){
 }
 
 /* ───────── events ───────── */
-$('#types').onclick=e=>{const b=e.target.closest('button');if(!b)return;applyType(b.dataset.t);rebuild(true)};
+$('#types').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.shape==='custom'){ applyShape('custom', true); rebuild(true); return; }
+  if(!b.dataset.t) return;
+  /* coming back out of Custom, a closet type picks its own walls again */
+  S.shape = TYPES[b.dataset.t].walls.length>1 ? 'u' : 'straight';
+  applyType(b.dataset.t); rebuild(true)};
+$('#wallpick').onclick=e=>{const b=e.target.closest('[data-wall-t]');if(!b)return;
+  toggleWall(b.dataset.wallT); rebuild(true)};
 /* Clamp when the field is committed, not on every keystroke, or typing "10"
    on the way to "108" snaps to the 36" minimum under your fingers. */
 $('#dims').addEventListener('change', e=>{
@@ -1205,8 +1304,10 @@ $('#dims').onclick=e=>{const b=e.target.closest('button');if(!b)return;
 $('#doors').onclick=e=>{const b=e.target.closest('[data-door]');if(!b)return;
   S.door=b.dataset.door; paintDoors(); };
 $('#fittings').onclick=e=>{const b=e.target.closest('[data-fit]');if(!b)return;
-  /* drop it mid-way along the back wall; it is dragged from there */
-  S.fittings.push({ k:b.dataset.fit, wall:'back', at:+(S.room.w/2).toFixed(0) });
+  /* It used to drop straight onto the back wall at a made-up position, so the
+     panel immediately stated a measurement the customer had never given. It
+     now lands unplaced and says so until it is dragged onto a wall. */
+  S.fittings.push({ k:b.dataset.fit, wall:'back', at:+(S.room.w/2).toFixed(0), placed:false });
   S.pinSel = S.fittings.length-1; paintPlan(); paintDoors(); };
 $('#fitlist').onclick=e=>{
   const rm=e.target.closest('[data-fitrm]');
@@ -1238,6 +1339,7 @@ $('#fitlist').onclick=e=>{
     /* nearest wall wins, then clamp along it */
     const dBack=Math.abs(p.y-g.y0), dLeft=Math.abs(p.x-g.x0), dRight=Math.abs(p.x-(g.x0+g.w));
     const m=Math.min(dBack,dLeft,dRight);
+    f.placed = true;
     if(m===dBack){ f.wall='back';  f.at=+Math.max(0,Math.min(S.room.w,(p.x-g.x0)/g.k)).toFixed(0); }
     else if(m===dLeft){ f.wall='left';  f.at=+Math.max(0,Math.min(S.room.d,(p.y-g.y0)/g.k)).toFixed(0); }
     else { f.wall='right'; f.at=+Math.max(0,Math.min(S.room.d,(p.y-g.y0)/g.k)).toFixed(0); }
@@ -1401,7 +1503,7 @@ $('#send').onclick=()=>{
       stack:b.stack.map(s=>({module:MODULES[s.m].label, height:s.h, options:s.o||{}}))})),
     order:cur.order, warnings:cur.warnings,
     door: DOORS.find(d=>d.id===S.door)?.label || 'Open / no doors',
-    fittings: S.fittings.map(f=>({
+    fittings: S.fittings.filter(f=>f.placed).map(f=>({
       item: FITTINGS.find(x=>x.id===f.k)?.label || f.k,
       wall: WALL_LABEL[f.wall], inchesAlong: Math.round(f.at) })),
     generated:new Date().toISOString()

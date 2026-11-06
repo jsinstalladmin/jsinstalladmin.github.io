@@ -510,3 +510,73 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
 .sband-note{margin:0;padding:1em 1.15em;background:var(--paper-2);
   border-top:1px solid var(--line-2);font-size:.76rem;line-height:1.55;color:var(--muted)}
 @media(max-width:480px){ .sband ul{grid-template-columns:repeat(2,1fr)} }
+
+/* ════════ reviews wall ════════
+   Two rows travelling opposite ways. Each track holds four copies of its
+   cards and translates by exactly 25%, so the loop has no visible seam.
+   Hover anywhere and both rows stop, because a moving wall you cannot read
+   is decoration rather than proof. */
+.revwrap{background:var(--ink);color:var(--paper);padding:clamp(54px,7vw,96px) 0;overflow:hidden}
+.rhead{width:var(--shell);margin:0 auto clamp(30px,4vw,48px);display:grid;gap:clamp(22px,3vw,48px);
+  grid-template-columns:1fr auto;align-items:end}
+.rhead .label{color:rgba(248,245,240,.52)}
+.rhead h2{color:var(--paper);margin-top:.25em}
+.rmeta{display:flex;gap:clamp(18px,2.4vw,38px);flex-wrap:wrap}
+.rmeta div b{display:block;font-family:'Archivo',sans-serif;font-weight:600;font-size:1.5rem;
+  color:var(--paper);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.rmeta div span{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(248,245,240,.5);display:block;margin-top:.3em;max-width:16ch;line-height:1.4}
+@media(max-width:860px){ .rhead{grid-template-columns:1fr} }
+
+.rrow{overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+.rrow + .rrow{margin-top:14px}
+.rtrack{display:flex;gap:14px;width:max-content;will-change:transform}
+.rrow.left  .rtrack{animation:rmarq 68s linear infinite}
+.rrow.right .rtrack{animation:rmarq 78s linear infinite reverse}
+@keyframes rmarq{from{transform:translate3d(0,0,0)}to{transform:translate3d(-25%,0,0)}}
+.revwrap:hover .rtrack{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){ .rtrack{animation:none} .rrow{overflow-x:auto} }
+
+.rcard{flex:0 0 clamp(290px,27vw,380px);background:rgba(248,245,240,.05);
+  border:1px solid rgba(248,245,240,.14);border-radius:var(--r-md);padding:1.3em 1.4em;
+  display:flex;flex-direction:column;gap:.75em}
+.rstars{display:flex;gap:2px;font-size:.8rem;line-height:1}
+.rstars i{font-style:normal;color:rgba(248,245,240,.22)}
+.rstars i.on{color:#E0B263}
+.rcard p{margin:0;font-size:.88rem;line-height:1.6;color:rgba(248,245,240,.84);
+  display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden}
+.rcard footer{margin-top:auto;padding-top:.6em;border-top:1px solid rgba(248,245,240,.12)}
+.rcard footer b{display:block;font-size:.84rem;font-weight:500;color:var(--paper)}
+.rcard footer span{font-size:.68rem;color:rgba(248,245,240,.5)}
+.rsrc{width:var(--shell);margin:clamp(26px,3vw,40px) auto 0;font-size:.74rem;
+  color:rgba(248,245,240,.52);text-align:center}
+.rsrc a{color:rgba(248,245,240,.8);text-underline-offset:3px}
+
+/* ════════ work gallery ════════ */
+.ggrid{display:grid;gap:clamp(8px,1vw,14px);
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));
+  grid-auto-rows:210px}
+.gcell{padding:0;border:0;border-radius:var(--r-sm);overflow:hidden;cursor:zoom-in;
+  background:var(--paper-3);position:relative;grid-row:span 1}
+.gcell.tall{grid-row:span 2}
+.gcell img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--ease)}
+.gcell:hover img{transform:scale(1.04)}
+.gcell::after{content:'';position:absolute;inset:0;background:rgba(12,9,6,.1);opacity:0;
+  transition:opacity .35s var(--ease)}
+.gcell:hover::after{opacity:1}
+.glight{position:fixed;inset:0;z-index:200;background:rgba(10,8,6,.93);
+  display:grid;place-items:center;padding:clamp(16px,4vw,60px)}
+/* display:grid beats the hidden attribute, so without this the lightbox
+   covers the whole page and eats every click on the gallery underneath. */
+.glight[hidden]{display:none}
+.glight img{max-width:100%;max-height:88svh;object-fit:contain;border-radius:var(--r-sm)}
+.glight button{position:absolute;border:1px solid rgba(248,245,240,.26);background:rgba(248,245,240,.06);
+  color:var(--paper);border-radius:50%;width:44px;height:44px;cursor:pointer;font-size:1rem;
+  display:grid;place-items:center;transition:.2s var(--ease)}
+.glight button:hover{background:var(--paper);color:var(--ink)}
+.gx{top:max(16px,3vw);right:max(16px,3vw)}
+.gprev{left:max(12px,2vw);top:50%;translate:0 -50%}
+.gnext{right:max(12px,2vw);top:50%;translate:0 -50%}
+.gcount{position:absolute;bottom:max(16px,3vw);left:50%;translate:-50% 0;
+  font-size:.74rem;color:rgba(248,245,240,.6);font-variant-numeric:tabular-nums}

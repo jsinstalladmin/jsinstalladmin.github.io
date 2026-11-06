@@ -664,3 +664,37 @@ body[data-step="6"] .pacts{margin-top:0}
 .qnrow span{font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .qnnote{margin:.7em 0 0;padding-top:.6em;border-top:1px solid var(--line-2);
   font-size:.7rem;line-height:1.5;color:var(--muted)}
+
+/* ════════ v8: the layout grid ════════
+   Three across, not two. The card carries its name and nothing else, because
+   a wall of paragraphs is not a picker. The description slides up on hover
+   and on keyboard focus, so it is still reachable without a mouse. */
+.pgrid{grid-template-columns:repeat(3,1fr)}
+@media(max-width:560px){ .pgrid{grid-template-columns:repeat(2,1fr)} }
+.pcard{position:relative;overflow:hidden}
+.pcard i{padding:.5em .55em .55em;font-size:.72rem;text-align:center}
+.pcard em{font-style:normal;padding:0;display:block}
+.phov{position:absolute;inset:auto 0 0 0;background:rgba(16,12,9,.93);color:var(--paper);
+  padding:.7em .7em .75em;translate:0 101%;transition:translate .3s var(--ease);
+  display:flex;flex-direction:column;gap:.3em;text-align:left}
+.phov em{font-size:.65rem;line-height:1.4;color:rgba(248,245,240,.88)}
+.phov b{font-size:.58rem;font-weight:400;letter-spacing:.04em;color:rgba(248,245,240,.56)}
+.pcard:hover .phov,.pcard:focus-visible .phov{translate:0 0}
+@media(hover:none){ .phov{display:none} }
+
+/* ---- spacing and corners ---- */
+/* The plan was flush against the top of its own box. */
+.planwrap{padding:12px 12px 14px;margin-top:.1em}
+/* Numbers centred in the dimension boxes rather than shoved right. */
+.diminput{justify-content:center}
+.diminput input{text-align:center;width:auto;max-width:3.6em}
+.addutil.one{grid-template-columns:1fr}
+
+/* All four corners of the designer visible without scrolling: the stage keeps
+   its own radius and the whole frame is inset from the viewport edges. */
+@media(min-width:1061px){
+  .bwrap{height:calc(100svh - 68px - 16px);margin-bottom:16px}
+}
+.ppin.draft rect{stroke-dasharray:3 2;fill:var(--paper-2)}
+.fitrow.unplaced{border-style:dashed}
+.fitrow.unplaced span{color:var(--accent,#A8824C)}
