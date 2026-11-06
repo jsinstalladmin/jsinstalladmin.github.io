@@ -52,6 +52,43 @@ if(mb&&dr){
   addEventListener('keydown',e=>{if(e.key==='Escape')set(false)});
 }
 
+/* ───────── nav dropdowns ─────────
+   CSS opens them on hover and on keyboard focus. This adds the click, which
+   is the only thing that works on a touchscreen, where there is no hover to
+   speak of and tapping the group name would otherwise just follow nothing.
+   One open at a time; Escape and a click anywhere else close it. */
+(function(){
+  const groups=[...document.querySelectorAll('.nvd')];
+  if(!groups.length) return;
+  const close=except=>groups.forEach(g=>{
+    if(g!==except) g.querySelector('.nvt')?.setAttribute('aria-expanded','false');
+  });
+  for(const g of groups){
+    const btn=g.querySelector('.nvt'); if(!btn) continue;
+    btn.addEventListener('click',e=>{
+      e.preventDefault();
+      const open=btn.getAttribute('aria-expanded')==='true';
+      close(g); btn.setAttribute('aria-expanded', open?'false':'true');
+    });
+    /* leaving the group with the pointer drops the clicked-open state too, so
+       it cannot be left stuck open behind the next thing you look at */
+    g.addEventListener('mouseleave',()=>btn.setAttribute('aria-expanded','false'));
+  }
+  addEventListener('keydown',e=>{ if(e.key==='Escape') close(null); });
+  addEventListener('click',e=>{ if(!e.target.closest('.nvd')) close(null); });
+
+  /* mark the group the current page lives in, so the nav says where you are
+     rather than looking identical on all thirty-seven pages */
+  const here = location.pathname.replace(/index\.html$/,'');
+  for(const g of groups){
+    for(const a of g.querySelectorAll('a')){
+      if(new URL(a.getAttribute('href'), location.href).pathname.replace(/index\.html$/,'') === here){
+        g.dataset.on='1'; a.setAttribute('aria-current','page');
+      }
+    }
+  }
+})();
+
 /* map ↔ region list, linked both ways */
 (function(){
   const map=document.querySelector('.usmap'); if(!map) return;

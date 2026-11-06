@@ -977,3 +977,44 @@ body[data-step="6"] .pacts{margin-top:0}
 #stack:empty{display:none}
 .runblk .stackslot > #stack:empty{border:0;padding:0}
 .stackslot:has(> #stack:empty){display:none}
+
+/* ───────── stage loading state ─────────
+   Three bars that grow like a closet filling up, so the panel is doing
+   something visible from the first paint instead of sitting empty while the
+   scene compiles. builder.js adds .gone on the first drawn frame. */
+.bload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  gap:7px;flex-direction:column;pointer-events:none;
+  transition:opacity .45s ease}
+.bload.gone{opacity:0}
+.bload-b{position:absolute;bottom:50%;width:34px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(197,160,118,.55),rgba(197,160,118,.18));
+  animation:bloadb 1.25s ease-in-out infinite}
+.bload-b:nth-child(1){left:calc(50% - 56px);height:48px;animation-delay:0s}
+.bload-b:nth-child(2){left:calc(50% - 17px);height:72px;animation-delay:.14s}
+.bload-b:nth-child(3){left:calc(50% + 22px);height:34px;animation-delay:.28s}
+.bload em{position:absolute;top:calc(50% + 26px);font-style:normal;font-size:.74rem;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+@keyframes bloadb{0%,100%{transform:scaleY(.55);opacity:.45}50%{transform:scaleY(1);opacity:.9}}
+.bload-b{transform-origin:bottom center}
+@media(prefers-reduced-motion:reduce){.bload-b{animation:none}}
+
+/* ───────── "what we are about to send" ─────────
+   The customer has drawn something. Before they are handed off to a contact
+   form they get to see, in plain words, exactly what travels with it. */
+.senddlg{border:0;padding:0;background:transparent;max-width:min(560px,94vw);width:100%}
+.senddlg::backdrop{background:rgba(16,12,9,.52);backdrop-filter:blur(3px)}
+.senddlg > *{background:var(--paper)}
+.senddlg{border-radius:var(--r-md);overflow:hidden;box-shadow:0 30px 80px rgba(26,18,10,.34);
+  background:var(--paper);padding:clamp(20px,3.4vw,30px)}
+.senddlg h2{margin:0 0 .3em;font-size:1.3rem}
+.senddlg .dim{margin:0 0 1.1em;font-size:.88rem;color:var(--muted)}
+.sendlist{display:grid;gap:1px;background:var(--line-2);border:1px solid var(--line-2);
+  border-radius:var(--r-sm);overflow:hidden}
+.sl{display:grid;grid-template-columns:minmax(96px,34%) 1fr;gap:10px;padding:.62em .85em;
+  background:var(--paper);font-size:.86rem;align-items:baseline}
+.sl span{color:var(--muted);font-size:.78rem}
+.sl b{font-weight:500;color:var(--ink)}
+.sl.warn b{color:var(--accent-ink,#8A5A20)}
+.senddlg .sendfoot{margin:1.1em 0 0;font-size:.8rem}
+.sendacts{display:flex;gap:8px;justify-content:flex-end;margin-top:1.2em;flex-wrap:wrap}
+@media(max-width:520px){ .sl{grid-template-columns:1fr;gap:2px} .sendacts .btn{flex:1} }

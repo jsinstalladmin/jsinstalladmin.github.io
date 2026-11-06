@@ -4,7 +4,11 @@
    One weight per family. Negative tracking on display, positive
    only on small uppercase labels. Warm greys, never pure black.
    ========================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:ital,wdth,wght@0,80..125,300..700;1,80..125,300..700&display=swap');
+/* The Google Fonts @import used to live on this line. An @import inside a
+   stylesheet is the slowest way to load a font: the browser has to download
+   this file and parse it before it even learns the font exists. It is now a
+   <link> in every page's <head>, so the font request goes out in the same
+   breath as this stylesheet. */
 
 :root{
   --ink:#16120D;
@@ -63,6 +67,52 @@ p{margin:0 0 1.05em}
 .navbox a:hover{background:var(--paper-3);color:var(--ink)}
 .navbox a[aria-current]{background:var(--ink);color:var(--paper)}
 .hdr-cta{display:flex;gap:6px;align-items:center}
+
+/* ───────── nav dropdowns ─────────
+   Seven top-level items instead of fourteen flat links. Each group opens on
+   hover on a pointer device and on click everywhere else, which is what makes
+   it work on a laptop trackpad and on a tablet. The panel is in the DOM the
+   whole time so it is in the tab order and a screen reader can read it; it is
+   hidden with visibility, not display, so the fade actually runs. */
+.nvd{position:relative}
+.nvt{display:flex;align-items:center;gap:.42em;border:0;background:transparent;color:var(--body);
+  font:inherit;font-size:.845rem;padding:.52em .95em;border-radius:var(--r-pill);cursor:pointer;
+  white-space:nowrap;transition:background .28s var(--ease),color .28s}
+.nvt svg{width:9px;height:9px;flex:0 0 auto;transition:transform .3s var(--ease)}
+.nvt svg path{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.nvd:hover .nvt,.nvt[aria-expanded="true"]{background:var(--paper-3);color:var(--ink)}
+.nvt[aria-expanded="true"] svg{transform:rotate(180deg)}
+.nvd[data-on] .nvt{background:var(--ink);color:var(--paper)}
+.nvm{position:absolute;top:calc(100% + 11px);left:50%;transform:translate(-50%,-7px);
+  min-width:272px;padding:7px;border-radius:var(--r-md);background:rgba(248,245,240,.97);
+  backdrop-filter:saturate(1.6) blur(18px);border:1px solid var(--line-2);
+  box-shadow:0 18px 48px rgba(26,18,10,.16);opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .22s var(--ease),transform .26s var(--ease),visibility 0s .26s;z-index:5}
+/* a hover bridge, so the pointer can cross the 11px gap without it closing */
+.nvm::before{content:"";position:absolute;inset:-13px 0 auto;height:14px}
+.nvd:hover .nvm,.nvd:focus-within .nvm,.nvt[aria-expanded="true"] + .nvm{
+  opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0);transition-delay:0s}
+.nvm a{display:block;padding:.56em .8em;border-radius:9px;text-decoration:none;white-space:normal}
+.nvm a b{display:block;font-weight:500;font-size:.86rem;color:var(--ink);letter-spacing:-.005em}
+.nvm a span{display:block;font-size:.745rem;color:var(--muted);margin-top:.12em;line-height:1.35}
+.nvm a:hover{background:var(--paper-3)}
+.nvm a:hover b{color:var(--ink)}
+.nvm .nvsep{margin:5px 7px;border-top:1px solid var(--line-2)}
+.nvm.wide{min-width:470px;display:grid;grid-template-columns:1fr 1fr;gap:0 2px}
+.nvm.wide .nvall{grid-column:1/-1}
+.nvm.wide .nvsep{grid-column:1/-1}
+@media(max-width:1180px){.nvt{font-size:.8rem;padding:.5em .72em}}
+@media(max-width:1000px){.nvd{display:none}}
+body.over-dark .hdr:not(.solid) .nvt{color:rgba(248,245,240,.84)}
+body.over-dark .hdr:not(.solid) .nvd:hover .nvt,
+body.over-dark .hdr:not(.solid) .nvt[aria-expanded="true"]{background:rgba(248,245,240,.15);color:#fff}
+body.over-dark .hdr:not(.solid) .nvd[data-on] .nvt{background:var(--paper);color:var(--ink)}
+
+/* the drawer gets the same grouping, as headings rather than menus */
+.drawer h5{font-family:inherit;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(248,245,240,.42);margin:1.5em 0 .3em;font-weight:500}
+.drawer h5:first-of-type{margin-top:.8em}
+.drawer .dsm{font-size:1.18rem;font-family:inherit;letter-spacing:0;padding:.42em 0}
 @media(max-width:1180px){.navbox a{font-size:.8rem;padding:.5em .78em}}
 @media(max-width:1000px){.navbox{display:none}}
 /* over a dark hero */
@@ -268,7 +318,12 @@ body[data-hero="dark"]  .hero-veil{background:
 .spectab td:nth-child(2){font-variant-numeric:tabular-nums;white-space:nowrap}
 @media(max-width:680px){.spectab,.spectab tbody,.spectab tr,.spectab td{display:block;width:100%}
   .spectab thead{display:none}.spectab tr{padding:.9em 0;border-bottom:1px solid var(--line)}
-  .spectab td{border:0;padding:.14em 0}}
+  .spectab td{border:0;padding:.14em 0}
+  /* The first two cells are nowrap on a wide screen so a dimension never
+     breaks across lines. Stacked on a phone that same rule pushed the whole
+     page sideways whenever a spec ran long, which is what put a horizontal
+     scrollbar on the reach-in page. */
+  .spectab td:first-child,.spectab td:nth-child(2){white-space:normal;overflow-wrap:anywhere}}
 .faq details{border-bottom:1px solid var(--line)}
 .faq summary{list-style:none;cursor:pointer;padding:1.22em 2.6em 1.22em 0;position:relative;
   font-size:clamp(1.02rem,1.5vw,1.18rem);color:var(--ink);transition:color .3s}
@@ -828,3 +883,27 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
   .infobox.withpic{grid-template-columns:1fr}
   .infobox.withpic .infopic{min-height:220px;max-height:280px}
 }
+
+/* ── the layouts index ──
+   These cards hold drawings of a section on a flat ground, not photographs of
+   a room, so they must not be cropped to fill a landscape frame. A square
+   frame with the drawing contained inside it keeps every card the same height
+   and shows the whole piece. */
+.laygrid .dcard figure{aspect-ratio:1/1;background:#E4E4DE}
+.laygrid .dcard figure img{object-fit:contain;padding:6% 10%}
+.laygrid .dcard .chip{background:rgba(22,18,13,.86)}
+
+/* ── the enquiry reference code ──
+   A customer who has just drawn a closet has spent real time on it. If the
+   form fails they should not lose it, so the whole enquiry comes back as one
+   line of text they can copy, email or read out. */
+#quoteNote .refline{display:block;margin-top:.45em;color:var(--body);font-size:.88rem}
+.refbox{margin-top:1.4em;padding:1.1em 1.2em;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:var(--paper-2)}
+.refbox h3{margin:0 0 .35em;font-size:1.02rem}
+.refbox p{margin:0 0 .8em;font-size:.86rem}
+.refcode{width:100%;box-sizing:border-box;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.72rem;line-height:1.5;padding:.7em .8em;border:1px solid var(--line-2);
+  border-radius:var(--r-sm);background:var(--paper);color:var(--body);resize:vertical;
+  word-break:break-all}
+.refbox .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:.8em}

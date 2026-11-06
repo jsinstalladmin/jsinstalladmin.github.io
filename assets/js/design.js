@@ -435,8 +435,13 @@ export const MODULES = {
     defH:28, minH:26, maxH:32,
     build(c){
       const {w,d,y,h,G,parts,pull} = c;
-      parts.push({code:'HAMPER',qty:1,note:'Tilt-down hamper'});
+      parts.push({code:'HAMPER',qty:1,note:'Tilt-down hamper mechanism'});
       parts.push({code:'HAMPER_BASKET',qty:1,w,d,finish:c.basketFinish,note:'Tilt-out hamper basket'});
+      /* The front of a tilt-out is a slab the same as any other front: board,
+         four banded edges, and it takes the fronts finish. It was being drawn
+         but never billed, so a hamper was costed as the mechanism and the wire
+         basket with the panel on the front of it free. */
+      parts.push(P('DOOR',1,(w*h)/144,((w+h)*2)/12,'Tilt-out hamper front'));
       /* It was a flat slab with a pull on it, indistinguishable from a door.
          A tilt-out is drawn tilted: the front pivots at its bottom edge and
          leans out, and the wire basket it carries is visible behind it. */
@@ -552,10 +557,23 @@ export const MODULES = {
     defH:48, minH:12, maxH:84, fill:true,
     build(c){
       const {w,d,y,h,G,parts,pull} = c;
-      parts.push(P('DOOR',1,(w*h)/144,((w+h)*2)/12,'Slab door'));
-      G.push({k:'front', p:[0, y+h/2, d/2-0.3], s:[w-0.2, h-0.4, 0.75], m:'front'});
-      addPull(G, pull, w/2-3, y+h/2, d/2, 2, h, true);
-      if(pull && pull.id!=='none') parts.push({code:'PULL',qty:1,note:`1 × ${pull.name}`});
+      /* Past about 26" a single slab is too wide: it sags on its hinges, it
+         needs a metre of swing in front of it, and no shop builds one. It
+         goes in as a pair on a centre stile. Two leaves is two sets of edges
+         and two pulls, so it is priced as two. */
+      const leaves = w > 26 ? 2 : 1;
+      const lw = w / leaves;
+      parts.push(P('DOOR',leaves,(lw*h)/144*leaves,((lw+h)*2)/12*leaves,
+                   leaves===2 ? 'Slab doors, a pair' : 'Slab door'));
+      for(let i=0;i<leaves;i++){
+        const cx = leaves===1 ? 0 : (i===0 ? -lw/2 : lw/2);
+        G.push({k:'front', p:[cx, y+h/2, d/2-0.3], s:[lw-0.2, h-0.4, 0.75], m:'front'});
+        /* pulls meet at the centre stile on a pair, and sit on the lock side
+           of a single */
+        const px = leaves===1 ? w/2-3 : (i===0 ? lw/2-2.4 : -lw/2+2.4);
+        addPull(G, pull, cx + px, y+h/2, d/2, 2, h, true);
+      }
+      if(pull && pull.id!=='none') parts.push({code:'PULL',qty:leaves,note:`${leaves} × ${pull.name}`});
     }
   },
   GLASS_DOOR: {
@@ -637,7 +655,7 @@ export const PRESETS = [
     desc:'Tilt-out laundry hamper with a hanging rod over it. The rod is a short hang, because a hamper takes the bottom 28".',
     stack:[{m:'HAMPER',h:28,o:{}},{m:'SHORT_HANG',h:null,o:{}}] },
 
-  { id:'hamper-shelf', name:'Hamper + Shelves',  img:'hamper',
+  { id:'hamper-shelf', name:'Hamper + Shelves',  img:'hamper', art:'hamper-shelf',
     desc:'The same tilt-out hamper with folded storage above it instead of hanging.',
     stack:[{m:'HAMPER',h:28,o:{}},{m:'SHELVES',h:null,o:{n:4}}] },
 
@@ -822,6 +840,20 @@ export function buildDesign(cfg, cat){
         local.push({k:'shelf', p:[cx, myTop, 0], s:[inner, SPEC.panel, depth], m:'carcass'});
       }
 
+      /* ---- the bottom deck ----------------------------------------------
+         Every section was being priced with two sides, a top and a toe kick
+         and NO bottom, which is not a box. The toe kick is set back under the
+         deck; without the deck there is nothing for it to close in, the
+         lowest drawer or basket sits over open floor, and the customer was
+         short one full panel of melamine and edgeband per section. On a
+         wall-hung run it matters even more: the deck is the underside you can
+         see from across the room, so it is banded on the front edge either
+         way. */
+      parts.push(P('FIXED',1,(inner*depth)/144,(inner+depth*2)/12,
+                   `Bottom deck at ${floorY.toFixed(1)}"`));
+      local.push({k:'shelf', p:[cx, floorY - SPEC.panel/2, 0],
+                  s:[inner, SPEC.panel, depth], m:'carcass'});
+
       /* A section in an inside corner has the next run returning across its
          front. A drawer, a door or a hamper there opens into that run and
          cannot be used, which is why a corner gets shelving in a real closet. */
@@ -948,7 +980,12 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
     else if(p.code === 'GLASS_LITE'){ c = (p.w*p.h)/144 * 14.0; label = p.note + ', local glazier, estimate'; }
     else {
       const def = cat.parts[p.code]; if(!def) continue;
-      const base = (p.sqft||0) * (F.sq + def.sqft) + (p.edge||0) * F.eb + def.add;
+      /* A door is a FRONT. The customer is offered a separate finish for
+         fronts and drawer boxes already used it; doors did not, so picking a
+         Level 3 gloss for the fronts changed the drawer fronts' price and
+         left the doors costed as if they were plain carcass board. */
+      const FIN = (p.code === 'DOOR') ? DF : F;
+      const base = (p.sqft||0) * (FIN.sq + def.sqft) + (p.edge||0) * FIN.eb + def.add;
       c = Math.max(base, def.min) * (1 + def.pct) + def.hw;
       c *= (p.qty && p.sqft ? 1 : (p.qty || 1));
     }
@@ -970,8 +1007,13 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
 const OPENS       = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER']);
 const BLOCKS_WALL = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER','BASKETS']);
 
-const BASE_GRP = new Set(['LONG_HANG','DOUBLE_HANG','OPEN']);
+/* Hanging is part of the base system, not an extra: a rod and its sockets are
+   what a closet IS. SHORT_HANG was left out when it was added, so a hamper or
+   a drawer bank with a rod over it printed a line reading "SHORT_HANG  $8" on
+   the customer's quote. */
+const BASE_GRP = new Set(['LONG_HANG','DOUBLE_HANG','SHORT_HANG','OPEN']);
 const OPT_NAME = {
+  LONG_HANG:'Long hanging', DOUBLE_HANG:'Double hanging', SHORT_HANG:'Short hanging',
   SHELVES:'Adjustable shelves', DRAWERS:'Drawer bank', BASKETS:'Pull-out baskets',
   SHOES:'Shoe shelving', SHOE_SLANT:'Slanted shoe gallery', CUBBIES:'Cubbies',
   COUNTER:'Counter top', DOOR:'Closed doors', GLASS_DOOR:'Glass doors',
@@ -1016,7 +1058,7 @@ export function quoteSummary(price, bays, runs){
   const optSum = options.reduce((a,o) => a + o.price, 0);
 
   /* Don't claim the base covers hanging when nothing in the design hangs. */
-  const hasHang = stack.some(s => s.m === 'LONG_HANG' || s.m === 'DOUBLE_HANG');
+  const hasHang = stack.some(s => s.m === 'LONG_HANG' || s.m === 'DOUBLE_HANG' || s.m === 'SHORT_HANG');
 
   return {
     sections, linFt:+linFt.toFixed(1),
@@ -1042,7 +1084,7 @@ function orderList(parts, cat, F, DF, pull, pullFin){
       : p.code==='GLASS_LITE' ? `Glass lite ${p.w?.toFixed(1)}" × ${p.h?.toFixed(1)}"`
       : (def?.n || p.code);
     const finish = (p.code==='DRAWER'||p.code==='DOOR') ? DF.n
-      : (p.code==='PULL'||p.code==='BASKET'||p.code==='HAMPER_BASKET'||
+      : (p.code==='PULL'||p.code==='BASKET'||p.code==='HAMPER_BASKET'||p.code==='HAMPER'||
          p.code==='HANGROD'||p.code==='GLASS_LITE') ? '—' : F.n;
     const key = name+'|'+finish;
     const g = group.get(key) || { item:name, finish, qty:0, sqft:0, edge_ft:0, notes:new Set() };

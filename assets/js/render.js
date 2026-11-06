@@ -6,11 +6,13 @@
    ============================================================ */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+/* The five post-processing passes used to be static imports. Together with
+   their shader chains they are roughly 200 KB of extra module graph that the
+   browser had to download, parse and evaluate BEFORE this file could run at
+   all, which meant before the first frame of the closet could be drawn. None
+   of it is needed for that first frame: the renderer draws perfectly well
+   straight to the canvas. They are now pulled in on demand, after the closet
+   is already on screen, and the picture quietly upgrades itself. */
 
 export const EDGE_R = 0.10;      /* 2.5 mm. Real edgebanding is ~1.5 mm, but at
    render scale a 1.5 mm radius is under a pixel on most edges, so every panel
@@ -154,8 +156,16 @@ export function panelGeo(w,h,d){
 }
 
 /* ---------- composer: GTAO is what makes a carcass interior read as occluded ---------- */
-export function makeComposer(renderer, scene, cam, w, h){
+export async function makeComposer(renderer, scene, cam, w, h){
   try{
+    const [{ EffectComposer }, { RenderPass }, { GTAOPass }, { SMAAPass }, { OutputPass }] =
+      await Promise.all([
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/GTAOPass.js'),
+        import('three/addons/postprocessing/SMAAPass.js'),
+        import('three/addons/postprocessing/OutputPass.js'),
+      ]);
     const composer = new EffectComposer(renderer);
     /* GTAOPass.OUTPUT.Default copies readBuffer.texture as the beauty — it does NOT
        render the scene itself, so a RenderPass must fill that buffer first. */

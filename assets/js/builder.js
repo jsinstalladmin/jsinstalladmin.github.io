@@ -9,7 +9,13 @@ import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
          clothMaterials, clearCaches } from './materials.js';
 
-const cat = await (await fetch((window.BASE||"")+'assets/data/catalog.json')).json();
+/* The catalogue fetch is kicked off by an inline script in the page <head>,
+   long before this module graph has finished downloading, so by the time we
+   get here it is usually already in hand. This used to be a plain fetch on
+   this line, which meant the request did not even leave the browser until
+   three.js and every module below it had been parsed and evaluated. */
+const cat = await (window.__CAT || Promise.resolve(null))
+  .then(c => c || fetch((window.BASE||"")+'assets/data/catalog.json').then(r=>r.json()));
 const $ = s => document.querySelector(s);
 const money = n => '$'+Math.round(n||0).toLocaleString();
 
@@ -191,6 +197,20 @@ function applyType(t){
 }
 applyType(S.type);
 
+/* Every layout page links straight in here with ?preset=drawer-tower, so the
+   customer lands on the section they were just reading about, already drawn
+   and already priced, instead of on an empty room with a blank panel. */
+const qPre = qp.get('preset');
+if(qPre){
+  const pre = PRESETS.find(p => p.id === qPre);
+  const wall = Object.keys(S.runs).find(w => S.runs[w]?.on);
+  if(pre && wall){
+    S.runs[wall].bays.push(makeBay(clampBay(Math.min(32, wallLength(wall))),
+                                   structuredClone(pre.stack), pre.top !== false));
+    S.sel = { wall, i:0 };
+  }
+}
+
 function cfg(){
   const runs=[];
   for(const wall of ['back','left','right']){
@@ -229,6 +249,11 @@ let composer=null, ao=null;
 /* declared before resize() touches it — a `let` below its first use is a
    temporal dead zone and throws the moment resize fires early */
 let needsFrame = true;
+let drawnOnce = false;
+/* set by the first rebuild — the signal that the scene is genuinely ready to
+   be looked at. A new room has no cabinetry in it yet, so counting objects in
+   the closet group would leave the loading state up forever. */
+let built = false;
 /* Declared up here, with needsFrame, for the same reason it is: the render
    loop below starts on the first frame while this module is still evaluating
    its top-level await. A `let` further down the file is in its temporal dead
@@ -242,9 +267,25 @@ function resize(){ const {w,h}=sizeNow(); renderer.setSize(w,h,false);
   cam.aspect=w/h; cam.updateProjectionMatrix(); if(composer) composer.setSize(w,h);
   needsFrame = true; }
 addEventListener('resize',resize);
-/* ?noao=1 skips ambient occlusion — a useful escape hatch on weak hardware */
-if(!new URLSearchParams(location.search).has('noao')){
-  const {w,h}=sizeNow(); const m=makeComposer(renderer,scene,cam,w,h); composer=m.composer; ao=m.ao;
+/* ?noao=1 skips ambient occlusion — a useful escape hatch on weak hardware.
+   The composer is built AFTER the first frame is on screen, not before it.
+   Building it up front meant downloading and compiling the whole
+   post-processing chain, then compiling its shaders, all while the customer
+   looked at an empty panel. The closet now appears first and the ambient
+   occlusion fades in behind it a moment later. */
+let aoWanted = !new URLSearchParams(location.search).has('noao');
+function startComposer(){
+  if(!aoWanted) return;
+  aoWanted = false;
+  const {w,h} = sizeNow();
+  makeComposer(renderer,scene,cam,w,h).then(m=>{
+    composer = m.composer; ao = m.ao;
+    if(ao?.setSceneClipBox){
+      const bb = new THREE.Box3().setFromObject(root);
+      if(!bb.isEmpty()) ao.setSceneClipBox(bb);
+    }
+    needsFrame = true;
+  }).catch(()=>{});
 }
 
 let visible = true;
@@ -278,6 +319,17 @@ ctl.addEventListener('change', () => { needsFrame = true; });
   if(!needsFrame) return;
   needsFrame = false;
   if(composer) composer.render(); else renderer.render(scene, cam);
+
+  /* First frame with the closet actually in it. Everything that makes the
+     picture nicer rather than present waits for this moment and then goes in
+     order: the real floor and walls first, because that is what you can see,
+     then the post-processing chain behind it. */
+  if(!drawnOnce && built){
+    drawnOnce = true;
+    document.getElementById('bload')?.classList.add('gone');
+    const idle = window.requestIdleCallback || (f => setTimeout(f, 90));
+    idle(() => { upgradeRoom(); idle(startComposer, {timeout:1500}); }, {timeout:900});
+  }
 })();
 
 /* ───────── room + closet ───────── */
@@ -285,6 +337,38 @@ ctl.addEventListener('change', () => { needsFrame = true; });
    Built on a canvas rather than shipped as files: a 2048px plank texture is
    ~1.5MB of JPEG, and this costs nothing to download and tiles perfectly. */
 let ROOM_TEX = null;
+let ROOM_FLAT = null;
+let ROOM_FULL = false;
+
+/* ---- the cheap room, for the first frame ---------------------------------
+   The real floor below is a 2048px plank painting plus a Sobel pass over four
+   million pixels to derive its relief and sheen. That is over half a second of
+   main-thread work, and it was all happening BEFORE the customer saw anything
+   at all. So the room is drawn twice: once in flat colour, which costs
+   nothing, and once properly a moment after the closet is on screen. Same
+   eight-by-eight pixel textures stand in for the real ones so every clone and
+   repeat below works unchanged. */
+function flatRoomTex(){
+  const mk = (hex, lin) => {
+    const c = document.createElement('canvas'); c.width = c.height = 8;
+    const x = c.getContext('2d'); x.fillStyle = hex; x.fillRect(0,0,8,8);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    if(!lin) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  return { floor:mk('#AD8E67'), wall:mk('#E8E8E7'),
+           floorNor:mk('#8080ff',true), floorRgh:mk('#cfcfcf',true) };
+}
+
+/* Called once, at idle, after the closet has been drawn. */
+function upgradeRoom(){
+  if(ROOM_FULL) return;
+  ROOM_FULL = true;
+  drawRoom();
+  needsFrame = true;
+}
+
 /* Turn one painted canvas into the relief and sheen maps that go with it.
    Sobel on luminance gives the slope at every pixel; that slope is the normal.
    Roughness comes off the same luminance, darker meaning duller, so the grain
@@ -326,6 +410,7 @@ function derive(canvas, strength, [roughLo, roughHi]){
 
 function roomTextures(){
   if(ROOM_TEX) return ROOM_TEX;
+  if(!ROOM_FULL) return (ROOM_FLAT = ROOM_FLAT || flatRoomTex());
 
   /* ---------------------------------------------------------------------
      The old floor was a flat albedo: painted stripes, painted grain lines,
@@ -416,8 +501,13 @@ function roomTextures(){
   floor.colorSpace = THREE.SRGBColorSpace;
   floor.anisotropy = 16;
 
-  /* Derive relief and sheen from the albedo so the three always agree. */
-  const { normal: floorNor, rough: floorRgh } = derive(fc, 2.1, [0.62, 0.95]);
+  /* Derive relief and sheen from the albedo so the three always agree.
+     Derived at half resolution: the Sobel pass is per pixel, so 1024 is four
+     times cheaper than 2048, and a normal map carrying grain this fine is
+     indistinguishable at any camera distance you can actually reach. */
+  const half = document.createElement('canvas'); half.width = half.height = S / 2;
+  half.getContext('2d').drawImage(fc, 0, 0, S / 2, S / 2);
+  const { normal: floorNor, rough: floorRgh } = derive(half, 2.1, [0.62, 0.95]);
   for(const t of [floorNor, floorRgh]){
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   }
@@ -874,6 +964,7 @@ function rebuild(reframe){
   drawRoom(); drawCloset(cur); resize();
   if(reframe){ resize(); frame(); }
   paintAll();
+  built = true;
 }
 function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps();
   /* steps 3 and 5 look at one section, so changing which one is selected has
@@ -1867,25 +1958,55 @@ $('#scene').onclick=e=>{const b=e.target.closest('button');if(!b)return;const a=
     scene.environmentIntensity=S.evening?.34:1; key.intensity=S.evening?.55:1.25;
     key.color.setHex(S.evening?0xffd9a8:0xfffdfa)}};
 document.querySelectorAll('.acc > summary').forEach(s=>s.addEventListener('click',()=>setTimeout(resize,280)));
-$('#send').onclick=()=>{
-  localStorage.setItem('js_quote',JSON.stringify({
-    summary:`${TYPES[S.type].label} · ${S.room.w}"×${S.room.d}"×${S.room.h}" · ${cur.bays.length} bays · ${cur.finish.n}`,
+/* ───────── sending the design to the office ─────────
+   Clicking this used to drop the design into storage and jump straight to the
+   contact page, which left the customer wondering what, if anything, had just
+   been sent. Now it says exactly what travels with the enquiry, and only then
+   goes on to ask who they are and where the room is. */
+function quotePackage(){
+  return {
+    summary:`${TYPES[S.type].label} · ${S.room.w}"×${S.room.d}"×${S.room.h}" · ${cur.bays.length} section${cur.bays.length===1?'':'s'} · ${cur.finish.n}`,
     price:Math.round(cur.price.price), type:S.type,
     typeLabel: S.type==='reach-in'?'Reach-In Closets':S.type==='walk-in'?'Walk-In Closets':S.type==='pantry'?'Pantries':S.type==='garage'?'Garage Storage':'Laundry Rooms',
     room:S.room, mounting:S.mounting,
     finish:cur.finish.n, frontFinish:cur.frontFinish.n,
     pull:cur.pull.name, pullFinish:cur.pullFinish.name,
-    bays:cur.bays.map(b=>({wall:b.wall,width:+b.w.toFixed(1),
+    bays:cur.bays.map(b=>({wall:b.wall,width:+b.w.toFixed(1),topShelf:b.top!==false,
       stack:b.stack.map(s=>({module:MODULES[s.m].label, height:s.h, options:s.o||{}}))})),
     order:cur.order, warnings:cur.warnings,
     door: DOORS.find(d=>d.id===S.door)?.label || 'Open / no doors',
     fittings: S.fittings.filter(f=>f.placed).map(f=>({
       item: FITTINGS.find(x=>x.id===f.k)?.label || f.k,
-      wall: WALL_LABEL[f.wall], inchesAlong: Math.round(f.at) })),
+      wall: WALL_LABEL[f.wall], inchesAlong: Math.round(f.at),
+      note: f.note || '' })),
     generated:new Date().toISOString()
-  }));
-  location.href='/contact.html';
+  };
+}
+$('#send').onclick=()=>{
+  const q = quotePackage();
+  try{ localStorage.setItem('js_quote', JSON.stringify(q)); }catch(e){}
+  const dl = $('#sendDlg'), list = $('#sendList');
+  if(!dl || !list){ location.href=(window.BASE||'')+'contact.html'; return; }
+  const parts = q.order.reduce((a,o)=>a+(+o.qty||0),0);
+  const line = (k,v) => `<div class="sl"><span>${k}</span><b>${v}</b></div>`;
+  list.innerHTML =
+      line('The room', `${q.room.w}" wide · ${q.room.d}" deep · ${q.room.h}" high`)
+    + line('The drawing', `${q.bays.length} section${q.bays.length===1?'':'s'}, wall by wall`)
+    + line('Every part', `${parts} panels, shelves, rods, boxes, glides and pulls`)
+    + line('Finish', q.finish === q.frontFinish ? q.finish : `${q.finish} carcass · ${q.frontFinish} fronts`)
+    + line('Hardware', `${q.pull} in ${q.pullFinish}`)
+    + line('Doors', q.door)
+    + (q.fittings.length ? line('On the walls',
+        q.fittings.map(f=>f.item + (f.note ? ' (' + f.note + ')' : '')).join(', ')) : '')
+    + line('Estimate', money(q.price) + ' for the cabinetry')
+    + (q.warnings?.length ? `<div class="sl warn"><span>Worth saying</span><b>${q.warnings.join(' ')}</b></div>` : '');
+  dl.showModal();
 };
+$('#sendCancel')?.addEventListener('click', ()=> $('#sendDlg').close());
+$('#sendGo')?.addEventListener('click', ()=>{
+  try{ localStorage.setItem('js_quote', JSON.stringify(quotePackage())); }catch(e){}
+  location.href=(window.BASE||'')+'contact.html';
+});
 $('#dlOrder').onclick=()=>{
   const rows=[['Item','Qty','Sq ft','Edgeband ft','Finish','Detail'],
     ...cur.order.map(o=>[o.item,o.qty,o.sq_ft,o.edgeband_ft,o.finish,o.detail])];
@@ -1901,7 +2022,10 @@ $('#breakdown').onclick=()=>{
 };
 
 /* ───────── go ───────── */
-const sheet=new Image(); sheet.crossOrigin='anonymous';
+/* 160 KB of finish photography. Nothing on the first screen needs it: the
+   carcass renders from the catalogue colour until it lands, and the swatch
+   grid is two tabs away. Low priority keeps it out of the way of the model. */
+const sheet=new Image(); sheet.crossOrigin='anonymous'; sheet.fetchPriority='low'; sheet.loading='lazy';
 sheet.onload=()=>{ initSheet(sheet,cat.meta); clearCaches();
   paintFin('carcass'); paintFin('fronts'); rebuild(true); };
 sheet.onerror=()=>{ paintFin('carcass'); paintFin('fronts'); rebuild(true); };

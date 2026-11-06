@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script>window.BASE='../';</script>
+<script>window.BASE='../';window.__CAT=fetch('../assets/data/catalog.json').then(r=>r.json()).catch(()=>null);</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Build Your Own Closet in 3D | Live Pricing | JS Closets</title>
@@ -16,14 +16,23 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#17120E">
 <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Archivo:ital,wdth,wght@0,80..125,300..700;1,80..125,300..700&amp;display=swap">
 <link rel="stylesheet" href="../assets/css/site.css">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"HomeAndConstructionBusiness","name":"JS Installations & Closets","image":"https://jsclosets.com/img/og.jpg","@id":"https://jsclosets.com/#business","url":"https://jsclosets.com","telephone":"+1-646-667-9572","email":"jsinstallationsclosets@gmail.com","priceRange":"$$-$$$","address":{"@type":"PostalAddress","addressLocality":"Boca Raton","addressRegion":"FL","postalCode":"33428","addressCountry":"US"},"areaServed":[{"@type":"State","name":"Florida"},{"@type":"State","name":"New York"},{"@type":"State","name":"New Jersey"},{"@type":"State","name":"Connecticut"},{"@type":"State","name":"Pennsylvania"},{"@type":"City","name":"Miami"},{"@type":"City","name":"Miami Beach"},{"@type":"City","name":"Fort Lauderdale"},{"@type":"City","name":"West Palm Beach"},{"@type":"City","name":"Boca Raton"},{"@type":"City","name":"Delray Beach"},{"@type":"City","name":"Boynton Beach"},{"@type":"City","name":"Hollywood"},{"@type":"City","name":"Pompano Beach"},{"@type":"City","name":"Aventura"},{"@type":"City","name":"Parkland"},{"@type":"City","name":"Coral Springs"},{"@type":"City","name":"Jupiter"},{"@type":"City","name":"New York"},{"@type":"City","name":"Queens"},{"@type":"City","name":"Brooklyn"},{"@type":"City","name":"Astoria"},{"@type":"City","name":"Westchester"},{"@type":"City","name":"Long Island"},{"@type":"City","name":"Rockland"},{"@type":"City","name":"Putnam"},{"@type":"City","name":"Paramus"},{"@type":"City","name":"Bergen County"},{"@type":"City","name":"Essex County"},{"@type":"City","name":"Morris County"},{"@type":"City","name":"Hudson County"},{"@type":"City","name":"Monmouth County"},{"@type":"City","name":"Stamford"},{"@type":"City","name":"Fairfield County"},{"@type":"City","name":"New Haven County"},{"@type":"City","name":"Hartford County"},{"@type":"City","name":"Philadelphia"},{"@type":"City","name":"Bucks County"},{"@type":"City","name":"Montgomery County"},{"@type":"City","name":"Chester County"},{"@type":"City","name":"Lehigh Valley"}],"description":"Measured, built and installed by the same crew. No subcontractors, no drywall damage, no surprises on the invoice.","makesOffer":[{"@type":"Offer","itemOffered":{"@type":"Service","name":"Walk-In Closets"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Reach-In Closets"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Pantry Systems"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Garage Storage"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Laundry Rooms"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Wall Beds"}},{"@type":"Offer","itemOffered":{"@type":"Service","name":"Linen Closets"}}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://jsclosets.com/"},{"@type":"ListItem","position":2,"name":"Build yours","item":"https://jsclosets.com/design/"}]}</script>
 <script type="importmap">{"imports":{
-  "three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  "three":"../assets/vendor/three/three.module.min.js",
+  "three/addons/":"../assets/vendor/three/addons/"
 }}</script>
+<link rel="modulepreload" href="../assets/vendor/three/three.module.min.js">
+<link rel="modulepreload" href="../assets/vendor/three/addons/controls/OrbitControls.js">
+<link rel="modulepreload" href="../assets/vendor/three/addons/geometries/RoundedBoxGeometry.js">
+<link rel="modulepreload" href="../assets/js/builder.js">
+<link rel="modulepreload" href="../assets/js/design.js">
+<link rel="modulepreload" href="../assets/js/render.js">
+<link rel="modulepreload" href="../assets/js/materials.js">
 <link rel="stylesheet" href="../assets/css/builder.css">
 </head>
 <body class="">
@@ -36,7 +45,7 @@
   <path d="M18 17.9h4v1.9h-4z"/>
 </svg><span class="lk-txt"><b>JS Closets</b><span>Installations</span></span></a>
   <nav class="navbox" aria-label="Primary">
-    <a href="../walk-in-closets.html">Walk-In Closets</a><a href="../reach-in-closets.html">Reach-In Closets</a><a href="../pantries.html">Pantries</a><a href="../garage-storage.html">Garage</a><a href="../laundry-rooms.html">Laundry</a><a href="../finishes.html">Finishes</a>
+    <div class="nvd"><button class="nvt" type="button" aria-expanded="false">Closets<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.6 6 7.8l3-3.2"/></svg></button><div class="nvm"><a href="../walk-in-closets.html"><b>Walk-In Closets</b><span>Two or three walls, island optional</span></a><a href="../reach-in-closets.html"><b>Reach-In Closets</b><span>One wall, doors across the front</span></a><a href="../linen-closets.html"><b>Linen Closets</b><span>Shallow, shelf heavy, floor to ceiling</span></a><a href="../wall-beds.html"><b>Wall Beds</b><span>Murphy beds with closets either side</span></a></div></div><div class="nvd"><button class="nvt" type="button" aria-expanded="false">Rooms<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.6 6 7.8l3-3.2"/></svg></button><div class="nvm"><a href="../pantries.html"><b>Pantries</b><span>Food storage you can actually see into</span></a><a href="../garage-storage.html"><b>Garage Storage</b><span>Deep shelving, short spans, real loads</span></a><a href="../laundry-rooms.html"><b>Laundry Rooms</b><span>Counters, hampers and cabinets over the machines</span></a></div></div><div class="nvd"><button class="nvt" type="button" aria-expanded="false">Layouts<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.6 6 7.8l3-3.2"/></svg></button><div class="nvm wide"><a href="../layouts/double-hanging.html"><b>Double Hanging</b><span>Two rods stacked in one section, at 80 inches and 40 inches</span></a><a href="../layouts/double-hanging-open-top.html"><b>Double Hanging, Open Top</b><span>The same two rods, run clear to the top with no shelf capping them</span></a><a href="../layouts/long-hanging.html"><b>Long Hanging</b><span>One rod at 66 inches with clear floor under it</span></a><a href="../layouts/hanging-and-shelves.html"><b>Hanging + Shelves</b><span>A rod below for what hangs, two adjustable shelves above for what folds</span></a><a href="../layouts/adjustable-shelves.html"><b>Adjustable Shelves</b><span>Up to ten shelves in a section, on 32mm pin centres, so the spacing you choose now is not the spacing you are stuck with</span></a><a href="../layouts/drawer-tower.html"><b>Drawer Tower</b><span>A bank of soft-close drawers with open shelving over it</span></a><a href="../layouts/hanging-and-drawers.html"><b>Hanging + Drawers</b><span>Four drawers at the bottom, a rod above them</span></a><a href="../layouts/pull-out-baskets.html"><b>Pull-Out Baskets</b><span>Chrome wire on full-extension glides, so you can see the back of the basket without unloading the front</span></a><a href="../layouts/shoe-wall.html"><b>Shoe Wall</b><span>Angled shelves with a front fence, the full height of the section</span></a><a href="../layouts/hamper-and-hanging.html"><b>Hamper + Hanging</b><span>A tilt-down basket at the bottom, a rod above it</span></a><a href="../layouts/hamper-and-shelves.html"><b>Hamper + Shelves</b><span>The same tilt-down basket, with folded storage over it instead of hanging</span></a><a href="../layouts/cubbies.html"><b>Cubbies</b><span>A grid of open compartments</span></a><div class="nvsep"></div><a class="nvall" href="../layouts/index.html"><b>All 12 layouts</b><span>Side by side, with what each one needs</span></a></div></div><div class="nvd"><button class="nvt" type="button" aria-expanded="false">Service<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.6 6 7.8l3-3.2"/></svg></button><div class="nvm"><a href="../closet-installation.html"><b>Closet Installation</b><span>One day, our own crew, no drywall damage</span></a><a href="../closet-shelving.html"><b>Closet Shelving</b><span>Shelves, baskets, drawers and rails</span></a><a href="../finishes.html"><b>All 79 Finishes</b><span>Every decor we build in, shown full size</span></a></div></div><a href="../gallery.html">Our Work</a><a href="../blog/index.html">Guides</a>
     <a href="../design/" aria-current="page">Design</a>
   </nav>
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="drawer">Menu</button>
@@ -45,13 +54,18 @@
   </div>
 </div></header>
 <div class="drawer" id="drawer">
-  <button class="x" id="drawerX">Close</button>
-  <a href="../walk-in-closets.html">Walk-In Closets</a><a href="../reach-in-closets.html">Reach-In Closets</a><a href="../pantries.html">Pantries</a><a href="../garage-storage.html">Garage</a><a href="../laundry-rooms.html">Laundry</a><a href="../linen-closets.html">Linen</a><a href="../wall-beds.html">Wall Beds</a><a href="../closet-installation.html">Closet Installation</a><a href="../closet-shelving.html">Closet Shelving</a><a href="../gallery.html">Our Work</a><a href="../finishes.html">All 79 finishes</a><a href="../blog/index.html">Closet guides</a><a href="../design/">Design yours</a><a href="../about.html">About</a><a href="../contact.html">Contact</a>
-</div><main id="main">
+    <button class="x" id="drawerX">Close</button>
+  <h5>Closets</h5><a class="dsm" href="../walk-in-closets.html">Walk-In Closets</a><a class="dsm" href="../reach-in-closets.html">Reach-In Closets</a><a class="dsm" href="../linen-closets.html">Linen Closets</a><a class="dsm" href="../wall-beds.html">Wall Beds</a>
+  <h5>Rooms</h5><a class="dsm" href="../pantries.html">Pantries</a><a class="dsm" href="../garage-storage.html">Garage Storage</a><a class="dsm" href="../laundry-rooms.html">Laundry Rooms</a>
+  <h5>Layouts</h5><a class="dsm" href="../layouts/double-hanging.html">Double Hanging</a><a class="dsm" href="../layouts/double-hanging-open-top.html">Double Hanging, Open Top</a><a class="dsm" href="../layouts/long-hanging.html">Long Hanging</a><a class="dsm" href="../layouts/hanging-and-shelves.html">Hanging + Shelves</a><a class="dsm" href="../layouts/adjustable-shelves.html">Adjustable Shelves</a><a class="dsm" href="../layouts/drawer-tower.html">Drawer Tower</a><a class="dsm" href="../layouts/hanging-and-drawers.html">Hanging + Drawers</a><a class="dsm" href="../layouts/pull-out-baskets.html">Pull-Out Baskets</a><a class="dsm" href="../layouts/shoe-wall.html">Shoe Wall</a><a class="dsm" href="../layouts/hamper-and-hanging.html">Hamper + Hanging</a><a class="dsm" href="../layouts/hamper-and-shelves.html">Hamper + Shelves</a><a class="dsm" href="../layouts/cubbies.html">Cubbies</a><a class="dsm" href="../layouts/index.html">All 12 layouts</a>
+  <h5>Service</h5><a class="dsm" href="../closet-installation.html">Closet Installation</a><a class="dsm" href="../closet-shelving.html">Closet Shelving</a><a class="dsm" href="../finishes.html">All 79 finishes</a>
+  <h5>More</h5><a class="dsm" href="../gallery.html">Our Work</a><a class="dsm" href="../blog/index.html">Closet guides</a><a class="dsm" href="../design/">Design yours in 3D</a><a class="dsm" href="../about.html">About</a><a class="dsm" href="../contact.html">Contact</a>
+  </div><main id="main">
 <div class="bwrap">
 
   <div class="bstage">
     <canvas id="c3d"></canvas>
+    <div class="bload" id="bload" aria-hidden="true"><span class="bload-b"></span><span class="bload-b"></span><span class="bload-b"></span><em>Drawing your room</em></div>
     <!-- The page had no h1 at all. This is the one, and it is the real subject
          of the page rather than a hidden keyword line: the instruction that
          used to live here reads under it. -->
@@ -160,6 +174,16 @@
   <h2 data-rv="up">About this estimate</h2>
   <div class="faq"><details open><summary>Is this the real price?</summary><div class="ans">It is built from the same parts list and the same per-square-foot finish costs we order from, so it is far closer than a range on a brochure. What it cannot know is your walls: baseboard, out-of-square corners, an air return in the way. The measure settles those and the figure moves a little either way.</div></details><details><summary>Does it include installation?</summary><div class="ans">No. The figure is the cabinetry itself. Installation is quoted after we measure, because it depends on access, the shelving that has to come out and whether the baseboard has to come off.</div></details><details><summary>Why can't a bay be wider than 36 inches?</summary><div class="ans">Because three-quarter-inch melamine sags past that under load. The builder will warn you rather than draw something we would not fit.</div></details><details><summary>What is the order list for?</summary><div class="ans">It is every panel, shelf, rod, drawer box, glide, basket and pull your design needs, with sizes and counts. Send it with your enquiry and we are already most of the way to a quote.</div></details><details><summary>My room isn't a rectangle.</summary><div class="ans">Build the closest rectangle to get the number, then tell us in the notes. Angled ceilings, bulkheads and returns are normal and there are parts for all of them.</div></details></div>
 </div></div></section>
+<dialog id="sendDlg" class="senddlg">
+  <h2>What we are about to send</h2>
+  <p class="dim">Everything below goes with your enquiry. The next screen asks who you are and where the room is, so the right crew picks it up.</p>
+  <div id="sendList" class="sendlist"></div>
+  <p class="dim sendfoot">No deposit, no obligation, and we do not put you on a list. We reply the same working day.</p>
+  <div class="sendacts">
+    <button class="btn btn-ghost btn-sm" id="sendCancel" type="button">Keep editing</button>
+    <button class="btn btn-accent btn-sm" id="sendGo" type="button">Continue &rarr;</button>
+  </div>
+</dialog>
 </main><footer class="ftr"><div class="shell">
   <div class="ftr-grid">
     <div>

@@ -1,5 +1,6 @@
 import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS } from './store.js';
 import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
+import { unpack, describe } from '../assets/js/enquiry.js';
 
 const cat = await (await fetch((window.BASE||"")+'assets/data/catalog.json')).json();
 const $ = s => document.querySelector(s);
@@ -159,6 +160,119 @@ V.quotes = () => {
   <div id="pout"></div></div></div>`;
 };
 
+/* ═══════════════ INBOX ═══════════════
+   The website is static, so a lead cannot be written straight into this
+   browser from a customer's one. It arrives as an email carrying a reference
+   code. Paste the code here and the client, the job and the quote are created
+   in the right region with the whole parts list attached. Nothing is retyped.
+   When a shared database goes in later, this view reads from it instead and
+   everything below it stays as it is. */
+let INBOX_DRAFT = null;
+
+V.inbox = () => {
+  const saved = DB.enquiries();
+  return `<div class="hd"><div><h1>Inbox</h1>
+    <p>Paste the reference code from a website enquiry. It carries the customer, the room, every section, every part and the price.</p></div></div>
+
+  <div class="panel"><header><h3>Add a web enquiry</h3><span>Paste the code from the email</span></header><div class="bd">
+    <div class="f"><label>Reference code</label>
+      <textarea id="inbox-code" rows="4" placeholder="JSC1...."></textarea></div>
+    <div class="btnrow">
+      <button class="btn btn-p" data-act="inbox-read">Read it</button>
+      <button class="btn" data-act="inbox-clear">Clear</button>
+    </div>
+    <div id="inbox-out"></div>
+  </div></div>
+
+  <div class="panel"><header><h3>Filed from the website</h3><span>${saved.length} so far</span></header>
+  ${saved.length ? `<table><thead><tr><th>Received</th><th>Customer</th><th>What they drew</th><th>Region</th><th class="mono">Estimate</th></tr></thead><tbody>
+    ${saved.slice().reverse().map(e=>`<tr data-client="${esc(e.clientId||'')}">
+      <td class="mono">${fmtD((e.sent||today()).slice(0,10))}</td>
+      <td><b>${esc(e.contact?.name||'Unknown')}</b><br><span class="sub">${esc(e.contact?.phone||'')} ${esc(e.contact?.email||'')}</span></td>
+      <td>${esc(describe(e))}</td>
+      <td><span class="pill cap">${esc((e.regionId||'').toUpperCase()||'—')}</span></td>
+      <td class="mono">${money(e.design?.price||0)}</td></tr>`).join('')}
+  </tbody></table>` : '<div class="empty">Nothing filed yet. Paste the first code above.</div>'}</div>
+
+  <div class="panel"><header><h3>How a lead gets here</h3></header><div class="bd">
+    <div class="note"><b>1.</b> The customer draws their closet at <b>/design/</b> and presses "Send this to us". They see exactly what is being sent, then fill in their name, phone, email, town and address.<br><br>
+    <b>2.</b> That enquiry emails you, through Web3Forms, with a readable summary and a reference code. Your Web3Forms key goes in Settings; until it is in, the enquiry opens in the customer's own mail client instead, so nothing is lost either way.<br><br>
+    <b>3.</b> You paste the code above. The client, a measure visit and a draft quote are created in the region the ZIP belongs to, with the whole parts list on the quote.</div>
+  </div></div>`;
+};
+
+function inboxPreview(e){
+  const d = e.design;
+  const rm = REGIONS.find(r=>r.id===e.regionId);
+  const parts = (d?.order||[]).reduce((a,o)=>a+(+o.qty||0),0);
+  const existing = DB.findClient(e.contact.name);
+  return `<div class="note ok"><b>Read it.</b> ${esc(describe(e))}</div>
+    <table class="kv"><tbody>
+      <tr><th>Name</th><td>${esc(e.contact.name||'—')}</td></tr>
+      <tr><th>Phone</th><td>${esc(e.contact.phone||'—')}</td></tr>
+      <tr><th>Email</th><td>${esc(e.contact.email||'—')}</td></tr>
+      <tr><th>Where</th><td>${esc([e.contact.address,e.contact.location].filter(Boolean).join(', ')||'—')}</td></tr>
+      <tr><th>Region</th><td>${rm ? esc(rm.name) : '<b>Could not work it out from the ZIP. Pick one below.</b>'}</td></tr>
+      <tr><th>Project</th><td>${esc(e.contact.project||'—')}</td></tr>
+      ${d?`<tr><th>Room</th><td>${d.room.w}" × ${d.room.d}" × ${d.room.h}" · ${esc(d.mounting||'')}</td></tr>
+      <tr><th>Sections</th><td>${(d.bays||[]).length}, ${parts} parts and pieces</td></tr>
+      <tr><th>Finish</th><td>${esc(d.finish)}${d.frontFinish&&d.frontFinish!==d.finish?' carcass · '+esc(d.frontFinish)+' fronts':''}</td></tr>
+      <tr><th>Hardware</th><td>${esc(d.pull||'—')} in ${esc(d.pullFinish||'—')}</td></tr>
+      <tr><th>Doors</th><td>${esc(d.door||'—')}</td></tr>
+      ${(d.fittings||[]).length?`<tr><th>On the walls</th><td>${d.fittings.map(f=>esc(f.item)+(f.note?' ('+esc(f.note)+')':'')).join(', ')}</td></tr>`:''}
+      <tr><th>Estimate</th><td class="mono">${money(d.price)}</td></tr>
+      ${(d.warnings||[]).length?`<tr><th>Flags</th><td>${d.warnings.map(esc).join(' ')}</td></tr>`:''}`:''}
+      ${e.contact.message?`<tr><th>They said</th><td>${esc(e.contact.message)}</td></tr>`:''}
+    </tbody></table>
+    ${existing?`<div class="note warn">There is already a client called <b>${esc(existing.name)}</b> in ${esc(DB.regionMeta(existing.region).name)}. Filing this will add the job to them rather than making a second record.</div>`:''}
+    <div class="f"><label>File it in</label><select id="inbox-region">
+      ${REGIONS.map(r=>`<option value="${r.id}"${r.id===(e.regionId||DB.region())?' selected':''}>${esc(r.name)}</option>`).join('')}
+    </select></div>
+    <div class="btnrow"><button class="btn btn-p" data-act="inbox-file">File it: client, measure visit and a draft quote</button></div>`;
+}
+
+function inboxFile(){
+  const e = INBOX_DRAFT; if(!e) return;
+  const region = $('#inbox-region')?.value || DB.region();
+  const d = e.design;
+  let client = DB.findClient(e.contact.name);
+  if(!client){
+    client = DB.addClient({ region, name:e.contact.name || 'Website enquiry',
+      phone:e.contact.phone||'', email:e.contact.email||'',
+      addr:[e.contact.address, e.contact.location].filter(Boolean).join(', '),
+      source: e.source || 'Website',
+      notes: e.contact.message || '' });
+  } else {
+    DB.updateClient(client.id, {
+      phone: client.phone || e.contact.phone || '',
+      email: client.email || e.contact.email || '',
+      addr:  client.addr  || [e.contact.address, e.contact.location].filter(Boolean).join(', ') });
+  }
+
+  const title = d ? `${d.typeLabel || e.contact.project || 'Closet'} from the 3D builder`
+                  : (e.contact.project || 'Website enquiry');
+  const job = DB.addJob({ region, client:client.id, title,
+    type: d?.typeLabel || e.contact.project || 'Walk-In Closets',
+    stage:'lead', value:0, date:today(), kind:'measure',
+    finish: d?.finish || 'n/a', crew:'',
+    notes: [describe(e), e.contact.message].filter(Boolean).join(' — ') });
+
+  let quote = null;
+  if(d){
+    quote = DB.addQuote({ region, client:client.id, title,
+      total: Math.round(d.price||0), status:'draft',
+      summary: d.summary,
+      /* the whole drawing rides along, so the parts list is one click away
+         and nobody has to go back to the email */
+      design: d });
+  }
+
+  DB.addEnquiry({ ...e, clientId:client.id, jobId:job.id, quoteId:quote?.id });
+  INBOX_DRAFT = null;
+  render();
+  alert(`Filed. ${client.name} is in ${REGIONS.find(r=>r.id===region).name}, with a measure visit booked for today and ${quote?'a draft quote of '+money(quote.total):'no quote yet'}.`);
+}
+
 V.settings = () => {
   const s=DB.settings();
   return `<div class="hd"><div><h1>Settings</h1><p>Keys and business details. Everything here stays in this browser.</p></div></div>
@@ -209,11 +323,25 @@ document.addEventListener('click', e=>{
   if(nav){ view=nav.dataset.v||nav.dataset.nav; render(); return; }
   const act=e.target.closest('[data-act]'); if(act) return doAct(act.dataset.act);
   const job=e.target.closest('[data-job]'); if(job){ e.stopPropagation(); return openJob(job.dataset.job); }
+  const qr=e.target.closest('[data-quote]'); if(qr) return openQuote(qr.dataset.quote);
   const cl=e.target.closest('[data-client]'); if(cl) return openClient(cl.dataset.client);
   const day=e.target.closest('.day'); if(day) return openJob(null, day.dataset.date);
 });
 
 function doAct(a){
+  if(a==='inbox-read'){
+    const out=$('#inbox-out');
+    try{
+      INBOX_DRAFT = unpack($('#inbox-code').value);
+      out.innerHTML = inboxPreview(INBOX_DRAFT);
+    }catch(err){
+      INBOX_DRAFT = null;
+      out.innerHTML = `<div class="note warn"><b>${esc(err.message)}</b> Paste the whole line, starting with JSC1. It is at the bottom of the enquiry email.</div>`;
+    }
+    return;
+  }
+  if(a==='inbox-clear'){ INBOX_DRAFT=null; $('#inbox-code').value=''; $('#inbox-out').innerHTML=''; return; }
+  if(a==='inbox-file') return inboxFile();
   if(a==='newclient') return openClient(null);
   if(a==='newjob')    return openJob(null);
   if(a==='savekey'){
@@ -244,6 +372,44 @@ function doAct(a){
     return;
   }
   if(a==='reset'){ if(confirm('Reset everything back to the demo data? Your current records will be lost.')){DB.reset(); render();} return; }
+}
+
+/* A quote that came in from the 3D builder carries the whole drawing, so the
+   parts list is a click away rather than back in the email it arrived in. */
+function openQuote(id){
+  const q = DB.quotes('all').find(x=>x.id===id); if(!q) return;
+  const d = q.design;
+  dlg.innerHTML = `<h2>${esc(q.title)}</h2>
+    <p class="sub">${esc(DB.clientName(q.client))} · ${esc(q.summary||'')} · <b>${money(q.total)}</b></p>
+    ${d ? `<table class="kv"><tbody>
+      <tr><th>Room</th><td>${d.room.w}" × ${d.room.d}" × ${d.room.h}"</td></tr>
+      <tr><th>Finish</th><td>${esc(d.finish)}${d.frontFinish&&d.frontFinish!==d.finish?' carcass · '+esc(d.frontFinish)+' fronts':''}</td></tr>
+      <tr><th>Hardware</th><td>${esc(d.pull||'')} in ${esc(d.pullFinish||'')}</td></tr>
+      <tr><th>Doors</th><td>${esc(d.door||'')}</td></tr>
+      ${(d.fittings||[]).length?`<tr><th>On the walls</th><td>${d.fittings.map(f=>esc(f.item)+(f.note?' ('+esc(f.note)+')':'')).join(', ')}</td></tr>`:''}
+    </tbody></table>
+    <h3 style="margin:1.1em 0 .4em;font-size:.95rem">Every section</h3>
+    <table class="kv"><tbody>${(d.bays||[]).map((b,i)=>`<tr><th>${i+1}. ${esc(b.wall||'')} ${b.width}"</th>
+      <td>${b.stack.map(s=>esc(s.module)+(s.height?' at '+s.height+'"':'')).join(' over ')}${b.topShelf===false?' · open top':''}</td></tr>`).join('')}</tbody></table>
+    <h3 style="margin:1.1em 0 .4em;font-size:.95rem">Parts list</h3>
+    <table><thead><tr><th>Item</th><th class="mono">Qty</th><th class="mono">Sq ft</th><th class="mono">Band ft</th><th>Detail</th></tr></thead>
+      <tbody>${(d.order||[]).map(o=>`<tr><td>${esc(o.item)}</td><td class="mono">${o.qty}</td>
+        <td class="mono">${o.sq_ft??''}</td><td class="mono">${o.edgeband_ft??''}</td><td class="sub">${esc(o.detail||'')}</td></tr>`).join('')}</tbody></table>
+    <div class="btnrow" style="margin-top:1em"><button class="btn" id="q-csv">Download the parts list</button></div>`
+    : '<div class="empty">This quote was written by hand, so there is no parts list on it.</div>'}
+    <div class="dlgacts"><button class="btn" value="cancel">Close</button></div>`;
+  dlg.showModal();
+  dlg.querySelector('[value=cancel]').onclick = close;
+  const csv = dlg.querySelector('#q-csv');
+  if(csv) csv.onclick = () => {
+    const rows = [['Item','Qty','Sq ft','Edgeband ft','Finish','Detail'],
+      ...(d.order||[]).map(o=>[o.item,o.qty,o.sq_ft,o.edgeband_ft,o.finish,o.detail])];
+    const text = rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const u = URL.createObjectURL(new Blob([text],{type:'text/csv'}));
+    const a = document.createElement('a');
+    a.href = u; a.download = `${q.title.replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-parts.csv`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(u),1500);
+  };
 }
 
 /* ═══════════════ MODALS ═══════════════ */

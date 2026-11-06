@@ -27,6 +27,7 @@ export const KINDS = ['measure','delivery','install','service'];
 
 const SEED = {
   activeRegion:'fl',
+  enquiries:[],
   clients:[
     {id:'c1',region:'fl',name:'Marisol Vega',phone:'(561) 555-0142',email:'marisol.vega@example.com',addr:'418 NW 7th Ave, Boca Raton, FL 33486',source:'Website',notes:'',created:d(-26)},
     {id:'c2',region:'fl',name:'Daniel Okafor',phone:'(561) 555-0188',email:'d.okafor@example.com',addr:'2210 Spanish River Rd, Boca Raton, FL 33432',source:'Referral',notes:'',created:d(-19)},
@@ -112,6 +113,12 @@ export const DB = {
   addQuote: q => { q.id=uid('q'); q.region=q.region||db.activeRegion;
     q.created=today(); db.quotes.push(q); save(); return q; },
   updateQuote: (id,p) => { const q=db.quotes.find(x=>x.id===id); if(!q) return null; Object.assign(q,p); save(); return q; },
+
+  /* leads that came in from the website, filed through Admin -> Inbox */
+  enquiries: () => (db.enquiries = db.enquiries || []),
+  addEnquiry: e => { db.enquiries = db.enquiries || [];
+    e.id = uid('e'); e.filed = new Date().toISOString();
+    db.enquiries.push(e); save(); return e; },
 
   settings: () => db.settings,
   setSettings: s => { Object.assign(db.settings,s); save(); return db.settings; },
