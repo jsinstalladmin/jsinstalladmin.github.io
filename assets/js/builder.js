@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS,
-         presetDelta } from './design.js';
+         presetDelta, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit,
+         baseHeight } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, makeComposer } from './render.js';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
@@ -57,11 +58,13 @@ const WALL_LABEL = { back:'Back wall', left:'Left wall', right:'Right wall' };
 /* ══════════════════════════════════════════════════════════════════════
    DOORS AND WALL FITTINGS
 
-   Everything a real closet has that a catalogue layout ignores. None of it
-   changes the cabinetry price, and it is not pretending to: it changes what
-   the installer finds when he turns up, so it travels with the enquiry and
-   onto the order list. An outlet 14 inches off the back wall is the
-   difference between a drawer bank that fits and one that does not.
+   Everything a real closet has that a catalogue layout ignores, and all of it
+   is a real build constraint rather than a note. The rules live in DOOR_SPEC
+   and FIT_SPEC in design.js, because that is where the cabinetry is cut: a
+   bypass track takes 2½" off the usable depth, a 34" window sill caps the
+   partitions under it at 34", baseboard heat takes the whole run off the floor
+   and with it the toe kick, a column takes its own width off the wall. Each of
+   those changes the square footage, so each of them changes the price.
    ══════════════════════════════════════════════════════════════════════ */
 const DOORS = [
   { id:'none',   label:'Open / no doors', note:'Nothing in the way',
@@ -109,9 +112,22 @@ else if(/laundry/.test(qt)) S.type='laundry';
 try{ const f=sessionStorage.getItem('js_finish'); if(f&&cat.finishes.some(x=>x.n===f)) S.finish=f; }catch(e){}
 
 /* ───────── run / bay setup ───────── */
+const placedFittings = () => S.fittings.filter(f => f.placed);
+
+/* How much of this wall is actually available to build on. A column or a
+   bulkhead takes its own width straight off the wall before a single section
+   is laid out, which is why adding one narrows the layout rather than just
+   printing a note. */
 function wallLength(wall){
-  if(wall==='back') return S.room.w - (S.runs.left?SPEC.hangDepth:0) - (S.runs.right?SPEC.hangDepth:0);
-  return S.room.d - SPEC.hangDepth;
+  const base = wall==='back'
+    ? S.room.w - (S.runs.left?SPEC.hangDepth:0) - (S.runs.right?SPEC.hangDepth:0)
+    : S.room.d - SPEC.hangDepth;
+  return Math.max(SPEC.bayMin, base - wallLoss(placedFittings(), wall));
+}
+/* The deepest this wall's run can be once the door hardware and anything
+   projecting from the wall have had their share. */
+function wallDepthCap(wall){
+  return depthLimit(S.room, wall, S.door, placedFittings());
 }
 /* A new run starts with NOTHING in it. The previous version dropped two
    bays and a carcass into the room before the customer had chosen anything,
@@ -176,10 +192,13 @@ function cfg(){
   for(const wall of ['back','left','right']){
     const r=S.runs[wall]; if(!r||!r.on) continue;
     const start = wall==='back' ? (S.runs.left?.on?SPEC.hangDepth:0) : SPEC.hangDepth;
-    runs.push({wall, start, depth:r.depth, bays:r.bays});
+    /* clamp here, not only inside buildDesign, so the plan drawing, the click
+       volumes and the quote are all reading the same depth */
+    runs.push({wall, start, depth:Math.min(r.depth, wallDepthCap(wall)), bays:r.bays});
   }
   return { room:S.room, mounting:S.mounting, finish:S.finish,
-           frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish, runs };
+           frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
+           door:S.door, fittings:S.fittings.filter(f=>f.placed), runs };
 }
 
 /* ───────── scene ───────── */
@@ -421,12 +440,19 @@ function roomTextures(){
    exactly the size of the closet, so the camera sat inside the box and you
    never saw a floor, a wall or a baseboard — it read as a carcass in beige.
    The closet stays at x:0..W, z:0..D; the room extends past it. */
-const PAD_X = 46, PAD_Z = 88;
+/* The room used to be drawn 46" wider on each side and 88" deeper than the
+   room the customer typed, so the camera had somewhere to stand. The cost was
+   that a run spanning the whole wall stopped 46" short of both corners, which
+   made every layout look like it floated in the middle of the room. The room
+   is now exactly the room they measured: x runs 0..w, z runs 0..d, and a
+   section at x=0 is physically in the corner. The camera stands outside the
+   box; the walls are FrontSide with inward normals, so whichever one is
+   between the camera and the closet simply is not drawn. */
 
 function drawRoom(){
   shell.clear();
   const {w:CW, d:CD, h:H} = S.room;
-  const W = CW + PAD_X * 2, D = CD + PAD_Z;
+  const W = CW, D = CD;
   const T = roomTextures();
   const BASE_H = 4.5, BASE_T = 0.6;          // real baseboard, 4½" tall
 
@@ -451,10 +477,11 @@ function drawRoom(){
     mat.map.repeat.set(w / 40, h / 40);
     plane(w, h, px, py, pz, rx, ry, mat);
   };
-  const X0 = -PAD_X;                       // room's left wall, in closet coords
-  mkWall(W, H, X0 + W/2, H/2, 0, 0, 0);
-  mkWall(D, H, X0,       H/2, D/2, 0,  Math.PI/2);
-  mkWall(D, H, X0 + W,   H/2, D/2, 0, -Math.PI/2);
+  const X0 = 0;                            // room's left wall IS closet x = 0
+  mkWall(W, H, X0 + W/2, H/2, 0,   0,  0);            // back,  faces +z
+  mkWall(D, H, X0,       H/2, D/2, 0,  Math.PI/2);    // left,  faces +x
+  mkWall(D, H, X0 + W,   H/2, D/2, 0, -Math.PI/2);    // right, faces -x
+  mkWall(W, H, X0 + W/2, H/2, D,   0,  Math.PI);      // front, faces -z
 
   /* No ceiling. It only ever existed to close the box, and it blocked the
      plan view, which is the one angle where you can read the whole layout at
@@ -482,9 +509,10 @@ function drawRoom(){
     b.position.set(px, BASE_H/2, pz); b.rotation.y = ry;
     b.castShadow = false; b.receiveShadow = true; shell.add(b);
   };
-  baseboard(W, X0 + W/2,          BASE_T/2, 0);
-  baseboard(D, X0 + BASE_T/2,     D/2,      Math.PI/2);
-  baseboard(D, X0 + W - BASE_T/2, D/2,      Math.PI/2);
+  baseboard(W, X0 + W/2,          BASE_T/2,   0);
+  baseboard(D, X0 + BASE_T/2,     D/2,        Math.PI/2);
+  baseboard(D, X0 + W - BASE_T/2, D/2,        Math.PI/2);
+  baseboard(W, X0 + W/2,          D - BASE_T/2, 0);
 }
 
 function drawCloset(res){
@@ -512,7 +540,7 @@ function drawCloset(res){
     const r=run(b.wall); if(!r) return;
     const g=new THREE.Mesh(new THREE.BoxGeometry(b.w-1, b.h, b.depth),
       new THREE.MeshBasicMaterial({visible:false}));
-    const y=(S.mounting==='wall'?SPEC.wallHungBase:SPEC.toeKick)+b.h/2;
+    const y=baseHeight(S.mounting, placedFittings())+b.h/2;
     const local={p:[b.x,y,0]};
     const pos = r.wall==='left'  ? [r.depth/2, y, (r.start||0)+b.x]
               : r.wall==='right' ? [S.room.w-r.depth/2, y, (r.start||0)+b.x]
@@ -757,12 +785,20 @@ function view(step){
       /* Layout. With a section selected, go in on it. With nothing selected
          yet, show the wall straight on so the widths read true. */
       if(!S.sel || !cur?.bays?.length){
-        const d = fitDist(H * 1.22, (W + PAD_X * 0.6) * 1.1) * 1.04;
-        return { t:[W/2, H*0.45, 0], p:[W/2, H*0.47, d] };
+        const d = fitDist(H * 1.12, (W + 10) * 1.02);
+        return { t:[W/2, H*0.46, 0], p:[W/2, H*0.48, d] };
       }
       const b = focusBay();
-      const midY = SPEC.toeKick + b.h / 2;
-      const dist = fitDist(b.h * 1.52, Math.max(b.w, 24) * 2.9);
+      const midY = baseHeight(S.mounting, placedFittings()) + b.h / 2;
+      /* Frame the section being edited WITH its neighbours. Fitting the bay
+         alone cropped the rest of the run against the edge of the canvas,
+         which read as a broken drawing rather than a close-up. Show the whole
+         run when it is short, and the bay plus about one either side when it
+         is long. */
+      const runW = (cur?.bays || []).filter(x => x.wall === b.wall)
+                     .reduce((a, x) => a + x.w, 0) || b.w;
+      const ctx = Math.min(Math.max(runW, b.w) * 1.12, Math.max(b.w, 24) * 3.4);
+      const dist = fitDist(b.h * 1.42, ctx);
       const [px, pz] = standOff(b, dist);
       return { t:[b.x, midY, b.z], p:[px, midY + b.h * 0.06, pz] };
     }
@@ -783,8 +819,12 @@ function view(step){
                   pz + (f.wall === 'back' ? 0 : off)] };
     }
     default: {             // 1 and 6: the whole room
-      const dist = fitDist(H * 1.34, (W + PAD_X) * 1.18) * 1.05;
-      return { t:[W/2, H*0.42, D*0.30], p:[W/2 + W*0.10, H*0.52, D*0.30 + dist] };
+      /* The room used to be drawn with 46" of padding on each side, so the
+         framing had to allow for scenery that is no longer there. Fitting the
+         real room leaves it swimming in empty canvas, so the margins came in
+         with it. */
+      const dist = fitDist(H * 1.14, (W + 14) * 1.02);
+      return { t:[W/2, H*0.46, D*0.30], p:[W/2 + W*0.04, H*0.54, D*0.30 + dist] };
     }
   }
 }
@@ -933,7 +973,10 @@ function paintPlan(){
   const host = $('#plan'); if(!host) return;
   const g = planGeom();
   const onWalls = Object.keys(S.runs).filter(w => S.runs[w]?.on);
-  const depth = k => (S.runs[k]?.depth ?? SPEC.hangDepth) * g.k;
+  /* the depth the run is actually built to, after the door hardware and any
+     bulkhead have taken theirs, so the plan agrees with the drawing and the
+     quote rather than with what was asked for */
+  const depth = k => Math.min(S.runs[k]?.depth ?? SPEC.hangDepth, wallDepthCap(k)) * g.k;
 
   /* the cabinetry footprint, so the plan shows what the 3D shows */
   const runRects = onWalls.map(w =>
@@ -942,12 +985,20 @@ function paintPlan(){
     :                 `<rect class="prun" x="${g.x0 + g.w - depth(w)}" y="${g.y0}" width="${depth(w)}" height="${g.d}"/>`
   ).join('');
 
+  /* A fitting is not a point. A 36" window and a 4" outlet do very different
+     things to a wall, so each pin draws its real width to scale along the wall
+     it sits on, with the icon centred on it. Dragging still grabs the whole
+     group, so the gesture is unchanged. */
   const pins = S.fittings.map((f, i) => {
     const p = fitXY(f, g), def = FITTINGS.find(x => x.id === f.k);
+    const spanPx = Math.max(10, (+f.w || 4) * g.k);
     return `<g class="ppin ${S.pinSel === i ? 'on' : ''} ${f.placed ? '' : 'draft'}" data-pin="${i}"
                transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${p.a})">
-      <rect x="-9" y="-9" width="18" height="18" rx="5"/>
-      <svg x="-6" y="-6" width="12" height="12" viewBox="0 0 24 24"><path d="${def?.art||''}"/></svg>
+      <rect class="pspan" x="0" y="-4" width="${spanPx.toFixed(1)}" height="8" rx="3"/>
+      <g transform="translate(${(spanPx/2).toFixed(1)},0)">
+        <rect x="-9" y="-9" width="18" height="18" rx="5"/>
+        <svg x="-6" y="-6" width="12" height="12" viewBox="0 0 24 24"><path d="${def?.art||''}"/></svg>
+      </g>
     </g>`;
   }).join('');
 
@@ -981,22 +1032,42 @@ function paintDoors(){
     iconBtn('data-door', x.id, x.id === S.door, x.art, x.label, x.note)).join('');
   const f = $('#fittings'); if(!f) return;
   f.innerHTML = FITTINGS.map(x =>
-    `<button class="fitbtn" data-fit="${x.id}" title="Add ${x.label.toLowerCase()} to the back wall">
+    `<button class="fitbtn" data-fit="${x.id}"
+       title="${(FIT_SPEC[x.id]?.note || '').replace(/"/g,'&quot;')}">
        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${x.art}"/></svg>
        <i>${x.label}</i></button>`).join('');
   const list = $('#fitlist'); if(!list) return;
+
+  /* Each dimension that changes the build gets its own stepper, labelled with
+     what it is rather than with a letter. Change the sill from 34" to 48" and
+     the partitions under the window grow with it. */
+  const DIMS = {
+    w:     { lbl:'wide',  step:2, min:2,  max:120 },
+    cap:   { lbl:'high',  step:2, min:18, max:84  },
+    top:   { lbl:'tall',  step:1, min:4,  max:24  },
+    depth: { lbl:'deep',  step:1, min:1,  max:16  }
+  };
+  const dimRow = (x, i) => Object.keys(DIMS)
+    .filter(k => x[k] != null)
+    .map(k => `<span class="fdim"><button data-fdim="${k}" data-i="${i}" data-s="-1" title="Less">&minus;</button>
+        <i>${(+x[k]).toFixed(0)}" ${DIMS[k].lbl}</i>
+        <button data-fdim="${k}" data-i="${i}" data-s="1" title="More">+</button></span>`).join('');
+
   list.innerHTML = S.fittings.length
     ? S.fittings.map((x,i) => {
         const def = FITTINGS.find(y => y.id === x.k);
+        const sp  = FIT_SPEC[x.k] || {};
         return `<div class="fitrow ${S.pinSel===i?'on':''} ${x.placed?'':'unplaced'}" data-pinrow="${i}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${def?.art||''}"/></svg>
           <b>${def?.label || x.k}</b>
           <span>${x.placed
             ? `${WALL_LABEL[x.wall]} &middot; ${x.at.toFixed(0)}" along`
             : 'Drag it onto the wall it is on'}</span>
-          <button data-fitrm="${i}" title="Remove">&times;</button></div>`;
+          <button data-fitrm="${i}" title="Remove">&times;</button>
+          <em class="fwhat">${sp.note || ''}</em>
+          <span class="fdims">${dimRow(x, i)}</span></div>`;
       }).join('')
-    : `<p class="note">Nothing marked yet. Anything you add here travels with the enquiry so the crew knows before they turn up.</p>`;
+    : `<p class="note">Nothing marked yet. Every one of these changes the cabinetry, not just the paperwork: a window caps the partitions under it at the sill, baseboard heat takes the run off the floor, a column takes its width off the wall.</p>`;
 }
 
 /* ───────── step 2: bays ───────── */
@@ -1010,13 +1081,18 @@ function miniStack(bay, h){
   }).join('');
 }
 function paintBays(){
-  const host=$('#bays'); host.innerHTML='';
+  const host=$('#bays');
+  /* #stack gets docked INSIDE a run block (see dockStack), so park it back in
+     its own wrapper before this innerHTML wipe or the picker — and the one
+     click handler bound to it — is destroyed on every repaint. */
+  const parked=$('#stack'); if(parked) $('#stackHome').appendChild(parked);
+  host.innerHTML='';
   for(const wall of ['back','left','right']){
     const r=S.runs[wall]; if(!r||!r.on) continue;
     const len  = wallLength(wall);
     const used = r.bays.reduce((a,b)=>a+b.w,0);
     const left = len - used;
-    const d=document.createElement('div'); d.className='runblk';
+    const d=document.createElement('div'); d.className='runblk'; d.dataset.wall=wall;
 
     /* which preset widths still fit in what is left of this wall */
     const fits = BAY_PRESETS.filter(w => w <= left + 0.01);
@@ -1035,6 +1111,7 @@ function paintBays(){
     d.innerHTML = `<div class="runhd"><b>${wall[0].toUpperCase()+wall.slice(1)} wall</b>
       <span class="${left < -0.5 ? 'over' : ''}">${used.toFixed(0)}" of ${len.toFixed(0)}" used${left>0.5?` · ${left.toFixed(0)}" free`:''}</span></div>
       ${strip}
+      <div class="stackslot"></div>
       <div class="addrow">
         ${fits.length || left >= SPEC.bayMin
           ? `<span class="addlbl">Add a section</span>`
@@ -1064,6 +1141,18 @@ function paintBays(){
 
    It also used to dead-end: no section selected meant an empty panel telling
    you to go and pick one. If sections exist, one of them is selected. */
+/* The parts picker belongs directly under the section being edited, on the
+   wall being edited. Working on the back wall, section 3: the cards for
+   section 3 render immediately beneath the back wall's section strip, so the
+   image you click and the box it lands in are never more than a glance apart.
+   The node itself is reused rather than rebuilt, so the single click handler
+   bound to #stack survives the move. */
+function dockStack(){
+  const box = $('#stack'); if(!box) return;
+  const slot = S.sel ? $(`#bays .runblk[data-wall="${S.sel.wall}"] .stackslot`) : null;
+  (slot || $('#stackHome')).appendChild(box);
+}
+
 function paintStack(){
   const box = $('#stack');
   const run = S.sel && S.runs[S.sel.wall];
@@ -1072,12 +1161,16 @@ function paintStack(){
     const wall = Object.keys(S.runs).find(k => S.runs[k]?.on && S.runs[k].bays.length);
     if(wall){ S.sel = { wall, i:0 }; return paintStack(); }
     box.innerHTML = `<p class="note emptysel">Add a section above and its parts appear here.</p>`;
+    dockStack();
     return;
   }
   const bay = S.runs[S.sel.wall].bays[S.sel.i];
   /* same arithmetic buildDesign uses, so the palette agrees with the drawing */
-  const floorY = S.mounting === 'wall' ? SPEC.wallHungBase : SPEC.toeKick;
-  const usable = Math.min(SPEC.topShelf, S.room.h - 6) - floorY;
+  const floorY = baseHeight(S.mounting, placedFittings());
+  /* the height THIS section actually has, not the room's best case: a window
+     or a slope over it means fewer inches to divide between the parts */
+  const usable = (cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.h)
+    ?? (Math.min(SPEC.topShelf, S.room.h - 6) - floorY);
 
   const cheapest = PRESETS.reduce((lo, p) => {
     const v = presetDelta(p, bay.w, usable, cat, S.finish);
@@ -1156,6 +1249,7 @@ function paintStack(){
       ? `Currently ${matched ? `<b>${matched.name}</b>` : 'a custom stack'}. Pick another layout to swap it, or add a single part below it.`
       : 'Ready-made layouts first, then single parts. Everything can be changed after.'}</p>
     <div class="pgrid">${presetCards}${partCards}</div>`;
+  dockStack();
 }
 
 /* ───────── finishes + hardware ───────── */
@@ -1242,13 +1336,19 @@ function paintQuote(){
     </div>
   </div>
   ${(S.door !== 'none' || S.fittings.some(f=>f.placed)) ? `<div class="qnotes">
-    <span class="ql">For the crew</span>
-    ${S.door !== 'none' ? `<div class="qnrow"><b>Doors</b><span>${
-      DOORS.find(d=>d.id===S.door)?.label || ''}</span></div>` : ''}
+    <span class="ql">Built around what is already there</span>
+    ${S.door !== 'none' ? `<div class="qnrow"><b>${
+      DOORS.find(d=>d.id===S.door)?.label || ''}</b><span>${
+      DOOR_SPEC[S.door]?.note || ''}</span></div>` : ''}
     ${S.fittings.filter(f=>f.placed).map(f=>`<div class="qnrow"><b>${
       FITTINGS.find(x=>x.id===f.k)?.label || f.k}</b><span>${
-      WALL_LABEL[f.wall]} &middot; ${Math.round(f.at)}" along</span></div>`).join('')}
-    <p class="qnnote">None of this changes the cabinetry price. It goes on the job sheet so the crew knows before the van is loaded.</p>
+      WALL_LABEL[f.wall]} &middot; ${Math.round(f.at)}" along${
+      f.w!=null?`, ${Math.round(f.w)}" wide`:''}${
+      f.cap!=null?`, capped at ${Math.round(f.cap)}"`:''}${
+      f.top!=null?`, ${Math.round(f.top)}" tall`:''}${
+      f.depth!=null?`, ${Math.round(f.depth)}" deep`:''} &middot; ${
+      FIT_SPEC[f.k]?.note || ''}</span></div>`).join('')}
+    <p class="qnnote">These are not notes on a job sheet. The total above is already built around them: the partitions, the top shelf, the depth of the run and the toe kick are all cut to what is actually on your wall.</p>
   </div>` : ''}`;
 }
 /* A short handle so he and the customer are looking at the same design.
@@ -1302,16 +1402,32 @@ $('#dims').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   rebuild(true)};
 /* ---- floor plan: doors, fittings, and dragging a fitting along a wall ---- */
 $('#doors').onclick=e=>{const b=e.target.closest('[data-door]');if(!b)return;
-  S.door=b.dataset.door; paintDoors(); };
+  /* The door is a build constraint now, not a note: a bypass track takes 2½"
+     off the depth and a bi-fold blocks the ends of the opening, so the whole
+     design and the price have to be recomputed. */
+  S.door=b.dataset.door; rebuild(); };
 $('#fittings').onclick=e=>{const b=e.target.closest('[data-fit]');if(!b)return;
-  /* It used to drop straight onto the back wall at a made-up position, so the
-     panel immediately stated a measurement the customer had never given. It
-     now lands unplaced and says so until it is dragged onto a wall. */
-  S.fittings.push({ k:b.dataset.fit, wall:'back', at:+(S.room.w/2).toFixed(0), placed:false });
+  /* It lands UNPLACED. Dropping it straight onto the back wall at a made-up
+     position stated a measurement the customer had never given, and now that
+     these change the cabinetry, a guessed position would change the price.
+     It arrives with the real dimensions an installer would measure — a 36"
+     window, a 48" heater, a 14" floor vent — all editable, and none of them
+     touch the build until the pin is on a wall. */
+  const sp = FIT_SPEC[b.dataset.fit] || {};
+  S.fittings.push({ k:b.dataset.fit, wall:'back', at:+(S.room.w/2).toFixed(0), placed:false,
+    w:sp.w, ...(sp.cap!=null?{cap:sp.cap}:{}), ...(sp.top!=null?{top:sp.top}:{}),
+    ...(sp.depth!=null?{depth:sp.depth}:{}) });
   S.pinSel = S.fittings.length-1; paintPlan(); paintDoors(); };
 $('#fitlist').onclick=e=>{
   const rm=e.target.closest('[data-fitrm]');
-  if(rm){ S.fittings.splice(+rm.dataset.fitrm,1); S.pinSel=null; paintPlan(); paintDoors(); return; }
+  if(rm){ S.fittings.splice(+rm.dataset.fitrm,1); S.pinSel=null; rebuild(); return; }
+  const dim=e.target.closest('[data-fdim]');
+  if(dim){
+    const L={ w:[2,2,120], cap:[2,18,84], top:[1,4,24], depth:[1,1,16] }[dim.dataset.fdim];
+    const f=S.fittings[+dim.dataset.i], k=dim.dataset.fdim;
+    f[k]=Math.min(L[2], Math.max(L[1], (+f[k]||0) + L[0]*(+dim.dataset.s)));
+    rebuild(); return;
+  }
   const row=e.target.closest('[data-pinrow]');
   if(row){ S.pinSel=+row.dataset.pinrow; paintPlan(); paintDoors(); }
 };
@@ -1345,7 +1461,10 @@ $('#fitlist').onclick=e=>{
     else { f.wall='right'; f.at=+Math.max(0,Math.min(S.room.d,(p.y-g.y0)/g.k)).toFixed(0); }
     paintPlan(); paintDoors();
   });
-  const stop=()=>{ if(live!=null){ live=null; paintDoors(); } };
+  /* Rebuild on release, not on every pointermove. The pin now changes the
+     cabinetry, and recomputing the whole design sixty times a second while
+     the finger is down is both pointless and visibly slow. */
+  const stop=()=>{ if(live!=null){ live=null; rebuild(); } };
   host.addEventListener('pointerup', stop);
   host.addEventListener('pointercancel', stop);
   /* typing into the plan is the same state as the steppers above it */

@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Every indexable page, nothing else. /admin is disallowed in robots.txt,
+     404.html and home-video.html are noindex, so none of them belong here. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://jsclosets.com/</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://jsclosets.com/walk-in-closets.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://jsclosets.com/reach-in-closets.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://jsclosets.com/pantries.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://jsclosets.com/garage-storage.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://jsclosets.com/laundry-rooms.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://jsclosets.com/linen-closets.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://jsclosets.com/finishes.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://jsclosets.com/design/</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://jsclosets.com/about.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://jsclosets.com/contact.html</loc><lastmod>2026-11-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-
-  <url><loc>https://jsclosets.com/blog/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://jsclosets.com/blog/what-a-custom-closet-costs.html</loc><lastmod>2026-01-14</lastmod><changefreq>yearly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://jsclosets.com/</loc><lastmod>2026-11-06</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://jsclosets.com/walk-in-closets.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jsclosets.com/reach-in-closets.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jsclosets.com/pantries.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jsclosets.com/garage-storage.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jsclosets.com/laundry-rooms.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jsclosets.com/linen-closets.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jsclosets.com/wall-beds.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://jsclosets.com/design/</loc><lastmod>2026-11-06</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jsclosets.com/gallery.html</loc><lastmod>2026-11-06</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://jsclosets.com/finishes.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://jsclosets.com/about.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://jsclosets.com/contact.html</loc><lastmod>2026-11-06</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://jsclosets.com/blog/</loc><lastmod>2026-11-06</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://jsclosets.com/blog/what-a-custom-closet-costs.html</loc><lastmod>2026-01-14</lastmod><changefreq>yearly</changefreq><priority>0.7</priority></url>
   <url><loc>https://jsclosets.com/blog/questions-to-ask-a-closet-company.html</loc><lastmod>2026-01-28</lastmod><changefreq>yearly</changefreq><priority>0.6</priority></url>
   <url><loc>https://jsclosets.com/blog/reach-in-vs-walk-in.html</loc><lastmod>2026-02-11</lastmod><changefreq>yearly</changefreq><priority>0.6</priority></url>
   <url><loc>https://jsclosets.com/blog/why-shelves-sag.html</loc><lastmod>2026-02-25</lastmod><changefreq>yearly</changefreq><priority>0.6</priority></url>
   <url><loc>https://jsclosets.com/blog/melamine-vs-wood-vs-wire.html</loc><lastmod>2026-03-10</lastmod><changefreq>yearly</changefreq><priority>0.6</priority></url>
   <url><loc>https://jsclosets.com/blog/measure-your-closet.html</loc><lastmod>2026-03-24</lastmod><changefreq>yearly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://jsclosets.com/gallery.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
 </urlset>

@@ -67,6 +67,8 @@ export function mountReviews(base=''){
       shown with the reviewer's name as Thumbtack publishes it.</p>`;
 }
 
+const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+
 export async function mountGallery(base=''){
   const host = document.getElementById('gallery');
   if(!host) return;
@@ -74,14 +76,14 @@ export async function mountGallery(base=''){
   try { man = await (await fetch(base + 'img/work/manifest.json')).json(); } catch(e){}
   if(!man.length){ host.innerHTML = '<p class="note">Gallery is loading.</p>'; return; }
   host.innerHTML = `<div class="ggrid">` + man.map((m,i)=>`
-    <button class="gcell ${m.portrait?'tall':''}" data-g="${i}" aria-label="Open photo ${i+1} of ${man.length}">
-      <img src="${base}img/work/${m.id}@800.jpg" alt="Closet installed by JS Installations &amp; Closets"
+    <button class="gcell ${m.portrait?'tall':''}" data-g="${i}" aria-label="Open: ${esc(m.alt||('photo '+(i+1)))}">
+      <img src="${base}img/work/${m.id}@800.jpg" alt="${esc(m.alt||'Closet installed by JS Installations & Closets')}"
            loading="${i<6?'eager':'lazy'}" decoding="async" width="800" height="${Math.round(800*m.h/m.w)}">
     </button>`).join('') + `</div>
     <div class="glight" id="glight" hidden>
       <button class="gx" aria-label="Close">&times;</button>
       <button class="gprev" aria-label="Previous">&#9664;</button>
-      <img alt="">
+      <img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
       <button class="gnext" aria-label="Next">&#9654;</button>
       <span class="gcount"></span>
     </div>`;
@@ -91,6 +93,9 @@ export async function mountGallery(base=''){
   let at = 0;
   const show = i => { at = (i + man.length) % man.length;
     img.src = base + 'img/work/' + man[at].id + '@1600.jpg';
+    /* The caption is the photo's own description, not a number. It is what a
+       screen reader announces and what an image search indexes. */
+    img.alt = man[at].alt || 'Closet installed by JS Installations & Closets';
     cnt.textContent = (at+1) + ' / ' + man.length; };
   const open = i => { show(i); lb.hidden = false; document.body.style.overflow = 'hidden'; };
   const close = () => { lb.hidden = true; document.body.style.overflow = ''; };

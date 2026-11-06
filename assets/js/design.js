@@ -21,6 +21,129 @@ export const SPEC = {
   shoeGap:8, toeKick:3.75, panel:0.75, pin:1.25, counter:36, wallHungBase:6
 };
 
+/* ══════════════════════════════════════════════════════════════════════
+   DOORS AND WALL FITTINGS AS REAL BUILD CONSTRAINTS
+
+   These used to be notes that rode along to the job sheet and changed nothing.
+   A closet does not work that way. Baseboard heat means the run cannot sit on
+   the floor. A 34" window sill means the partitions beside it stop at 34". A
+   bypass track eats two and a half inches of the depth you had to play with,
+   and a bi-fold's leaves stack over the first five inches of each end, which
+   is where a drawer front would be.
+
+   Everything below is a dimension an installer measures on site, and each one
+   feeds straight into the geometry and therefore into the price: shorter
+   partitions are fewer square feet of melamine, a shallower run is a smaller
+   top shelf, a blocked end needs a scribe filler. No invented prices — the
+   quantities change and his own rates do the rest.
+   ══════════════════════════════════════════════════════════════════════ */
+
+export const DOOR_SPEC = {
+  'none':    { track:0,   sideBlock:0, pullClear:0,
+    note:'Nothing in front of the run, so the full room depth is usable.' },
+  'swing-r': { track:0,   sideBlock:1.5, pullClear:0, hinge:'right',
+    note:'Hinged right. The jamb shadows about 1½" at that end.' },
+  'swing-l': { track:0,   sideBlock:1.5, pullClear:0, hinge:'left',
+    note:'Hinged left. The jamb shadows about 1½" at that end.' },
+  'double':  { track:0,   sideBlock:1.5, pullClear:0,
+    note:'Two leaves. A jamb at each end, about 1½" each.' },
+  'bypass':  { track:2.5, sideBlock:0,   pullClear:2.5, half:true,
+    note:'The track and the outer leaf take 2½" of depth, and only half the opening is ever open.' },
+  'bifold':  { track:1.5, sideBlock:5,   pullClear:3,
+    note:'The leaves fold back over about 5" at each end and need 3" clear in front of a drawer.' },
+  'barn':    { track:0,   sideBlock:0,   pullClear:1.5, outside:true,
+    note:'Rides on a rail outside the opening, so nothing is lost inside.' },
+  'pocket':  { track:0,   sideBlock:0,   pullClear:0,
+    note:'Slides into the wall. Nothing projects into the room.' }
+};
+
+/* Each fitting carries the dimensions an installer would write on the
+   measure sheet. `w` is how wide it is along the wall, and the rule says what
+   that does to the cabinetry. Defaults are the common real sizes; the customer
+   can change any of them. */
+export const FIT_SPEC = {
+  outlet: { w:4,  rule:'keepClear',  label:'Outlet',
+    note:'Has to stay reachable, so the section over it stays open at the back.' },
+  switch: { w:4,  rule:'keepClear',  label:'Light switch',
+    note:'Has to stay reachable, so nothing solid goes in front of it.' },
+  vent:   { w:14, rule:'floorClear', label:'HVAC vent',
+    note:'The toe kick over it gets a grille cut so the air still gets out.' },
+  heater: { w:48, top:9, rule:'baseLift', label:'Baseboard heater',
+    note:'Nothing sits on the floor over baseboard heat. The run goes wall hung, clear of the element.' },
+  column: { w:6,  rule:'stealWidth', label:'Column',
+    note:'Takes its width straight off the wall. The run stops at it.' },
+  slope:  { w:24, cap:60, rule:'capHeight', label:'Sloped ceiling',
+    note:'Caps the partitions under it at the low point of the slope.' },
+  window: { w:36, cap:34, rule:'capHeight', label:'Window',
+    note:'The run under it stops at the sill so the glass stays clear.' },
+  pipe:   { w:6,  depth:4, rule:'stealDepth', label:'Pipe / bulkhead',
+    note:'Pushes the run forward by its own depth where it passes.' }
+};
+
+/* clearance between a baseboard heater element and anything above it */
+const HEATER_CLEAR = 2;
+
+const fitSpec = f => ({ ...FIT_SPEC[f.k], ...f });
+const fitsOn  = (fittings, wall, rule) =>
+  (fittings||[]).filter(f => FIT_SPEC[f.k] && f.wall === wall && fitSpec(f).rule === rule);
+
+/* inches this wall loses to columns and the like, before any bay is laid out */
+export function wallLoss(fittings, wall){
+  return fitsOn(fittings, wall, 'stealWidth').reduce((a,f) => a + (fitSpec(f).w || 0), 0);
+}
+
+/* the deepest a run on this wall can be, given the door and any bulkhead */
+export function depthLimit(room, wall, door, fittings){
+  const D = DOOR_SPEC[door] || DOOR_SPEC.none;
+  const span = wall === 'back' ? room.d : room.w;
+  const pipe = fitsOn(fittings, wall, 'stealDepth')
+    .reduce((a,f) => Math.max(a, fitSpec(f).depth || 0), 0);
+  /* The door hardware and the clearance a drawer front needs to pass it both
+     come off the depth available on the wall facing the door. */
+  const doorCost = wall === 'back' ? (D.track || 0) + (D.pullClear || 0) : 0;
+  return Math.max(SPEC.shelfDepth, span - doorCost - pipe);
+}
+
+/* where the bottom of the run has to start, in inches off the floor */
+export function baseHeight(mounting, fittings){
+  const heat = (fittings||[]).filter(f => f.k === 'heater')
+    .reduce((a,f) => Math.max(a, (fitSpec(f).top || 0) + HEATER_CLEAR), 0);
+  const base = mounting === 'wall' ? SPEC.wallHungBase : SPEC.toeKick;
+  return heat ? Math.max(base, heat) : base;
+}
+
+/* the ceiling this bay has, given anything that caps it. `a`..`b` is the bay's
+   span in inches along its own wall, measured from the wall's left end. */
+export function bayCeiling(fittings, wall, a, b, bayTop){
+  let top = bayTop;
+  for(const f of fitsOn(fittings, wall, 'capHeight')){
+    const sp = fitSpec(f), x0 = sp.at || 0, x1 = x0 + (sp.w || 0);
+    const over = Math.min(b, x1) - Math.max(a, x0);
+    if(over <= 0) continue;                                    // no overlap, no cap
+    /* A window clipping the last two inches of a section is not a reason to
+       cut that whole section down to the sill: you scribe the shelf to the
+       casing and carry on. It only governs the section once it is genuinely
+       in the way, which is a quarter of the section's width or six inches,
+       whichever is less. Anything smaller is reported by buildDesign instead
+       of silently costing the customer two feet of hanging space. */
+    if(over < Math.min(6, (b - a) * 0.25)) continue;
+    top = Math.min(top, sp.cap || bayTop);
+  }
+  return Math.max(SPEC.panel * 2 + 12, top);
+}
+
+/* the capHeight fittings this bay only clips, which get scribed rather than
+   governing the whole section */
+export function bayClips(fittings, wall, a, b){
+  const out = [];
+  for(const f of fitsOn(fittings, wall, 'capHeight')){
+    const sp = fitSpec(f), x0 = sp.at || 0, x1 = x0 + (sp.w || 0);
+    const over = Math.min(b, x1) - Math.max(a, x0);
+    if(over > 0 && over < Math.min(6, (b - a) * 0.25)) out.push({ sp, over });
+  }
+  return out;
+}
+
 /* ---------- decorative pulls ----------
    ⚠ PLACEHOLDER PRICES. His ClosetPro catalogue prices construction
    hardware only (cams, dowels, Euro screws) — it has no decorative
@@ -434,7 +557,15 @@ function resolveHeights(stack, total){
 
 export function buildDesign(cfg, cat){
   const parts = [], G = [], warnings = [];
-  const floorY = cfg.mounting==='wall' ? SPEC.wallHungBase : SPEC.toeKick;
+  const fittings = cfg.fittings || [];
+  const door = DOOR_SPEC[cfg.door] ? cfg.door : 'none';
+  const DS = DOOR_SPEC[door];
+  /* Baseboard heat lifts the whole run off the floor. That is not a note, it
+     is the base line every partition is cut from. */
+  const floorY = baseHeight(cfg.mounting, fittings);
+  const liftedByHeat = floorY > (cfg.mounting==='wall' ? SPEC.wallHungBase : SPEC.toeKick);
+  if(liftedByHeat) warnings.push(
+    `Baseboard heat on this wall, so the run hangs clear of it: the bottom of the cabinetry starts ${floorY.toFixed(0)}" off the floor and the toe kick is dropped.`);
   const bayTop = Math.min(SPEC.topShelf, cfg.room.h - 6);
   const usableH = bayTop - floorY;
   const pull = PULLS.find(p=>p.id===cfg.pull) || PULLS[1];
@@ -442,17 +573,41 @@ export function buildDesign(cfg, cat){
 
   const bayIndex = [];     // flat list so the UI can address every bay
 
+  const runLen = w => (w === 'back' ? cfg.room.w : cfg.room.d);
+
   for(const run of cfg.runs){
     if(!run.bays.length) continue;
-    const depth = run.depth;
+    /* The door's hardware and any bulkhead cap how deep this run can be, so a
+       bypass track genuinely makes the run 2½" shallower and the melamine
+       bill genuinely smaller. */
+    const cap = depthLimit(cfg.room, run.wall, door, fittings);
+    const depth = Math.min(run.depth, cap);
+    if(run.depth > cap + 0.01) warnings.push(
+      `${run.wall[0].toUpperCase()+run.wall.slice(1)} wall: ${DOOR_SPEC[door].note} The run is built ${depth.toFixed(0)}" deep instead of ${run.depth.toFixed(0)}".`);
+    run.builtDepth = depth;
     const code = cfg.mounting==='wall' ? 'VP_WALL' : 'VP_FLOOR';
-    const panelH = bayTop - floorY + SPEC.panel;
     let x = 0;
     const local = [];
+    /* The leaves of a bi-fold stack over the first and last few inches of the
+       opening. A drawer or a door front behind that cannot be opened. */
+    const block = DS.sideBlock || 0;
+    const wallEnd = runLen(run.wall);
+    let lastTop = bayTop;                 // the closing panel matches its neighbour
 
     run.bays.forEach((bay,bi)=>{
       if(bay.w < SPEC.bayMin) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}", under the ${SPEC.bayMin}" minimum.`);
       if(bay.w > SPEC.bayMax) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}". Past ${SPEC.bayMax}" a ¾" shelf sags.`);
+
+      /* Where this bay sits along the wall, and therefore which window, slope,
+         outlet or door leaf it has to live with. */
+      const a = (run.start || 0) + x, b = a + bay.w;
+      const myTop = bayCeiling(fittings, run.wall, a, b, bayTop);
+      const panelH = myTop - floorY + SPEC.panel;
+      const bayH = myTop - floorY;
+      if(myTop < bayTop - 0.01) warnings.push(
+        `Section ${bi+1} on the ${run.wall} wall stops at ${myTop.toFixed(0)}" instead of ${bayTop.toFixed(0)}" to clear what is on the wall there.`);
+      for(const { sp, over } of bayClips(fittings, run.wall, a, b)) warnings.push(
+        `Section ${bi+1} on the ${run.wall} wall clips the ${(sp.label||'').toLowerCase()} by ${over.toFixed(0)}". That is scribed to the casing on site rather than dropping the whole section, so it is built full height.`);
 
       // left panel of this bay
       parts.push(P(code,1,(panelH*depth)/144,(panelH+depth)/12,`Partition ${bi+1} — ${run.wall}`));
@@ -461,12 +616,34 @@ export function buildDesign(cfg, cat){
       const inner = bay.w - SPEC.panel;
       const cx = x + bay.w/2;
 
-      // top shelf over every bay
-      parts.push(P('TOP',1,(inner*depth)/144,(inner+depth*2)/12,'Top shelf at 84"'));
-      local.push({k:'shelf', p:[cx, bayTop, 0], s:[inner, SPEC.panel, depth], m:'carcass'});
+      // top shelf over this bay, at this bay's own ceiling
+      parts.push(P('TOP',1,(inner*depth)/144,(inner+depth*2)/12,`Top shelf at ${myTop.toFixed(0)}"`));
+      local.push({k:'shelf', p:[cx, myTop, 0], s:[inner, SPEC.panel, depth], m:'carcass'});
+
+      /* access checks, all tied to this bay by number so the installer and the
+         customer are reading the same sheet */
+      const opens = bay.stack.some(st => OPENS.has(st.m));
+      if(opens && block && (a < block || b > wallEnd - block)) warnings.push(
+        `Section ${bi+1} on the ${run.wall} wall has fronts in it but sits within ${block}" of the end of the opening, where the ${cfg.door === 'bifold' ? 'bi-fold leaves fold back' : 'door jamb sits'}. Those fronts will not open fully.`);
+      if(opens && DS.half && bi !== 0 && bi !== run.bays.length - 1) warnings.push(
+        `Sliding bypass doors only ever open half the closet. Section ${bi+1} has fronts in it, so one of the two leaves has to be slid across before it can be used.`);
+      for(const f of fitsOn(fittings, run.wall, 'keepClear')){
+        const sp = fitSpec(f), x0 = sp.at || 0, x1 = x0 + sp.w;
+        if(b <= x0 || a >= x1) continue;
+        warnings.push(bay.stack.some(st => BLOCKS_WALL.has(st.m))
+          ? `There is ${(sp.label||f.k).toLowerCase()} at ${x0.toFixed(0)}" on the ${run.wall} wall, inside section ${bi+1}. ${sp.note} A drawer bank or hamper in that section covers it, so either move it a section along or we relocate the ${(sp.label||f.k).toLowerCase()}.`
+          : `There is ${(sp.label||f.k).toLowerCase()} at ${x0.toFixed(0)}" on the ${run.wall} wall, inside section ${bi+1}. The back stays open there, so it keeps working.`);
+      }
+      for(const f of fitsOn(fittings, run.wall, 'floorClear')){
+        const sp = fitSpec(f), x0 = sp.at || 0, x1 = x0 + sp.w;
+        if(b <= x0 || a >= x1) continue;
+        if(cfg.mounting === 'wall') continue;             // nothing on the floor to block it
+        parts.push(P('TK', 1, (sp.w * SPEC.toeKick)/144, sp.w/12, `Toe kick vent cut-out — ${run.wall}`));
+        warnings.push(`A floor vent runs under section ${bi+1} on the ${run.wall} wall, so that length of toe kick is cut for a grille.`);
+      }
 
       // the stack
-      const mods = resolveHeights(bay.stack, usableH);
+      const mods = resolveHeights(bay.stack, bayH);
       let y = floorY;
       for(const s of mods){
         const sub = [];
@@ -483,17 +660,28 @@ export function buildDesign(cfg, cat){
         for(const g of sub) local.push({...g, p:[cx + g.p[0], y + g.p[1], g.p[2]]});
         y += s.H;
       }
-      bayIndex.push({ wall:run.wall, bay:bi, x:cx, w:bay.w, h:usableH, depth, stack:bay.stack });
+      bayIndex.push({ wall:run.wall, bay:bi, x:cx, w:bay.w, h:bayH, top:myTop, depth, stack:bay.stack });
+      lastTop = myTop;
       x += bay.w;
     });
 
-    // closing panel, cleat, toe kick
-    parts.push(P(code,1,(panelH*depth)/144,(panelH+depth)/12,`End panel — ${run.wall}`));
-    local.push({k:'panel', p:[x, floorY+panelH/2, 0], s:[SPEC.panel,panelH,depth], m:'carcass'});
+    // closing panel at the height of the bay it closes, cleat, toe kick
+    const endH = lastTop - floorY + SPEC.panel;
+    parts.push(P(code,1,(endH*depth)/144,(endH+depth)/12,`End panel — ${run.wall}`));
+    local.push({k:'panel', p:[x, floorY+endH/2, 0], s:[SPEC.panel,endH,depth], m:'carcass'});
     parts.push(P('CLEAT',1,(x*4)/144,x/12,`Hang cleat — ${run.wall}`));
-    if(cfg.mounting!=='wall'){
+    /* Baseboard heat takes the toe kick away: there is nothing on the floor to
+       close in, and a kick over the element is a fire detail nobody wants. */
+    if(cfg.mounting!=='wall' && !liftedByHeat){
       parts.push(P('TK',1,(x*SPEC.toeKick)/144,x/12,`Toe kick — ${run.wall}`));
       local.push({k:'toe', p:[x/2, SPEC.toeKick/2, -1.5], s:[x, SPEC.toeKick, depth-3], m:'carcass'});
+    }
+    /* A door leaf that folds back over the end of the opening needs a scribe
+       filler so the cabinetry stops clear of it. Real panel, real square feet,
+       real edge band. */
+    if(block > 0.01 && run.wall === 'back'){
+      const fh = lastTop - floorY + SPEC.panel;
+      parts.push(P(code,2,(block*fh)/144,(block+fh)/12,`Scribe filler at the door jamb — ${run.wall}`));
     }
     run.width = x;
     for(const g of local) G.push(place(g, run, cfg.room));
@@ -509,7 +697,7 @@ export function buildDesign(cfg, cat){
 }
 
 function place(g, run, room){
-  const [lx,y,lz]=g.p, [sx,sy,sz]=g.s, off=run.start||0, dep=run.depth;
+  const [lx,y,lz]=g.p, [sx,sy,sz]=g.s, off=run.start||0, dep=run.builtDepth ?? run.depth;
   switch(run.wall){
     case 'left':   return {...g, p:[ dep/2 + lz, y, off + lx ], s:[sz,sy,sx]};
     case 'right':  return {...g, p:[ room.w - dep/2 - lz, y, off + lx ], s:[sz,sy,sx]};
@@ -562,6 +750,11 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
    it: one base-system line carrying the carcass and the hanging, then the
    extras itemised, then the total. Nothing is re-priced here. The pennies are
    rounded into the base line so the column always adds up to the total. */
+/* modules with a front that has to swing or slide out, and modules that put
+   something solid against the wall where an outlet would be */
+const OPENS       = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER']);
+const BLOCKS_WALL = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER','BASKETS']);
+
 const BASE_GRP = new Set(['LONG_HANG','DOUBLE_HANG','OPEN']);
 const OPT_NAME = {
   SHELVES:'Adjustable shelves', DRAWERS:'Drawer bank', BASKETS:'Pull-out baskets',

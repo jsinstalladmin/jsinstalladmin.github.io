@@ -580,3 +580,48 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
 .gnext{right:max(12px,2vw);top:50%;translate:0 -50%}
 .gcount{position:absolute;bottom:max(16px,3vw);left:50%;translate:-50% 0;
   font-size:.74rem;color:rgba(248,245,240,.6);font-variant-numeric:tabular-nums}
+
+/* ── "read these next": contextual internal links ──
+   Every page already links to every other page from the nav and the footer,
+   which carries almost no weight. These are chosen per page, with anchor text
+   that says what is on the other end, which is the part that counts for
+   search and the part a reader actually uses. */
+.relsec{border-top:1px solid var(--line)}
+.relhd{font-size:clamp(1.35rem,2.4vw,1.9rem);max-width:22ch;margin:0 0 1.2em}
+.relgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.relcard{display:flex;flex-direction:column;gap:.4em;text-decoration:none;
+  border:1px solid var(--line);border-radius:var(--r-md,14px);padding:1.05em 1.15em;
+  background:var(--paper);transition:border-color .25s,transform .25s,box-shadow .25s}
+.relcard:hover{border-color:var(--accent,#A8824C);transform:translateY(-2px);
+  box-shadow:0 10px 26px rgba(23,18,14,.07)}
+.relcard b{font-size:1rem;font-weight:500;color:var(--ink);line-height:1.3}
+.relcard span{font-size:.86rem;line-height:1.5;color:var(--muted)}
+
+/* ── the homepage FAQ ──
+   Real questions, answered on the page, marked up as FAQPage so the answers
+   can be quoted directly in a search result or an AI answer. */
+/* Heading on the left, answers on the right, the same two-column rhythm the
+   service-area block uses. A single left-aligned column left half the page
+   empty on a desktop. */
+.faqgrid{display:grid;gap:clamp(28px,4vw,70px);align-items:start;
+  grid-template-columns:minmax(0,0.78fr) minmax(0,1fr)}
+@media (max-width:900px){ .faqgrid{grid-template-columns:1fr} }
+.faqside{position:sticky;top:110px}
+@media (max-width:900px){ .faqside{position:static} }
+.faqsec .faqhd{max-width:16ch;margin:.25em 0 .7em}
+.faqside .dim{max-width:34ch;font-size:.95rem;margin:0}
+.faqside .dim a{color:var(--ink)}
+.faqlist{display:grid;gap:10px;min-width:0}
+.faqitem{border:1px solid var(--line);border-radius:var(--r-md,14px);background:var(--paper);
+  overflow:hidden}
+.faqitem > summary{cursor:pointer;list-style:none;padding:1.05em 1.2em;
+  font-size:1.02rem;color:var(--ink);display:flex;justify-content:space-between;
+  align-items:flex-start;gap:1em;transition:background .2s}
+.faqitem > summary::-webkit-details-marker{display:none}
+.faqitem > summary::after{content:'+';font-family:Archivo,system-ui,sans-serif;
+  font-size:1.3rem;line-height:1;color:var(--muted);flex:0 0 auto;transition:transform .25s}
+.faqitem[open] > summary::after{transform:rotate(45deg)}
+.faqitem > summary:hover{background:var(--paper-2,rgba(23,18,14,.02))}
+.faqitem .faqa{padding:0 1.2em 1.15em;margin:0;font-size:.95rem;line-height:1.65;
+  color:var(--muted);max-width:62ch}
+.faqitem .faqa a{color:var(--ink)}

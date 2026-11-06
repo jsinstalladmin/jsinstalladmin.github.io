@@ -8,7 +8,11 @@
 @media(max-width:1060px){.bstage{min-height:54svh}}
 .bstage canvas{width:100%;height:100%;display:block;cursor:grab}
 .bstage canvas:active{cursor:grabbing}
-.stage-top{position:absolute;top:16px;left:18px;right:18px;display:flex;pointer-events:none}
+.stage-top{position:absolute;top:16px;left:18px;right:18px;display:flex;flex-direction:column;
+  gap:.3em;align-items:flex-start;pointer-events:none}
+/* the page's h1, sized to sit on the canvas rather than shout over it */
+.stage-h1{margin:0;font-size:1.02rem;font-weight:400;line-height:1.2;color:var(--ink);
+  letter-spacing:-.01em}
 .stage-ttl{font-size:.74rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);
   background:rgba(248,245,240,.72);backdrop-filter:blur(10px);padding:.5em .9em;border-radius:var(--r-pill)}
 .bhint{position:absolute;right:18px;bottom:18px;font-size:.71rem;color:var(--muted);
@@ -698,3 +702,41 @@ body[data-step="6"] .pacts{margin-top:0}
 .ppin.draft rect{stroke-dasharray:3 2;fill:var(--paper-2)}
 .fitrow.unplaced{border-style:dashed}
 .fitrow.unplaced span{color:var(--accent,#A8824C)}
+
+/* ── a fitting's real dimensions, editable in place ──
+   The row grew two more cells: what this fitting does to the build, and a
+   stepper per dimension that changes it. Both span the full row so the
+   icon/name/position line above them keeps its shape. */
+.fitrow{grid-template-columns:20px 1fr auto 26px}
+.fitrow .fwhat{grid-column:1 / -1;font-size:.66rem;line-height:1.45;color:var(--muted);
+  font-style:normal;margin-top:.1em}
+.fitrow .fdims{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:.4em;margin-top:.15em}
+.fdim{display:inline-flex;align-items:center;gap:.1em;border:1px solid var(--line);
+  border-radius:7px;padding:1px;background:var(--card,#fff)}
+.fdim i{font-family:Archivo,system-ui,sans-serif;font-size:.64rem;font-style:normal;
+  color:var(--ink);font-variant-numeric:tabular-nums;padding:0 .35em;white-space:nowrap}
+.fitrow .fdim button{width:20px;height:20px;font-size:.78rem;color:var(--ink)}
+.fitrow .fdim button:hover{background:var(--ink);color:#fff}
+
+/* ── the parts picker, docked under the section being edited ──
+   #stack is moved into .stackslot inside the active wall's run block, so the
+   cards for "section 3 of the back wall" sit under section 3. The slot
+   collapses to nothing on the walls that are not selected. */
+.stackslot:empty{display:none}
+.stackslot{margin:.85em 0 .2em}
+.runblk .stackslot > #stack{
+  border:1px solid var(--line); border-radius:14px;
+  padding:1em 1em 1.1em; background:var(--card, #fff);
+  box-shadow:0 1px 0 rgba(17,17,17,.03);
+}
+.runblk .stackslot > #stack::before{
+  content:''; display:block; width:2px; height:14px; margin:-1.6em 0 .8em 22px;
+  background:linear-gradient(to bottom, transparent, var(--line));
+}
+#stackHome > #stack:empty{display:none}
+
+/* a fitting's real span along the wall, drawn to the plan's scale */
+.ppin rect.pspan{fill:var(--accent,#A8824C);fill-opacity:.2;stroke:var(--accent,#A8824C);
+  stroke-width:1.2;stroke-dasharray:none}
+.ppin.on rect.pspan{fill:var(--accent,#A8824C);fill-opacity:.42;stroke-width:1.6}
+.ppin.draft rect.pspan{fill-opacity:.1;stroke-dasharray:3 2}

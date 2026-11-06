@@ -52,7 +52,13 @@
 
   <div class="bstage">
     <canvas id="c3d"></canvas>
-    <div class="stage-top"><span class="stage-ttl">Click any bay on the drawing to edit what goes in it</span></div>
+    <!-- The page had no h1 at all. This is the one, and it is the real subject
+         of the page rather than a hidden keyword line: the instruction that
+         used to live here reads under it. -->
+    <div class="stage-top">
+      <h1 class="stage-h1">Design your own closet in 3D</h1>
+      <span class="stage-ttl">Click any bay on the drawing to edit what goes in it</span>
+    </div>
     <div class="scene" id="scene">
       <button data-a="spin" aria-pressed="false" title="Turntable"><svg viewBox="0 0 20 20"><path d="M10 3a7 7 0 1 1-6.3 4M3 3v4h4"/></svg><span>360°</span></button>
       <button data-a="evening" aria-pressed="false" title="Evening light"><svg viewBox="0 0 20 20"><path d="M16 11.5A6.5 6.5 0 0 1 8.5 4a6.5 6.5 0 1 0 7.5 7.5Z"/></svg><span>Evening</span></button>
@@ -97,7 +103,7 @@
         <div class="accb">
           <div id="bays"></div>
           <p class="note" id="bayNote"></p>
-          <div id="stack"></div>
+          <div id="stackHome"><div id="stack"></div></div>
         </div>
       </section>
 <section class="tabpanel" id="tp3" role="tabpanel" aria-labelledby="tb3" hidden>
