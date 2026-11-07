@@ -618,12 +618,7 @@ document.addEventListener('click', e => {
   if(ee){ e.stopPropagation(); return openEmployee(ee.dataset.empEdit); }
 
   const lop = e.target.closest('[data-leadopen]');
-  if(lop){ e.stopPropagation();
-    const l = DB.lead(lop.dataset.leadopen);
-    if(l){ INBOX_DRAFT = { ...l, regionId:l.region_id }; view='inbox'; render();
-           const out=$('#inbox-out'); if(out){ out.innerHTML = inboxPreview(INBOX_DRAFT);
-             out.scrollIntoView({behavior:'smooth',block:'nearest'}); } }
-    return; }
+  if(lop){ e.stopPropagation(); return openLead(lop.dataset.leadopen); }
 
   const lo = e.target.closest('[data-lead-open]');
   if(lo){ e.stopPropagation(); return lo.dataset.leadOpen ? openClient(lo.dataset.leadOpen) : null; }
@@ -654,7 +649,7 @@ function doAct(a){
       .catch(err=>toast('Could not reach the database: '+err.message, true));
     return;
   }
-  if(a==='inbox-file')  return inboxFile();
+  if(a==='inbox-file'){ const r = inboxFile(); if(dlg.open) dlg.close(); return r; }
   if(a==='newclient')   return openClient(null);
   if(a==='newjob')      return openJob(null);
   if(a==='newemp')      return openEmployee(null);
@@ -729,6 +724,26 @@ function openMaps(addr){
 const dlg = $('#dlg');
 const close = () => dlg.close();
 const wireCancel = () => dlg.querySelector('[value=cancel]')?.addEventListener('click', close);
+
+/* A lead used to open UNDERNEATH the table it was listed in: the page
+   re-rendered, the preview was written into a div below the rows, and it
+   scrolled you down to it. You lost your place in the list, the row you came
+   from was off screen, and nothing told you the thing you were now reading
+   belonged to it. Every other record here already opens as a modal, so a
+   lead does too, with the whole enquiry in it and the filing action at the
+   bottom where it is on every other record. */
+function openLead(id){
+  const l = DB.lead(id); if(!l) return;
+  INBOX_DRAFT = { ...l, regionId:l.region_id };
+  const c = INBOX_DRAFT.contact || {};
+  dlg.innerHTML = `<h2>${esc(c.name || 'Website enquiry')}</h2>
+    <p class="sub dlgsub">${esc(INBOX_DRAFT.source || 'Website')} · came in ${esc(when(INBOX_DRAFT))}</p>
+    ${inboxPreview(INBOX_DRAFT)}
+    <form method="dialog" class="btnrow" style="margin-top:.9em">
+      <button class="btn" value="cancel">Close</button>
+    </form>`;
+  dlg.showModal(); wireCancel();
+}
 
 function openClient(id){
   const c = id ? DB.client(id) : null;

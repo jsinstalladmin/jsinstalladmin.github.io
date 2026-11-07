@@ -66,17 +66,39 @@ export function mountReviews(base=''){
         <div><b>Top&nbsp;Pro</b><span>2024 and 2025</span></div>
       </div>
     </div>
-    <div class="rgrid">
-      ${REVIEWS.map(card).join('')}
-      <a class="rcard rall" href="${TT_URL}" target="_blank" rel="noopener">
-        <span class="rallq">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H9l-5 4z"/></svg>
-        </span>
-        <b>Read all ${TT_STATS.reviews} on Thumbtack</b>
-        <span>Every one of these is on his profile, under the reviewer's own
-          name. Nothing on this page was written by us.</span>
-      </a>
+    <div class="rrail">
+      <button class="rnav prev" type="button" data-rscroll="-1" aria-label="Previous reviews">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="rrow" tabindex="0">
+        ${REVIEWS.map(card).join('')}
+        <a class="rcard rall" href="${TT_URL}" target="_blank" rel="noopener">
+          <span class="rallq">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H9l-5 4z"/></svg>
+          </span>
+          <b>Read all ${TT_STATS.reviews} on Thumbtack</b>
+          <span>Every one of these is on his profile, under the reviewer's own name.</span>
+        </a>
+      </div>
+      <button class="rnav next" type="button" data-rscroll="1" aria-label="More reviews">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </div>`;
+
+  /* One row that slides, which is what was asked for. The arrows move it by a
+     card and a half so a part-card always shows at the edge, which is what
+     tells you there is more without needing a scrollbar. */
+  const row = host.querySelector('.rrow');
+  const ends = () => {
+    host.querySelector('.rnav.prev').disabled = row.scrollLeft < 8;
+    host.querySelector('.rnav.next').disabled =
+      row.scrollLeft > row.scrollWidth - row.clientWidth - 8;
+  };
+  host.addEventListener('click', e => {
+    const b = e.target.closest('[data-rscroll]'); if(!b) return;
+    const step = (row.querySelector('.rcard')?.offsetWidth || 300) * 1.5;
+    row.scrollBy({ left: step * +b.dataset.rscroll, behavior:'smooth' });
+  });
+  row.addEventListener('scroll', ends, { passive:true });
+  ends();
 }
 
 const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
@@ -92,13 +114,26 @@ export async function mountGallery(base=''){
      now a fixed window onto the work: three rows, then a button that says how
      many more there are. Adding a hundred photos changes what is behind the
      button, not the length of the page. */
-  host.innerHTML = `<div class="gwrap" data-open="0"><div class="ggrid">` + man.map((m,i)=>`
+  /* The box is a FIXED SIZE and the photographs page in and out of it.
+
+     "Show all" used to lift the lid off the box: max-height went to none, the
+     page grew by however many photographs were in the folder, and everything
+     under the gallery was pushed a screen and a half further away. Adding work
+     to the folder made the page worse, which is backwards.
+
+     Now the box never changes height. Pressing the button loads the next
+     batch INSIDE it and the box scrolls, so the gallery can hold a hundred
+     photographs and the page is exactly as long as it is with twelve. */
+  const PAGE = 12;
+  let shown = 0;
+  const cell = (m,i) => `
     <button class="gcell ${m.portrait?'tall':''}" data-g="${i}" aria-label="Open: ${esc(m.alt||('photo '+(i+1)))}">
       <img src="${base}img/work/${m.id}@800.jpg" alt="${esc(m.alt||'Closet installed by JS Installations & Closets')}"
            loading="${i<6?'eager':'lazy'}" decoding="async" width="800" height="${Math.round(800*m.h/m.w)}">
-    </button>`).join('') + `</div><div class="gfade"></div></div>
-    <div class="gmore"><button type="button" class="btn btn-ghost" data-gmore>
-      Show all ${man.length} photographs</button></div>
+    </button>`;
+  host.innerHTML = `<div class="gwrap"><div class="ggrid"></div><div class="gfade"></div></div>
+    <div class="gmore"><button type="button" class="btn btn-ghost" data-gmore></button>
+      <span class="gcount2"></span></div>
     <div class="glight" id="glight" hidden>
       <button class="gx" aria-label="Close">&times;</button>
       <button class="gprev" aria-label="Previous">&#9664;</button>
@@ -106,6 +141,22 @@ export async function mountGallery(base=''){
       <button class="gnext" aria-label="Next">&#9654;</button>
       <span class="gcount"></span>
     </div>`;
+
+  const grid = host.querySelector('.ggrid'),
+        wrap = host.querySelector('.gwrap'),
+        more = host.querySelector('[data-gmore]'),
+        tally = host.querySelector('.gcount2');
+  function page(){
+    const next = man.slice(shown, shown + PAGE);
+    grid.insertAdjacentHTML('beforeend', next.map((m,k) => cell(m, shown + k)).join(''));
+    shown += next.length;
+    const left = man.length - shown;
+    more.textContent = left ? `Show ${Math.min(PAGE,left)} more` : '';
+    more.hidden = !left;
+    tally.textContent = `${shown} of ${man.length}`;
+    wrap.classList.toggle('gdone', !left);
+  }
+  page();
 
   const lb = host.querySelector('#glight'), img = lb.querySelector('img'),
         cnt = lb.querySelector('.gcount');
@@ -119,15 +170,7 @@ export async function mountGallery(base=''){
   const open = i => { show(i); lb.hidden = false; document.body.style.overflow = 'hidden'; };
   const close = () => { lb.hidden = true; document.body.style.overflow = ''; };
   host.addEventListener('click', e => {
-    const more = e.target.closest('[data-gmore]');
-    if(more){
-      const wrap = host.querySelector('.gwrap');
-      const open = wrap.dataset.open === '1';
-      wrap.dataset.open = open ? '0' : '1';
-      more.textContent = open ? `Show all ${man.length} photographs` : 'Show fewer';
-      if(open) wrap.scrollIntoView({ block:'start', behavior:'smooth' });
-      return;
-    }
+    if(e.target.closest('[data-gmore]')){ page(); return; }
     const c = e.target.closest('[data-g]'); if(c) return open(+c.dataset.g);
     if(e.target.closest('.gx') || e.target === lb) return close();
     if(e.target.closest('.gprev')) return show(at-1);

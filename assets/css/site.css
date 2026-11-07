@@ -654,21 +654,46 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
   color:var(--muted);display:block;margin-top:.3em;max-width:16ch;line-height:1.4}
 @media(max-width:860px){ .rhead{grid-template-columns:1fr} }
 
-/* six cells: five reviews and the door to the profile. Three across gives
-   two full rows rather than four and two gaps. */
-.rgrid{width:var(--shell);margin:0 auto;display:grid;gap:14px;
-  grid-template-columns:repeat(3,minmax(0,1fr))}
-@media(max-width:980px){ .rgrid{grid-template-columns:repeat(2,minmax(0,1fr))} }
-@media(max-width:620px){ .rgrid{grid-template-columns:1fr} }
+/* ONE ROW THAT SLIDES.
+
+   This was a two-row grid for a while, which was further than the ask: the
+   request was to make the sliding row nicer and smaller, not to replace it.
+   So it slides again, in one row, with the cards about a third narrower than
+   the grid version, and it keeps the paper card style the rest of the page
+   uses. Nothing auto-scrolls, because a card that moves on its own cannot be
+   read, and the whole point of this section is that it IS read. */
+.rrail{width:var(--shell);margin:0 auto;position:relative;
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;gap:10px}
+.rrow{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
+  scroll-padding-left:2px;padding:4px 2px 10px;
+  scrollbar-width:none;-ms-overflow-style:none}
+.rrow::-webkit-scrollbar{display:none}
+.rrow:focus-visible{outline:2px solid var(--accent,#A8824C);outline-offset:3px;
+  border-radius:var(--r-md)}
+.rrow > .rcard{flex:0 0 clamp(248px,24vw,300px);scroll-snap-align:start}
+.rnav{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
+  background:var(--paper);display:grid;place-items:center;cursor:pointer;
+  transition:.2s var(--ease);padding:0}
+.rnav svg{width:17px;height:17px;fill:none;stroke:var(--ink);stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.rnav:hover:not(:disabled){background:var(--ink);border-color:var(--ink)}
+.rnav:hover:not(:disabled) svg{stroke:var(--paper)}
+.rnav:disabled{opacity:.3;cursor:default}
+@media(max-width:700px){
+  .rrail{grid-template-columns:minmax(0,1fr)}
+  .rnav{display:none}
+  .rrow > .rcard{flex:0 0 min(80vw,300px)}
+}
 .rcard{background:var(--paper);border:1px solid var(--line);
-  border-radius:var(--r-md);padding:1.35em 1.45em;display:flex;
+  border-radius:var(--r-md);padding:1.1em 1.15em;display:flex;
   flex-direction:column;gap:.85em;text-decoration:none;
   transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),
     border-color .4s var(--ease-out)}
 .rcard:hover{transform:translateY(-3px);border-color:var(--accent,#A8824C);
   box-shadow:0 16px 40px rgba(23,18,14,.07)}
 .rcard .rstars{display:flex;gap:2px;font-size:.84rem;line-height:1}
-.rcard blockquote{margin:0;font-size:.92rem;line-height:1.65;color:var(--ink);
+.rcard blockquote{margin:0;font-size:.85rem;line-height:1.6;color:var(--ink);
   quotes:none}
 .rcard footer{margin-top:auto;padding-top:.75em;border-top:1px solid var(--line)}
 .rcard footer b{display:block;font-size:.88rem;font-weight:500;color:var(--ink)}
@@ -685,7 +710,7 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
   background:rgba(248,245,240,.08)}
 .rallq svg{width:20px;height:20px;fill:none;stroke:#D7B37A;stroke-width:1.5;
   stroke-linejoin:round}
-.rall b{font-size:1rem;font-weight:500;color:var(--paper);line-height:1.3}
+.rall b{font-size:.95rem;font-weight:500;color:var(--paper);line-height:1.3}
 .rall span{font-size:.8rem;line-height:1.6;color:rgba(248,245,240,.62)}
 @media(prefers-reduced-motion:reduce){ .rcard:hover{transform:none} }
 
@@ -1099,16 +1124,24 @@ body.over-dark .hdr:not(.solid) .nvt[aria-expanded="true"]{
 body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
 
 /* ════════ Work gallery: a window, not a growing column ════════ */
-.gwrap{position:relative;overflow:hidden;max-height:664px;
-  transition:max-height .5s var(--ease-out)}
-.gwrap[data-open="1"]{max-height:none}
-.gfade{position:absolute;inset:auto 0 0;height:160px;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(248,245,240,0),var(--paper));
+/* The gallery is a BOX, and it stays the same size whatever is in it. The
+   photographs scroll inside it and page in from the button underneath, so the
+   folder can grow without the page growing with it. */
+.gwrap{position:relative;height:664px;overflow-y:auto;overscroll-behavior:contain;
+  border:1px solid var(--line);border-radius:var(--r-md);background:var(--paper-3);
+  padding:clamp(8px,1vw,14px);scrollbar-width:thin}
+.gwrap::-webkit-scrollbar{width:10px}
+.gwrap::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px;
+  border:3px solid var(--paper-3)}
+.gfade{position:sticky;inset:auto 0 -14px;height:96px;margin-top:-96px;
+  pointer-events:none;
+  background:linear-gradient(to bottom,rgba(248,245,240,0),var(--paper-3));
   transition:opacity .35s var(--ease)}
-.gwrap[data-open="1"] .gfade{opacity:0}
-.gmore{display:flex;justify-content:center;margin-top:clamp(18px,2.2vw,28px)}
-@media(max-width:700px){.gwrap{max-height:520px}}
-@media(prefers-reduced-motion:reduce){.gwrap{transition:none}}
+.gwrap.gdone .gfade{opacity:0}
+.gmore{display:flex;flex-direction:column;align-items:center;gap:.5em;
+  margin-top:clamp(18px,2.2vw,28px)}
+.gcount2{font-size:.76rem;color:var(--muted);letter-spacing:.04em}
+@media(max-width:700px){.gwrap{height:520px}}
 
 /* ════════ The states, as boxes ════════
    Five rows with a lot of air between them read as a list of links. Five

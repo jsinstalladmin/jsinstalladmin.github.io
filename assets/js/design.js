@@ -987,53 +987,78 @@ export const ROOM_PLANS = {
     runs:{ back:[ {w:36,s:[m('SHELVES',null,{n:4})]}, {w:36,s:[m('SHELVES',null,{n:4})]},
                   {w:36,s:[m('SHELVES',null,{n:4})]}, {w:36,s:[m('SHELVES',null,{n:4})]} ] } },
 
+  /* These two were IDENTICAL: four bays of shelves each, which is the wall
+     run's photograph and nothing like the lockers' photograph. Lockers are
+     three tall closed cabinets you cannot see into, which is the whole point
+     of buying them, so that is what this builds now. */
   'garage-lockers': { name:'Garage lockers', type:'garage', shape:'straight',
-    room:{w:144,d:20,h:108},
-    runs:{ back:[ {w:36,s:[m('SHELVES',null,{n:5})]}, {w:36,s:[m('SHELVES',null,{n:5})]},
-                  {w:36,s:[m('SHELVES',null,{n:5})]}, {w:36,s:[m('SHELVES',null,{n:5})]} ] } },
+    room:{w:120,d:20,h:108},
+    runs:{ back:[ {w:38,s:[m('DOOR')]}, {w:38,s:[m('DOOR')]}, {w:38,s:[m('DOOR')]} ] } },
 
+  /* The workbench photograph has drawers under the WHOLE counter, not under
+     one bay with shelf towers either side, and a tall closed cabinet closing
+     the right-hand end. */
   'garage-bench': { name:'Garage workbench', type:'garage', shape:'straight',
     room:{w:144,d:20,h:108},
-    runs:{ back:[ {w:36,s:[m('SHELVES',null,{n:4})]},
-                  {w:36,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
-                  {w:36,s:[m('OPEN',34), m('COUNTER',2), m('SHELVES',null,{n:3})]},
-                  {w:36,s:[m('SHELVES',null,{n:4})]} ] } },
+    runs:{ back:[ {w:34,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5]}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:34,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5]}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:34,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5]}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:34,s:[m('DOOR')]} ] } },
 
   /* ── laundry ─────────────────────────────────────────────────────── */
   /* The machines stand in the OPEN section under the counter, which is why
      that section is 36" of nothing rather than cabinetry. */
+  /* The right-hand bay in the photograph is a rod under a shelf, which is
+     where the shirts come out of the dryer onto. It was a shelf tower. */
   'laundry-counter': { name:'Laundry folding counter', type:'laundry', shape:'straight',
     room:{w:96,d:24,h:96},
     runs:{ back:[ {w:32,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
                   {w:32,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
-                  {w:32,s:[m('SHELVES',null,{n:5})]} ] } },
+                  {w:32,s:[m('HANG')]} ] } },
 
+  /* Reading the photograph left to right: a tall closed cabinet, the two
+     machines under the counter, the tilt-out hamper still under that same
+     counter, a rod, and an open shelf tower on the end. The tall cabinet was
+     missing and the hamper had no counter over it. */
   'laundry-full': { name:'Full-wall laundry', type:'laundry', shape:'straight',
-    room:{w:120,d:24,h:96},
-    runs:{ back:[ {w:30,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+    room:{w:144,d:24,h:96},
+    runs:{ back:[ {w:24,s:[m('DOOR')]},
                   {w:30,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
-                  {w:30,s:[m('HAMPER',28), m('HANG')]},
-                  {w:30,s:[m('SHELVES',null,{n:3})]} ] } },
+                  {w:30,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:30,s:[m('HAMPER',28), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:30,s:[m('HANG')]} ] } },
 
+  /* The laundry closet photograph is a STACKED pair, not a side-by-side pair
+     under a counter: one tall open bay for the machines, a narrow shelf tower
+     beside it, and a rod on the end. There is no counter in it at all. */
   'laundry-compact': { name:'Laundry closet', type:'laundry', shape:'straight',
-    room:{w:54,d:24,h:96},
-    runs:{ back:[ {w:27,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
-                  {w:27,s:[m('SHELVES',null,{n:5})]} ] } },
+    room:{w:72,d:24,h:96},
+    runs:{ back:[ {w:28,s:[m('OPEN')]},
+                  {w:20,s:[m('SHELVES',null,{n:5})]},
+                  {w:24,s:[m('HANG')]} ] } },
 
   /* ── pantry ──────────────────────────────────────────────────────── */
   'pantry-essential': { name:'Essential pantry', type:'pantry', shape:'straight',
     room:{w:56,d:16,h:96},
     runs:{ back:[ {w:28,s:[m('SHELVES',null,{n:7})]}, {w:28,s:[m('SHELVES',null,{n:7})]} ] } },
 
+  /* Both of these opened as something other than the photograph on the card,
+     which is the one thing a "see the build" link must not do. Read off the
+     photographs again: the basket pantry is THREE bays, with the baskets and
+     the drawers stacked in the SAME middle one and a shelf tower either side;
+     the counter pantry runs its worktop across the WHOLE wall with drawers
+     under every bay and open shelving over every bay, not one counter bay
+     next to a full-height tower. */
   'pantry-baskets': { name:'Pantry with baskets and drawers', type:'pantry', shape:'straight',
-    room:{w:56,d:16,h:96},
-    runs:{ back:[ {w:28,s:[m('BASKETS',30,{n:3}), m('SHELVES',null,{n:4})]},
-                  {w:28,s:[m('DRAWERS',null,{sizes:[10,8.75,8.75]}), m('SHELVES',null,{n:4})]} ] } },
+    room:{w:84,d:16,h:96},
+    runs:{ back:[ {w:28,s:[m('SHELVES',null,{n:7})]},
+                  {w:28,s:[m('DRAWERS',null,{sizes:[10,8.75]}), m('BASKETS',null,{n:4})]},
+                  {w:28,s:[m('SHELVES',null,{n:7})]} ] } },
 
   'pantry-counter': { name:'Counter pantry', type:'pantry', shape:'straight',
-    room:{w:56,d:16,h:96},
-    runs:{ back:[ {w:28,s:[m('DRAWERS',null,{sizes:[15,8.75,8.75]}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
-                  {w:28,s:[m('SHELVES',null,{n:7})]} ] } },
+    room:{w:72,d:16,h:96},
+    runs:{ back:[ {w:36,s:[m('DRAWERS',null,{sizes:[15,15]}), m('COUNTER',2), m('SHELVES',null,{n:2})]},
+                  {w:36,s:[m('DRAWERS',null,{sizes:[15,15]}), m('COUNTER',2), m('SHELVES',null,{n:2})]} ] } },
 
   /* ── linen ───────────────────────────────────────────────────────── */
   /* A linen closet is a shallow reach-in, so that is the type it opens as. */

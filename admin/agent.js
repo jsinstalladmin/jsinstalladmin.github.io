@@ -326,11 +326,15 @@ $('#askform').onsubmit=e=>{
   e.preventDefault();
   const t=$('#ask').value.trim();
   if(!t && !pending.length) return;
-  $('#ask').value=''; $('#ask').style.height='auto';
+  $('#ask').value=''; grow($('#ask'));
   $('#chips')?.remove();
   send(t);
 };
-$('#ask').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(140,e.target.scrollHeight)+'px'});
+/* grow to fit what is in it, and run it once on load so the box starts at
+   the right height instead of only correcting itself after the first keypress */
+const grow = el => { el.style.height='auto'; el.style.height=Math.min(140, el.scrollHeight)+'px'; };
+$('#ask').addEventListener('input', e => grow(e.target));
+grow($('#ask'));
 $('#ask').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#askform').requestSubmit();} });
 $('#chips')?.addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
