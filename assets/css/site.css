@@ -994,8 +994,14 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
    a room, so they must not be cropped to fill a landscape frame. A square
    frame with the drawing contained inside it keeps every card the same height
    and shows the whole piece. */
-.laygrid .dcard figure{aspect-ratio:1/1;background:#E4E4DE}
-.laygrid .dcard figure img{object-fit:contain;padding:6% 10%}
+/* Every tile used to be one grey, #E4E4DE, while the renders sit on their own
+   backgrounds ranging from #D2CAC7 to #F5F2EE. Contained inside the tile that
+   showed as a lighter or darker rectangle floating in a square: two colours on
+   every card. Each figure now carries its own image's measured background as
+   --tile, so the picture and the tile are the same colour and the join is
+   invisible. */
+.laygrid .dcard figure{aspect-ratio:1/1;background:var(--tile,#E4E4DE)}
+.laygrid .dcard figure img{object-fit:contain;padding:2%}
 .laygrid .dcard .chip{background:rgba(22,18,13,.86)}
 
 /* ── the enquiry reference code ──

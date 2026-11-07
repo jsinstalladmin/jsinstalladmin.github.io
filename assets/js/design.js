@@ -254,30 +254,56 @@ const GROUP = { DOOR:'front', GLASS_DOOR:'front' };
    preference, and the reason for each one is below.
    ══════════════════════════════════════════════════════════════════════ */
 export const SLOT = {
-  /* a rod with a shelf over it, or a rod with shelves over it: both real */
-  LONG_HANG  : { top:true,  bottom:true  },
-  /* 70" of its own. There is nothing left under it in an 80" section */
-  DOUBLE_HANG: { top:true,  bottom:false },
-  /* a short hang IS the thing over a drawer bank or a hamper */
-  SHORT_HANG : { top:true,  bottom:false },
-  SHELVES    : { top:true,  bottom:true  },
-  CUBBIES    : { top:true,  bottom:true  },
-  SHOES      : { top:true,  bottom:true  },
-  SHOE_SLANT : { top:true,  bottom:true  },
-  OPEN       : { top:true,  bottom:true  },
+  /* `top` and `bottom` say which half a piece can be STORED in. That is what
+     slots() and writeSlots() need, and it has not changed.
+
+     `whole` and `over` say when a piece is worth OFFERING, which is a
+     different question. A section with nothing underneath is ONE TALL
+     OPENING. A section with something underneath has a SHORT OPENING left
+     above it. Those want different lists, and using one flag for both is why
+     the top picker offered long hang, short hang and double hang side by
+     side: in a whole section a short hang is just a long hang mounted low,
+     and over a drawer bank neither a long hang nor a double hang fits, so
+     both were quietly resolved down to the short hang anyway. Three cards,
+     one result. */
+  LONG_HANG  : { top:true,  bottom:true,  whole:true,  over:false },
+  /* 70" of its own, so it is a whole section or it is nothing */
+  DOUBLE_HANG: { top:true,  bottom:false, whole:true,  over:false },
+  /* a short hang IS the thing over a drawer bank or a hamper, and only that */
+  SHORT_HANG : { top:true,  bottom:false, whole:false, over:true  },
+  SHELVES    : { top:true,  bottom:true,  whole:true,  over:true  },
+  CUBBIES    : { top:true,  bottom:true,  whole:true,  over:true  },
+  SHOES      : { top:true,  bottom:true,  whole:true,  over:true  },
+  SHOE_SLANT : { top:true,  bottom:true,  whole:true,  over:true  },
+  OPEN       : { top:true,  bottom:true,  whole:true,  over:true  },
   /* pull-out hardware. A drawer you cannot see into is not a drawer, and a
      tilt-out hamper swings down to the floor */
-  DRAWERS    : { top:false, bottom:true  },
-  BASKETS    : { top:false, bottom:true  },
-  HAMPER     : { top:false, bottom:true  },
+  DRAWERS    : { top:false, bottom:true,  whole:true,  over:false },
+  BASKETS    : { top:false, bottom:true,  whole:true,  over:false },
+  HAMPER     : { top:false, bottom:true,  whole:true,  over:false },
   /* a worktop is not a piece of the section, it is the cap on the bottom
      piece, so it is offered as a tick on that piece rather than as a slot */
   COUNTER    : { top:false, bottom:false, cap:true },
-  /* a front covers the whole section, so it belongs to neither half */
-  DOOR       : { top:true,  bottom:false },
-  GLASS_DOOR : { top:true,  bottom:false },
+  /* A FRONT COVERS THE WHOLE SECTION. Offered in the top half it drew a door
+     across the upper part only, with the drawers below it still showing, and
+     the glass lite was then cut to whatever height that half happened to be.
+     No shop builds that, so a front is now a whole-section choice and the
+     lite is always cut to the real opening. */
+  DOOR       : { top:true,  bottom:false, whole:true,  over:false },
+  GLASS_DOOR : { top:true,  bottom:false, whole:true,  over:false },
 };
 export const canSit = (id, slot) => !!(SLOT[id] || { top:true, bottom:true })[slot];
+
+/* Should this piece be OFFERED in this half right now? `hasOther` is whether
+   the other half of the section is already filled, which is what decides
+   whether this half is a whole opening or the short one left over. */
+export function canOffer(id, slot, hasOther){
+  const r = SLOT[id];
+  if(!r || r.cap) return false;
+  if(!r[slot]) return false;
+  if(slot === 'bottom') return true;
+  return hasOther ? r.over !== false : r.whole !== false;
+}
 
 /* Read a stored stack as the two halves it really is. A stack is still how a
    section is stored, priced and sent to the office, so nothing downstream had
@@ -1045,9 +1071,15 @@ export const MODULE_IDS = Object.keys(MODULES);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
 /* a rail of individual garments */
+/* A 32" rod was getting eleven garments on it at a 2.6" pitch, and a double
+   hang got twenty-two. Packed that tight it stopped reading as a closet and
+   started reading as clutter, and it buried the cabinetry the customer is
+   actually choosing. A 5.2" pitch with a hard cap of six puts a few garments
+   on the rail to give it scale and leaves the carcass visible, which is the
+   thing being sold. */
 function hang(G, cx, rodY, len, w, d){
-  const usable = w - 2.5, pitch = 2.6;
-  const n = Math.max(3, Math.floor(usable/pitch)), step = usable/n;
+  const usable = w - 2.5, pitch = 5.2;
+  const n = Math.max(3, Math.min(6, Math.floor(usable/pitch))), step = usable/n;
   for(let i=0;i<n;i++){
     const j = ((i*37)%11)/11;
     const L = len * (0.84 + j*0.16);
@@ -1056,7 +1088,7 @@ function hang(G, cx, rodY, len, w, d){
        each one a little so the rail is not a line of identical objects. */
     G.push({k:'cloth', shape:'garment', yaw:(j - 0.5) * 0.5,
             p:[cx - usable/2 + step*(i+0.5), rodY-2.2-L/2, 0],
-            s:[step*0.92, L, Math.min(d-8, 11+j*3)], m:'cloth'});
+            s:[step*0.52, L, Math.min(d-10, 9+j*2)], m:'cloth'});
   }
 }
 

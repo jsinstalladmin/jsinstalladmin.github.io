@@ -67,24 +67,70 @@ export function mountTour(){
   let i = 0;
 
   /* The box sits beside whatever the step is about, and never off the screen.
-     Below the target if there is room under it, above it if there is not. */
-  function place(sel){
+
+     Three things used to go wrong here. The panel the step points at lives
+     inside .pscroll, which scrolls on its own, so a target below that box's
+     fold was measured at a position nobody could see and the ring landed off
+     the bottom of the window. Tall targets made it worse: "Your space" is
+     1043px of panel inside a 502px scroll box, so even scrolled to the top it
+     cannot all be ringed. And the overlay dimmed and blurred the very thing
+     it was pointing at, because the scrim sat on top of everything.
+
+     So: scroll it into view first, clamp the ring to what is actually on
+     screen, and let the ring's own shadow be the only scrim, which leaves the
+     thing inside it completely untouched. */
+  function draw(sel){
     const t = document.querySelector(sel);
     el.querySelectorAll('.tourhalo').forEach(x => x.remove());
+    el.classList.toggle('dim', !t);
     if(!t){ box.style.cssText = 'left:50%;top:50%;transform:translate(-50%,-50%)'; return; }
+
+    const M = 14, PAD = 6;
     const r = t.getBoundingClientRect();
+    /* the visible slice of it, so a panel taller than the window still gets a
+       ring with both ends on screen */
+    const top   = Math.max(M, r.top - PAD);
+    const bot   = Math.min(innerHeight - M, r.bottom + PAD);
+    const left  = Math.max(M, r.left - PAD);
+    const right = Math.min(innerWidth - M, r.right + PAD);
+    const w = Math.max(0, right - left), h = Math.max(0, bot - top);
+    if(w < 4 || h < 4){ el.classList.add('dim');
+      box.style.cssText = 'left:50%;top:50%;transform:translate(-50%,-50%)'; return; }
+
     const halo = document.createElement('div');
     halo.className = 'tourhalo';
-    halo.style.cssText = `left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px`;
+    halo.style.cssText = `left:${left}px;top:${top}px;width:${w}px;height:${h}px`;
     el.appendChild(halo);
 
-    const W = box.offsetWidth || 330, H = box.offsetHeight || 190, M = 14;
-    let top  = r.bottom + M;
-    if(top + H > innerHeight - M) top = Math.max(M, r.top - H - M);
-    if(top + H > innerHeight - M) top = Math.max(M, (innerHeight - H) / 2);
-    let left = r.left + r.width/2 - W/2;
-    left = Math.max(M, Math.min(innerWidth - W - M, left));
-    box.style.cssText = `left:${left}px;top:${top}px;transform:none`;
+    /* below, above, beside, and only then over the middle */
+    const BW = box.offsetWidth || 330, BH = box.offsetHeight || 190;
+    let bx, by;
+    if(bot + M + BH <= innerHeight - M){ by = bot + M; bx = left + w/2 - BW/2; }
+    else if(top - M - BH >= M){          by = top - M - BH; bx = left + w/2 - BW/2; }
+    else if(right + M + BW <= innerWidth - M){ bx = right + M; by = top + h/2 - BH/2; }
+    else if(left - M - BW >= M){         bx = left - M - BW; by = top + h/2 - BH/2; }
+    else {                               bx = (innerWidth - BW)/2; by = (innerHeight - BH)/2; }
+    bx = Math.max(M, Math.min(innerWidth  - BW - M, bx));
+    by = Math.max(M, Math.min(innerHeight - BH - M, by));
+    box.style.cssText = `left:${bx}px;top:${by}px;transform:none`;
+  }
+
+  /* Scroll it where it can be seen, then measure on the next frame.
+
+     behavior:'instant' matters: the site sets html{scroll-behavior:smooth},
+     so a plain scrollIntoView animates over several hundred milliseconds and
+     everything measured on the next frame is still at the OLD position. On a
+     phone, where a step's target can be three thousand pixels down the page,
+     that put the ring far off screen and it was dropped as degenerate. And
+     'center' rather than 'nearest', so a target taller than the window is
+     centred on its middle instead of left hanging off one edge. */
+  function place(sel){
+    const t = document.querySelector(sel);
+    if(t){
+      try { t.scrollIntoView({ block:'center', inline:'nearest', behavior:'instant' }); }
+      catch(e){ try { t.scrollIntoView(false); } catch(e2){} }
+    }
+    requestAnimationFrame(() => draw(sel));
   }
 
   function show(k){

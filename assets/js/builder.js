@@ -6,7 +6,7 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          ROOM_PLANS, cornerBlocked,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
-         baseHeight } from './design.js';
+         baseHeight, canOffer } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, garmentGeo, makeComposer } from './render.js';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
@@ -428,10 +428,33 @@ const _cp = new THREE.Vector3(), _ct = new THREE.Vector3();
 
 function sizeNow(){ const r=canvas.parentElement.getBoundingClientRect();
   return {w:Math.max(320,r.width|0), h:Math.max(260,r.height|0)}; }
-function resize(){ const {w,h}=sizeNow(); renderer.setSize(w,h,false);
+let lastW = 0, lastH = 0;
+function resize(){ const {w,h}=sizeNow();
+  if(w === lastW && h === lastH) return;
+  lastW = w; lastH = h;
+  renderer.setSize(w,h,false);
   cam.aspect=w/h; cam.updateProjectionMatrix(); if(composer) composer.setSize(w,h);
   needsFrame = true; }
 addEventListener('resize',resize);
+
+/* The canvas is sized from its parent, but the parent is sized by a flex
+   layout that the RIGHT-HAND PANEL drives. Open "Ready-made layouts", add a
+   drawer row, trip a warning, switch a step: the stage changes shape and the
+   window never fires a resize event, so the renderer kept its old width and
+   the camera kept its old aspect. The closet then drew off centre and ran off
+   the left edge of the frame, which is the drifting the drawing kept doing.
+
+   A ResizeObserver watches the element that actually changes instead of
+   guessing from the window, so every one of those cases is covered and the
+   280ms timeout that used to paper over the accordion case is gone. */
+if(typeof ResizeObserver === 'function' && canvas.parentElement){
+  let pending = 0;
+  const ro = new ResizeObserver(() => {
+    cancelAnimationFrame(pending);
+    pending = requestAnimationFrame(resize);
+  });
+  ro.observe(canvas.parentElement);
+}
 /* ?noao=1 skips ambient occlusion — a useful escape hatch on weak hardware.
    The composer is built AFTER the first frame is on screen, not before it.
    Building it up front meant downloading and compiling the whole
@@ -798,7 +821,13 @@ function drawRoom(){
     fmat[k] = fmat[k].clone(); fmat[k].needsUpdate = true;
     fmat[k].repeat.set(W / 52, D / 40);
   }
-  const fl = plane(W, D, X0 + W/2, 0, D/2, -Math.PI/2, 0, fmat);
+  /* A HAIR below zero, not at zero. A floor-mounted run puts the underside of
+     its toe kick at exactly y=0, and the floor plane was at exactly y=0 too.
+     Two coplanar surfaces is z-fighting: the depth buffer cannot say which is
+     in front, so the band along the bottom of the closet flickered between
+     floor and cabinetry as the camera moved. Dropping the floor two
+     hundredths of an inch is invisible and settles it permanently. */
+  const fl = plane(W, D, X0 + W/2, -0.02, D/2, -Math.PI/2, 0, fmat);
   fl.receiveShadow = true;
 
   // baseboard — the single detail that stops this reading as a grey box
@@ -1161,12 +1190,36 @@ function view(step){
          which read as a broken drawing rather than a close-up. Show the whole
          run when it is short, and the bay plus about one either side when it
          is long. */
-      const runW = (cur?.bays || []).filter(x => x.wall === b.wall)
-                     .reduce((a, x) => a + x.w, 0) || b.w;
+      const sameWall = (cur?.bays || []).filter(x => x.wall === b.wall);
+      const runW = sameWall.reduce((a, x) => a + x.w, 0) || b.w;
       const ctx = Math.min(Math.max(runW, b.w) * 1.12, Math.max(b.w, 24) * 3.4);
       const dist = fitDist(b.h * 1.42, ctx);
-      const [px, pz] = standOff(b, dist);
-      return { t:[b.x, midY, b.z], p:[px, midY + b.h * 0.06, pz] };
+
+      /* Aim at the SECTION but keep the window over the RUN.
+
+         This looked straight at the selected section's centre. Select the
+         first of four 36" sections on a 144" wall and the framed window is
+         122" centred on x=18, so it runs from -43" to 79": the first section
+         sits against the left edge of the canvas, the other three are off the
+         right of it entirely, and the drawing reads as having slid out of the
+         frame. That is the drifting, and it got worse the nearer the selected
+         section was to either end.
+
+         So the look-at slides along the wall only as far as it can without
+         the window leaving the run, and if the whole run already fits it just
+         centres on the run. The selected section stays in view either way. */
+      const lo = sameWall.length ? Math.min(...sameWall.map(x => x.x - x.w / 2)) : 0;
+      const hi = sameWall.length ? Math.max(...sameWall.map(x => x.x + x.w / 2)) : 0;
+      const sideWall = b.wall === 'left' || b.wall === 'right';
+      let along = sideWall ? b.z : b.x;
+      if(sameWall.length){
+        along = (hi - lo) <= ctx
+          ? (lo + hi) / 2
+          : Math.max(lo + ctx / 2, Math.min(hi - ctx / 2, along));
+      }
+      const fb = sideWall ? { ...b, z: along } : { ...b, x: along };
+      const [px, pz] = standOff(fb, dist);
+      return { t:[fb.x, midY, fb.z], p:[px, midY + b.h * 0.06, pz] };
     }
     case '3': {            // finishes: three-quarter, so grain runs across panels
       const dist = fitDist(H * 1.1, W * 0.78);
@@ -1866,10 +1919,10 @@ function paintStack(){
     const sizes = (st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n));
     const bank  = drawerBankHeight(sizes);
     return `<div class="dsizes">
-      <span class="dlbl">Each drawer, bottom to top &middot; ${(+bank.toFixed(2))}" of bank</span>
+      <span class="dlbl">Top to bottom, the way it is drawn &middot; ${(+bank.toFixed(2))}" of bank</span>
       <ol class="dlist">
-        ${sizes.map((h, i) => `<li>
-          <b>${i + 1}${i === 0 ? ' · bottom' : i === sizes.length - 1 ? ' · top' : ''}</b>
+        ${sizes.map((h, i) => ({ h, i })).reverse().map(({ h, i }) => `<li>
+          <b>${i + 1}${i === sizes.length - 1 ? ' · top' : i === 0 ? ' · bottom' : ''}</b>
           <select data-dsize="${i}" aria-label="Box height for drawer ${i + 1}">
             ${DRAWER_SIZES.map(z => `<option value="${z.h}" ${+h === z.h ? 'selected' : ''}>${z.label} box</option>`).join('')}
           </select>
@@ -1917,7 +1970,16 @@ function paintStack(){
   };
 
   /* only what can go in the half being changed */
-  const slotCards = slot => MODULE_IDS.filter(id => canSit(id, slot)).map(id => {
+  /* Only what is buildable in THIS half right now. A half with the other one
+     filled is a short opening, so it gets the short-opening list; a half on
+     its own is the whole section and gets the whole-section list. Whatever is
+     already chosen always stays on the list, so changing an older design
+     never makes its own card disappear. */
+  const slotCards = slot => MODULE_IDS.filter(id => {
+    const here  = slot === 'top' ? sl.top : sl.bottom;
+    const other = slot === 'top' ? sl.bottom : sl.top;
+    return canOffer(id, slot, !!other) || here?.m === id;
+  }).map(id => {
     const d = MODULES[id], img = id.toLowerCase().replace(/_/g,'-');
     const here = slot === 'top' ? sl.top : sl.bottom;
     const on   = here?.m === id;
@@ -2590,7 +2652,7 @@ $('#scene').onclick=e=>{const b=e.target.closest('button');if(!b)return;const a=
   if(a==='evening'){S.evening=!S.evening;b.setAttribute('aria-pressed',S.evening);
     scene.environmentIntensity=S.evening?.34:1; key.intensity=S.evening?.55:1.25;
     key.color.setHex(S.evening?0xffd9a8:0xfffdfa)}};
-document.querySelectorAll('.acc > summary').forEach(s=>s.addEventListener('click',()=>setTimeout(resize,280)));
+/* the ResizeObserver above covers this now */
 /* ───────── sending the design to the office ─────────
    Clicking this used to drop the design into storage and jump straight to the
    contact page, which left the customer wondering what, if anything, had just

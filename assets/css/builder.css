@@ -475,12 +475,20 @@ body[data-step="6"] .pacts{margin-top:0}
   padding:0;transition:.2s var(--ease)}
 .pinfo:hover,.pinfo[aria-expanded="true"]{background:var(--paper);color:var(--ink);
   border-color:var(--paper)}
-.ptip{position:absolute;top:42px;right:12px;z-index:9;width:min(330px,calc(100% - 24px));
+/* The price card is pinned to the bottom of the panel, so a note opening
+   downward from the ! ran straight off the screen and the last two lines were
+   unreadable. It opens upward into the panel instead, and anything longer than
+   the space available scrolls inside the box rather than being cut. */
+.ptip{position:absolute;bottom:calc(100% - 30px);right:12px;z-index:9;
+  width:min(330px,calc(100% - 24px));max-height:min(60vh,420px);overflow-y:auto;
+  overscroll-behavior:contain;
   background:var(--paper);color:var(--ink);border-radius:var(--r-sm);padding:.85em .95em;
   font-size:.75rem;line-height:1.55;box-shadow:0 14px 38px rgba(0,0,0,.3);
-  opacity:0;visibility:hidden;translate:0 -4px;transition:.22s var(--ease)}
+  opacity:0;visibility:hidden;translate:0 4px;transition:.22s var(--ease)}
 .pinfo:hover + .ptip,.ptip:hover,.pinfo[aria-expanded="true"] + .ptip{
   opacity:1;visibility:visible;translate:0 0}
+/* the card clips nothing, so the note can sit outside it */
+.pfoot{overflow:visible}
 .ptip b{display:block;margin-bottom:.3em;font-weight:500}
 
 /* ════════ v5: one picker, and sections you can see the width of ════════ */
@@ -1292,8 +1300,14 @@ body[data-step="6"] .pacts{margin-top:0}
    the middle of the screen. It runs once; the ? in the scene toolbar
    brings it back.
    ══════════════════════════════════════════════════════════════════════ */
-.tour{position:fixed;inset:0;z-index:120;background:rgba(14,11,8,.5);
-  backdrop-filter:blur(1.5px);animation:tourin .25s var(--ease)}
+/* No backdrop-filter and no flat background here on purpose. The ring below
+   carries a 9999px spread shadow, which dims the whole screen EXCEPT its own
+   box, so whatever the step is pointing at stays sharp and full contrast.
+   A blur over the top made every step unreadable. .dim is the fallback for a
+   step whose target is not on screen, where there is no ring to dim with. */
+.tour{position:fixed;inset:0;z-index:120;background:transparent;
+  animation:tourin .25s var(--ease)}
+.tour.dim{background:rgba(14,11,8,.55)}
 @keyframes tourin{from{opacity:0}to{opacity:1}}
 .tourbox{position:fixed;width:min(340px,calc(100vw - 28px));background:var(--paper);
   border-radius:var(--r-md);padding:1.15em 1.25em 1.05em;
@@ -1314,6 +1328,6 @@ body[data-step="6"] .pacts{margin-top:0}
 .tourback:disabled{opacity:.35;cursor:default}
 /* a ring round whatever the step is pointing at */
 .tourhalo{position:fixed;border-radius:14px;pointer-events:none;
-  box-shadow:0 0 0 2px var(--accent,#A8824C),0 0 0 9999px rgba(14,11,8,.32);
+  box-shadow:0 0 0 2px var(--accent,#A8824C),0 0 0 9999px rgba(14,11,8,.55);
   transition:all .3s var(--ease)}
 @media(prefers-reduced-motion:reduce){.tour,.tourhalo{animation:none;transition:none}}
