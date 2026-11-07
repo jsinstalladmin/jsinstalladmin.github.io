@@ -1554,7 +1554,7 @@ function paintPlan(){
         <label class="pfield"><span>How thick</span>
           <input type="number" data-base="t" value="${S.base.t}" min="0" max="3" step="0.125" aria-label="Baseboard thickness in inches"><i>in</i></label>
       </div>
-      <em class="baseq">The width and depth above — where did you measure from?</em>
+      <em class="baseq">The width and depth above, where did you measure from?</em>
       <div class="segrow">
         <button type="button" data-bmeas="wall" class="${S.base.measured==='wall'?'on':''}">Wall to wall</button>
         <button type="button" data-bmeas="baseboard" class="${S.base.measured==='baseboard'?'on':''}">Baseboard to baseboard</button>
@@ -1947,7 +1947,7 @@ function paintStack(){
       </div>
       ${isDrawers ? drawerRows(st) : ''}
       ${slot === 'bottom' ? `<label class="ctop"><input type="checkbox" data-counter="1" ${sl.counter?'checked':''}>
-        <span><b>A worktop over it</b> — a folding bench or a packing surface, 2" thick.</span></label>` : ''}
+        <span><b>A worktop over it</b>, a folding bench or a packing surface, 2" thick.</span></label>` : ''}
     </div>`;
   };
 
@@ -2656,7 +2656,7 @@ function quotePackage(){
     price:Math.round(cur.price.price), type:S.type,
     typeLabel: S.type==='reach-in'?'Reach-In Closets':S.type==='walk-in'?'Walk-In Closets':S.type==='pantry'?'Pantries':S.type==='garage'?'Garage Storage':'Laundry Rooms',
     room:S.room, mounting:S.mounting,
-    backs: S.backs ? 'A back panel on every section' : 'No backs — the wall is the back',
+    backs: S.backs ? 'A back panel on every section' : 'No backs, the wall is the back',
     corner: Object.values(S.runs).filter(r=>r?.on).length > 1
       ? (S.corner === 'into'
           ? 'The back wall runs into the corner; the side run starts clear of it'

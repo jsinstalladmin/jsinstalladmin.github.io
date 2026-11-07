@@ -92,11 +92,40 @@ p{margin:0 0 1.05em}
 .nvm::before{content:"";position:absolute;inset:-13px 0 auto;height:14px}
 .nvd:hover .nvm,.nvd:focus-within .nvm,.nvt[aria-expanded="true"] + .nvm{
   opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0);transition-delay:0s}
-.nvm a{display:block;padding:.56em .8em;border-radius:9px;text-decoration:none;white-space:normal}
-.nvm a b{display:block;font-weight:500;font-size:.86rem;color:var(--ink);letter-spacing:-.005em}
+/* ── the menu rows answer the pointer ──
+   They had one hover rule, `background:var(--paper-3)`, and no transition on
+   anything, so the row snapped from paper to paper-3: two tones a shade
+   apart, switched instantly. On a light background that is close to no
+   feedback at all, and the menu felt like a picture of a menu.
+
+   Three things move together now, all on the same curve: the row slides a
+   few pixels toward its content, the title turns brass, and a chevron that
+   was sitting at zero width opens out on the right. The keyboard gets the
+   identical state through :focus-visible, so tabbing through shows the same
+   thing a pointer does. */
+.nvm a{position:relative;display:block;padding:.56em 1.5em .56em .8em;border-radius:9px;
+  text-decoration:none;white-space:normal;
+  transition:background .22s var(--ease-out),translate .22s var(--ease-out)}
+.nvm a b{display:block;font-weight:500;font-size:.86rem;color:var(--ink);letter-spacing:-.005em;
+  transition:color .22s var(--ease-out)}
 .nvm a span{display:block;font-size:.745rem;color:var(--muted);margin-top:.12em;line-height:1.35}
-.nvm a:hover{background:var(--paper-3)}
-.nvm a:hover b{color:var(--ink)}
+.nvm a::after{content:'';position:absolute;right:.72em;top:50%;width:6px;height:6px;
+  border-right:1.6px solid var(--accent,#A8824C);border-top:1.6px solid var(--accent,#A8824C);
+  rotate:45deg;translate:-6px -50%;opacity:0;
+  transition:translate .22s var(--ease-out),opacity .22s var(--ease-out)}
+.nvm a:hover,.nvm a:focus-visible{background:var(--paper-3);translate:3px 0}
+.nvm a:hover b,.nvm a:focus-visible b{color:var(--accent,#A8824C)}
+.nvm a:hover::after,.nvm a:focus-visible::after{opacity:1;translate:0 -50%}
+/* the picture menu has its own motion on the thumbnail, so it keeps the
+   colour change and drops the slide and the chevron */
+.nvm.lay a{padding-right:6px;translate:none}
+.nvm.lay a::after{content:none}
+.nvm.lay a:hover,.nvm.lay a:focus-visible{translate:none;background:var(--paper-3)}
+@media(prefers-reduced-motion:reduce){
+  .nvm a,.nvm a::after,.nvm.lay a img,.nvm.lay .nvallq{transition:none}
+  .nvm a:hover,.nvm a:focus-visible{translate:none}
+  .nvm.lay a:hover img,.nvm.lay .nvall:hover .nvallq{transform:none}
+}
 .nvm .nvsep{margin:5px 7px;border-top:1px solid var(--line-2)}
 .nvm.wide{min-width:470px;display:grid;grid-template-columns:1fr 1fr;gap:0 2px}
 .nvm.wide .nvall{grid-column:1/-1}
@@ -293,6 +322,23 @@ body[data-hero="dark"]  .hero-veil{background:
   border-radius:var(--r-lg);padding:clamp(22px,2.7vw,34px);box-shadow:0 30px 80px rgba(0,0,0,.34)}
 .hero-cap h1{font-size:clamp(1.9rem,3.9vw,3.2rem);color:var(--paper);margin-bottom:.32em;max-width:18ch}
 .hero-cap p{font-size:1.01rem;color:rgba(248,245,240,.84);margin:0;max-width:46ch}
+
+/* ── the claim, in brass ──
+   The headline was a block of white on a pale film, which gives the eye no
+   entry point and reads as a caption rather than a promise. The two or three
+   words that carry the claim are warm instead, which is the same brass the
+   buttons and the stars already use. #E4BE7E and not the site's --accent:
+   the accent is a printing-ink brown that disappears against a lit wall. */
+.hero-cap h1 em{font-style:normal;color:#E4BE7E}
+
+/* ── somewhere to go, from the hero ──
+   .hero-cap is pointer-events:none so a drag anywhere over the caption still
+   turns the film. The row has to switch them back on for itself. */
+.hero-acts{display:flex;flex-wrap:wrap;gap:9px;margin-top:1.1em;pointer-events:auto}
+.hero-acts .btn{font-size:.88rem;padding:.72em 1.25em}
+.btn-ghost-light{border:1px solid rgba(248,245,240,.45);color:var(--paper);
+  background:rgba(16,12,9,.22);backdrop-filter:blur(8px)}
+.btn-ghost-light:hover{background:var(--paper);color:var(--ink);border-color:var(--paper)}
 .hero-scroll{position:absolute;left:50%;translate:-50% 0;bottom:32px;color:var(--paper);
   display:flex;flex-direction:column;align-items:center;gap:9px;font-size:.6rem;
   letter-spacing:.34em;text-transform:uppercase;opacity:.7}
@@ -655,85 +701,96 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
    decoration, not proof, and the longest and best one was the one you saw
    least of. It is paper now, like everything above and below it, nothing
    moves, and every review is whole. */
-.revwrap{background:var(--paper-2);padding:clamp(54px,7vw,96px) 0}
-.rhead{width:var(--shell);margin:0 auto clamp(26px,3.4vw,40px);display:grid;
-  gap:clamp(20px,3vw,46px);grid-template-columns:1fr auto;align-items:end}
-.rscore .label{display:block;margin-bottom:.7em}
-.rbig{display:inline-block;font-family:'Archivo',sans-serif;font-weight:600;
-  font-size:clamp(2.6rem,5.4vw,3.8rem);line-height:.92;letter-spacing:-.035em;
-  color:var(--ink);vertical-align:middle}
-.rbig em{font-style:normal;font-size:.42em;color:var(--muted);margin-left:.06em}
-.rscore .rstars{display:inline-flex;vertical-align:middle;margin-left:.6em;
-  gap:3px;font-size:1.05rem;line-height:1}
+.revwrap{background:var(--paper-2);padding:clamp(44px,5.4vw,74px) 0;overflow:hidden}
+
+/* ── the proof, in boxes ──
+   The score and the three facts used to be loose text floating at the top of
+   the section: a 4.8 on the left and three unlabelled numbers pushed to the
+   right edge, with nothing holding them together. Each is its own rounded
+   card now, the same shape as everything else on the page. */
+.rhead{width:var(--shell);margin:0 auto clamp(20px,2.4vw,30px);
+  display:flex;flex-wrap:wrap;align-items:stretch;gap:10px}
+.rbox{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:14px 18px;display:flex;flex-direction:column;justify-content:center;gap:.25em}
+.rbox-score{flex:1 1 260px;gap:.35em}
+.rbox-score .label{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0}
+.rline{display:flex;align-items:center;gap:.55em}
+.rbig{font-family:'Archivo',sans-serif;font-weight:600;font-size:2.1rem;
+  line-height:1;color:var(--ink);letter-spacing:-.02em}
+.rbig em{font-style:normal;font-size:.4em;color:var(--muted);margin-left:.05em}
 .rstars i{font-style:normal;color:var(--line-2)}
 .rstars i.on{color:#C08A3E}
-.rsub{display:block;margin-top:.6em;font-size:.92rem;color:var(--muted)}
-.rmeta{display:flex;gap:clamp(18px,2.4vw,38px);flex-wrap:wrap}
-.rmeta div b{display:block;font-family:'Archivo',sans-serif;font-weight:600;
-  font-size:1.5rem;color:var(--ink);font-variant-numeric:tabular-nums;
-  letter-spacing:-.02em}
-.rmeta div span{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--muted);display:block;margin-top:.3em;max-width:16ch;line-height:1.4}
-@media(max-width:860px){ .rhead{grid-template-columns:1fr} }
+.rbox-score .rstars{display:inline-flex;gap:1px;font-size:.95rem}
+.rsub{font-size:.76rem;color:var(--muted)}
 
-/* ONE ROW THAT SLIDES.
+.rstats{display:flex;gap:10px;flex:2 1 420px;flex-wrap:wrap}
+.rstats .rbox{flex:1 1 120px;align-items:flex-start}
+.rstats .rbox b{font-family:'Archivo',sans-serif;font-weight:600;font-size:1.5rem;
+  line-height:1;color:var(--ink);letter-spacing:-.02em}
+.rstats .rbox span{font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);line-height:1.45}
+@media(max-width:700px){
+  /* STACKED, BUT NOT STRETCHED.
+     Turning .rhead into a column turns flex-grow into a request for HEIGHT,
+     so `flex:1 1 260px` on the score box and `flex:2 1 420px` on the stats
+     row made each of them grow to fill the container: the score box came out
+     470px tall with the 4.8 floating in the middle of an empty card, and the
+     three stat boxes were 760px tall. They size to their content here. */
+  .rhead{flex-direction:column;align-items:stretch}
+  .rbox-score{flex:0 0 auto}
+  .rstats{flex:0 0 auto;flex-wrap:nowrap;align-items:stretch}
+  .rstats .rbox{flex:1 1 0;padding:12px 10px;justify-content:flex-start}
+  .rstats .rbox b{font-size:1.15rem}
+  .rstats .rbox span{font-size:.55rem;letter-spacing:.06em}
+}
 
-   This was a two-row grid for a while, which was further than the ask: the
-   request was to make the sliding row nicer and smaller, not to replace it.
-   So it slides again, in one row, with the cards about a third narrower than
-   the grid version, and it keeps the paper card style the rest of the page
-   uses. Nothing auto-scrolls, because a card that moves on its own cannot be
-   read, and the whole point of this section is that it IS read. */
-.rrail{width:var(--shell);margin:0 auto;position:relative;
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto;
-  align-items:center;gap:10px}
-.rrow{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
-  scroll-padding-left:2px;padding:4px 2px 10px;
-  scrollbar-width:none;-ms-overflow-style:none}
-.rrow::-webkit-scrollbar{display:none}
+/* ── the rail runs on its own ──
+   The track holds the five reviews twice and slides exactly one set's width
+   (--rdist, measured in social.js), which puts the second set where the first
+   one started. Nothing resets, so there is no jump at the loop.
+
+   It is not a scroll box: overflow is hidden and the movement is a transform,
+   which the compositor handles on its own thread and which therefore does not
+   stutter against the page scrolling underneath it. */
+.rrail{width:var(--shell);margin:0 auto;position:relative}
+.rrail::before,.rrail::after{content:'';position:absolute;top:0;bottom:0;width:48px;
+  z-index:2;pointer-events:none}
+.rrail::before{left:-1px;background:linear-gradient(90deg,var(--paper-2),transparent)}
+.rrail::after{right:-1px;background:linear-gradient(270deg,var(--paper-2),transparent)}
+.rrow{display:flex;gap:10px;width:max-content;
+  animation:rmarquee var(--rtime,60s) linear infinite}
+.rrow.held{animation-play-state:paused}
 .rrow:focus-visible{outline:2px solid var(--accent,#A8824C);outline-offset:3px;
   border-radius:var(--r-md)}
-.rrow > .rcard{flex:0 0 clamp(248px,24vw,300px);scroll-snap-align:start}
-.rnav{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
-  background:var(--paper);display:grid;place-items:center;cursor:pointer;
-  transition:.2s var(--ease);padding:0}
-.rnav svg{width:17px;height:17px;fill:none;stroke:var(--ink);stroke-width:1.6;
-  stroke-linecap:round;stroke-linejoin:round}
-.rnav:hover:not(:disabled){background:var(--ink);border-color:var(--ink)}
-.rnav:hover:not(:disabled) svg{stroke:var(--paper)}
-.rnav:disabled{opacity:.3;cursor:default}
-@media(max-width:700px){
-  .rrail{grid-template-columns:minmax(0,1fr)}
-  .rnav{display:none}
-  .rrow > .rcard{flex:0 0 min(80vw,300px)}
+@keyframes rmarquee{ to{ transform:translate3d(calc(var(--rdist,0px) * -1),0,0) } }
+@media(prefers-reduced-motion:reduce){
+  /* no movement at all, and the row becomes an ordinary scroller instead */
+  .rrow{animation:none;width:auto;overflow-x:auto;scroll-snap-type:x mandatory}
+  .rrow > .rcard{scroll-snap-align:start}
 }
-.rcard{background:var(--paper);border:1px solid var(--line);
-  border-radius:var(--r-md);padding:1.1em 1.15em;display:flex;
-  flex-direction:column;gap:.85em;text-decoration:none;
-  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),
-    border-color .4s var(--ease-out)}
-.rcard:hover{transform:translateY(-3px);border-color:var(--accent,#A8824C);
-  box-shadow:0 16px 40px rgba(23,18,14,.07)}
-.rcard .rstars{display:flex;gap:2px;font-size:.84rem;line-height:1}
-.rcard blockquote{margin:0;font-size:.85rem;line-height:1.6;color:var(--ink);
-  quotes:none}
-.rcard footer{margin-top:auto;padding-top:.75em;border-top:1px solid var(--line)}
-.rcard footer b{display:block;font-size:.88rem;font-weight:500;color:var(--ink)}
-.rcard footer span{display:block;font-size:.76rem;color:var(--muted);margin-top:.12em}
-.rcard footer em{display:block;font-style:normal;font-size:.7rem;
-  letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
-  opacity:.75;margin-top:.3em}
 
-/* the last cell is the door to the profile the reviews came from */
-.rall{background:var(--ink);border-color:var(--ink);justify-content:center;
-  gap:.6em;color:rgba(248,245,240,.72)}
-.rall:hover{background:var(--ink);border-color:var(--accent,#A8824C)}
-.rallq{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;
-  background:rgba(248,245,240,.08)}
-.rallq svg{width:20px;height:20px;fill:none;stroke:#D7B37A;stroke-width:1.5;
-  stroke-linejoin:round}
-.rall b{font-size:.95rem;font-weight:500;color:var(--paper);line-height:1.3}
-.rall span{font-size:.8rem;line-height:1.6;color:rgba(248,245,240,.62)}
+/* ── the cards, smaller ──
+   They were 300 wide and 365 tall with a block of dead space in the short
+   ones, because every card stretched to the height of the longest review.
+   Narrower, tighter type and a capped quote brings them to about 240 by 250:
+   four fit across a laptop instead of three and a half, and the section is a
+   third shorter. Four of the five reviews still show in full; the one that
+   runs past the cap fades out rather than ending on an ellipsis. */
+.rcard{flex:0 0 clamp(216px,17vw,244px);background:var(--paper);
+  border:1px solid var(--line);border-radius:var(--r-md);
+  padding:14px 15px 13px;display:flex;flex-direction:column;gap:.5em}
+.rcard .rstars{display:flex;gap:1px;font-size:.76rem;line-height:1}
+.rcard blockquote{position:relative;margin:0;font-size:.765rem;line-height:1.55;
+  color:var(--ink);max-height:12.4em;overflow:hidden}
+.rcard blockquote.clipped::after{content:'';position:absolute;left:0;right:0;bottom:0;
+  height:2.1em;background:linear-gradient(transparent,var(--paper))}
+.rcard footer{margin-top:auto;padding-top:.6em;border-top:1px solid var(--line)}
+.rcard footer b{display:block;font-size:.8rem;font-weight:500;color:var(--ink)}
+.rcard footer span{display:block;font-size:.69rem;color:var(--muted);margin-top:.1em;
+  line-height:1.35}
+.rcard footer em{display:block;font-style:normal;font-size:.63rem;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:.35em}
 @media(prefers-reduced-motion:reduce){ .rcard:hover{transform:none} }
 
 /* ════════ work gallery ════════ */
@@ -983,15 +1040,12 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
 .fswatch:hover i{opacity:1}
 .finq{margin-top:clamp(26px,3vw,42px)}
 
-/* ── the reviews wall, tightened ──
-   It was taking a full screen and a half before anything else showed. Smaller
-   cards, fewer lines of quote, less air top and bottom. */
-.revwrap{padding:clamp(38px,4.4vw,62px) 0}
-.rhead{margin-bottom:clamp(20px,2.4vw,30px)}
-.rmeta div b{font-size:1.25rem}
-.rcard{flex:0 0 clamp(248px,22vw,316px);padding:1em 1.1em;gap:.55em}
-.rcard p{font-size:.84rem;line-height:1.55;-webkit-line-clamp:5}
-.rrow + .rrow{margin-top:10px}
+/* THE REVIEW SIZES LIVE IN ONE PLACE NOW, further up this file with the rest
+   of the rail. A second, older set of them used to sit here and it was the
+   one actually winning -- it set the card back to clamp(248px,22vw,316px),
+   so every attempt to make the cards smaller changed nothing on screen. It
+   also styled `.rcard p` and `.rmeta`, neither of which the markup has had
+   for some time. Deleted rather than overridden. */
 .rsrc{margin-top:clamp(18px,2vw,26px)}
 
 /* ── the service-area block, tightened ──
@@ -1275,12 +1329,6 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
 .ctsteps li span{display:block;font-size:.85rem;color:var(--muted);line-height:1.55;margin-top:.15em}
 
 
-/* ── One review row, not two ───────────────────────────────────────────────
-   Two rows scrolling opposite ways left a band of empty paper down the
-   middle whenever one row was shorter than the other, and the eye had two
-   things to follow instead of one. Every review is now in a single track. */
-.rrow.left .rtrack{animation-duration:104s}
-.rrow + .rrow{margin-top:0}
 
 /* ════════ The finish wall ════════
    Twenty-four small squares with the name hidden until hover told you
@@ -1361,6 +1409,10 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
 @media(max-width:860px){
   .hero-cap{bottom:clamp(76px,11vh,110px)}
   .hero-cap .box{max-width:none}
+  /* the buttons take the width they need rather than sitting half-width
+     beside each other on a 390px screen */
+  .hero-acts{gap:8px}
+  .hero-acts .btn{flex:1 1 100%;justify-content:center;text-align:center}
   body[data-hero-mode="play"] .hero-scroll{opacity:.5}
 
   /* NOTHING SCRUBS ON A PHONE, SO NOTHING CHOOSES EITHER.

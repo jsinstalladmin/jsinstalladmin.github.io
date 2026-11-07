@@ -14,6 +14,12 @@ export const TT_URL = 'https://www.thumbtack.com/ny/astoria/kitchen-cabinet-make
 
 export const TT_STATS = {
   rating: 4.8, reviews: 36, hires: 66, years: 18, team: 4,
+  /* `hires` is Thumbtack's own counter: jobs booked through that one
+     platform. It is NOT the number of closets the company has installed,
+     which Joseph says is well over two thousand. Put that figure here once
+     he confirms it and the box appears on its own; until then the site
+     claims only the number that can be checked on his public profile. */
+  jobs: null,
   badges: ['Top Pro 2025', 'Top Pro 2024', 'Background checked']
 };
 
@@ -33,7 +39,7 @@ export const REVIEWS = [
 const stars = n => '<span class="rstars" aria-label="' + n + ' out of 5">' +
   '★★★★★'.split('').map((s,i)=>`<i class="${i < Math.round(n) ? 'on' : ''}">${s}</i>`).join('') + '</span>';
 
-const card = r => `<article class="rcard">
+const card = (r, ghost) => `<article class="rcard"${ghost?' aria-hidden="true"':''}>
   ${stars(5)}
   <blockquote>${r.text}</blockquote>
   <footer><b>${r.name}</b><span>${r.job}</span><em>${r.when}</em></footer>
@@ -42,63 +48,78 @@ const card = r => `<article class="rcard">
 export function mountReviews(base=''){
   const host = document.getElementById('reviews');
   if(!host) return;
-  /* This was a black band with the reviews sliding across it on a loop. Three
-     things were wrong with that. You cannot read a moving card, so the proof
-     — which is the whole point of the section — went past unread. The cards
-     clipped the text to four lines and ended on an ellipsis, so the longest
-     and best review was the one you saw least of. And it looked like a widget
-     dropped into the page rather than part of it: everything above and below
-     is paper, rules and rounded cards.
 
-     It is now what it should have been. Nothing moves, every review is whole,
-     and it is built out of the same pieces as the rest of the site. */
+  /* ── THE REVIEWS MOVE BY THEMSELVES ──
+     They are the proof on this page, so they do not wait to be clicked at.
+     The row carries the five reviews twice and slides left for exactly the
+     width of one set, which lands it back where it started: there is no jump
+     and no end, so every review comes round again without anyone touching
+     anything.
+
+     It stops the moment you want to read one -- hover, keyboard focus, or a
+     finger down on a phone -- and starts again when you let go. The duplicate
+     set is aria-hidden so a screen reader hears each review once.
+
+     The "read all of them on Thumbtack" card is gone from the rail: the rail
+     is the reviews, and the count and the source are stated in the box above
+     it. */
+
+  const live = REVIEWS.map(card).join('');
+  const dup  = REVIEWS.map(r => card(r, true)).join('');
+
   host.innerHTML = `
     <div class="rhead">
-      <div class="rscore">
+      <div class="rbox rbox-score">
         <span class="label">What people say</span>
-        <b class="rbig">${TT_STATS.rating}<em>/5</em></b>
-        ${stars(TT_STATS.rating)}
-        <span class="rsub">across ${TT_STATS.reviews} reviews on Thumbtack</span>
+        <span class="rline"><b class="rbig">${TT_STATS.rating}<em>/5</em></b>${stars(TT_STATS.rating)}</span>
+        <span class="rsub">${TT_STATS.reviews} reviews on Thumbtack</span>
       </div>
-      <div class="rmeta">
-        <div><b>${TT_STATS.hires}</b><span>Jobs hired through Thumbtack</span></div>
-        <div><b>${TT_STATS.years}</b><span>Years in business</span></div>
-        <div><b>Top&nbsp;Pro</b><span>2024 and 2025</span></div>
+      <div class="rstats">
+        ${TT_STATS.jobs ? `<div class="rbox"><b>${TT_STATS.jobs}</b><span>Closets installed</span></div>` : ''}
+        <div class="rbox"><b>${TT_STATS.hires}</b><span>Hired through Thumbtack</span></div>
+        <div class="rbox"><b>${TT_STATS.years}</b><span>Years in business</span></div>
+        <div class="rbox"><b>Top&nbsp;Pro</b><span>2024 and 2025</span></div>
       </div>
     </div>
     <div class="rrail">
-      <button class="rnav prev" type="button" data-rscroll="-1" aria-label="Previous reviews">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <div class="rrow" tabindex="0">
-        ${REVIEWS.map(card).join('')}
-        <a class="rcard rall" href="${TT_URL}" target="_blank" rel="noopener">
-          <span class="rallq">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H9l-5 4z"/></svg>
-          </span>
-          <b>Read all ${TT_STATS.reviews} on Thumbtack</b>
-          <span>Every one of these is on his profile, under the reviewer's own name.</span>
-        </a>
-      </div>
-      <button class="rnav next" type="button" data-rscroll="1" aria-label="More reviews">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      <div class="rrow" tabindex="0" aria-label="Customer reviews">${live}${dup}</div>
     </div>`;
 
-  /* One row that slides, which is what was asked for. The arrows move it by a
-     card and a half so a part-card always shows at the edge, which is what
-     tells you there is more without needing a scrollbar. */
   const row = host.querySelector('.rrow');
-  const ends = () => {
-    host.querySelector('.rnav.prev').disabled = row.scrollLeft < 8;
-    host.querySelector('.rnav.next').disabled =
-      row.scrollLeft > row.scrollWidth - row.clientWidth - 8;
+
+  /* The animation travels exactly half the row, which is one full set, so the
+     second set is sitting where the first one was when it loops. The duration
+     follows the real width at about 42px a second, so adding a review makes
+     it longer rather than faster. */
+  const retime = () => {
+    const one = row.scrollWidth / 2;
+    if(!one) return;
+    row.style.setProperty('--rdist', one + 'px');
+    row.style.setProperty('--rtime', Math.round(one / 26) + 's');
   };
-  host.addEventListener('click', e => {
-    const b = e.target.closest('[data-rscroll]'); if(!b) return;
-    const step = (row.querySelector('.rcard')?.offsetWidth || 300) * 1.5;
-    row.scrollBy({ left: step * +b.dataset.rscroll, behavior:'smooth' });
+  retime();
+  addEventListener('resize', retime);
+  /* widths settle after the webfont swaps in */
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(retime);
+
+  /* The fade at the foot of a quote belongs only on a quote that is actually
+     cut off. Painted on every card it read as a styling tic, and it dimmed
+     the last line of reviews that fitted perfectly well. CSS cannot ask
+     whether a box overflowed, so it is measured here. */
+  const markClipped = () => row.querySelectorAll('blockquote').forEach(q => {
+    q.classList.toggle('clipped', q.scrollHeight > q.clientHeight + 2);
   });
-  row.addEventListener('scroll', ends, { passive:true });
-  ends();
+  markClipped();
+  addEventListener('resize', markClipped);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(markClipped);
+
+  const hold = on => row.classList.toggle('held', on);
+  row.addEventListener('pointerenter', () => hold(true));
+  row.addEventListener('pointerleave', () => hold(false));
+  row.addEventListener('pointerdown',  () => hold(true));
+  addEventListener('pointerup',        () => hold(false));
+  row.addEventListener('focusin',  () => hold(true));
+  row.addEventListener('focusout', () => hold(false));
 }
 
 const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');

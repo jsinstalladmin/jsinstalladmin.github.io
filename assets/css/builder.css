@@ -502,10 +502,13 @@ body[data-step="6"] .pacts{margin-top:0}
      which is every step of it, simply did not respond to a swipe.
 
      On a phone the page is the scroller. The panel just stacks. */
-  .pscroll{overflow:visible;overscroll-behavior:auto;max-height:none;min-height:0;flex:none}
-  .warnbox{max-height:none;overflow:visible;overscroll-behavior:auto}
-  .ptip{max-height:none;overflow:visible;overscroll-behavior:auto}
-  .bpanel{max-height:none;overflow:visible}
+  /* The four rules that undo this on a phone are at the VERY END of this
+     file, not here. They were here, and .ptip's base rule is written further
+     down the file than this media query, so at equal specificity the base
+     rule won and .ptip kept overflow-y:auto with overscroll-behavior:contain
+     -- the exact trap this block exists to remove. The info popup on step 1
+     therefore still swallowed every swipe that landed on it. Rules that have
+     to win go last. */
 }
 
 /* ---- the price box: one line of caveat, not a paragraph ----
@@ -1422,3 +1425,55 @@ body[data-step="6"] .pacts{margin-top:0}
   box-shadow:0 0 0 2px var(--accent,#A8824C),0 0 0 9999px rgba(14,11,8,.55);
   transition:all .3s var(--ease)}
 @media(prefers-reduced-motion:reduce){.tour,.tourhalo{animation:none;transition:none}}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   LAST BLOCK IN THE FILE, ON PURPOSE.
+
+   On a phone nothing inside the builder may be its own scroll box. The page
+   is the scroller; every panel just stacks. A box that declares
+   overscroll-behavior:contain but has no height to scroll is a dead zone: a
+   finger landing on it is caught by a container that cannot move and is
+   refused permission to pass the gesture up to the page.
+
+   These are written here, after every base rule, because at equal
+   specificity the last rule wins and these have to. Adding another one of
+   these overrides anywhere further up the file will silently do nothing.
+   ══════════════════════════════════════════════════════════════════════ */
+@media(max-width:1060px){
+  /* .ordertab is the parts list: a 300px box that scrolls inside itself on a
+     laptop. On a phone that is a scroller inside a scroller, and when the
+     design is still empty it has nothing to scroll and becomes another dead
+     patch under the thumb. It runs full height here and the page carries it. */
+  .pscroll,.warnbox,.ptip,.bpanel,.runbody,.pgrid,.addgrid,.ordertab{
+    max-height:none;overflow:visible;overscroll-behavior:auto}
+  .pscroll{min-height:0;flex:none}
+  /* the info popup is positioned relative to the card on a laptop; on a
+     phone it is simply part of the flow under the thing it explains */
+  .ptip{position:static;width:auto;translate:none;box-shadow:none;
+    border:1px solid var(--line);margin-top:.5em}
+
+  /* ── WIDTH · DEPTH · CEILING HAD TO FIT THE PHONE ──
+     Three fields across one row, each laid out as LABEL value unit on a
+     single line, with .pfield span{white-space:nowrap} forbidding the label
+     from breaking. A grid item's min-width is auto, so each track grew to
+     whatever its contents demanded and the row came out wider than the
+     screen: "WIDTH" was cut in half off the left edge and the "in" after the
+     ceiling height was off the right. You could not see what you were
+     typing into.
+
+     Stacked instead -- the label on its own line over the number -- which
+     brings a field to about 110px, so three of them fit a 390px phone with
+     room to spare. min-width:0 lets a track actually be as narrow as its
+     share of the row. */
+  .pfields{gap:6px}
+  /* label across the top, then the number and its unit together on one line
+     underneath, without needing a wrapper element around them */
+  .pfields .pfield{min-width:0;display:grid;justify-content:center;
+    grid-template-columns:auto auto;
+    grid-template-areas:"lab lab" "val unit";
+    align-items:baseline;gap:2px 3px;padding:.5em .35em;text-align:center}
+  .pfields .pfield span{grid-area:lab;white-space:normal;line-height:1.2;font-size:.5rem}
+  .pfields .pfield input{grid-area:val;width:auto;max-width:2.8em;text-align:right;font-size:.95rem}
+  .pfields .pfield i{grid-area:unit;font-size:.54rem;justify-self:start}
+}
