@@ -1080,51 +1080,80 @@ export const ROOM_PLANS = {
    Each preset is a named, recognisable configuration that expands into a
    real stack. The component list stays underneath for anyone who wants to
    build from scratch — this is a starting point, not a cage. */
-export const PRESETS = [
-  { id:'double-hang', name:'Double Hanging',   img:'double-hang',
-    desc:'Two rods: shirts up top, trousers below. The most storage per foot.',
-    stack:[{m:'HANG',h:40,o:{}},{m:'HANG',h:null,o:{}}] },
+/* ── A PRESET IS ONE PIECE, NOT A COMBINATION ──
+   These used to be ten combinations: "Hanging + Drawers", "Hamper +
+   Hanging", "Drawer Tower", "Double Hanging". That is the wrong unit. A
+   combination is just two pieces stacked, so the list showed drawers twice,
+   hanging five times, and nothing at all for a door, a glass front, flat
+   shoe shelves or an open bay. Someone reading it could not tell what the
+   actual choices were.
 
-  { id:'long-hang',   name:'Long Hanging',     img:'long-hang',
-    desc:'One full-height rod for dresses and coats.',
+   The list is the ELEVEN PIECES the builder will put in a section, which is
+   the same list canOffer() works from. Each one says which half of a section
+   it can go in, because that is the question the layout pages answer:
+
+     either half   hanging · adjustable shelves · cubbies · shoe shelving ·
+                   slanted shoe · leave it open
+     bottom only   drawers · pull-out baskets · tilt-out hamper
+     whole section closed door · glass door
+
+   The ten old ids are kept underneath as aliases so a link someone already
+   has, or a page that has not been updated, still lands on something. */
+export const PRESETS = [
+  { id:'hanging', name:'Hanging', img:'long-hang', slot:'either',
+    desc:'One rod. On its own it hangs full length; over drawers or a hamper it shortens to suit; one in each half is a double hang.',
     stack:[{m:'HANG',h:null,o:{}}] },
 
-  { id:'hang-shelf',  name:'Hanging + Shelves', img:'shelves', art:'hang-shelf',
-    desc:'A rod below, folded storage above.',
-    stack:[{m:'HANG',h:null,o:{}},{m:'SHELVES',h:18,o:{n:2}}] },
-
-  { id:'shelves',     name:'Adjustable Shelves', img:'shelves',
-    desc:'Six shelves on 32mm centres. Move any of them later.',
+  { id:'adjustable-shelves', name:'Adjustable shelves', img:'shelves', slot:'either',
+    desc:'Shelves on 32mm pin centres, so the spacing you pick now is not the spacing you are stuck with.',
     stack:[{m:'SHELVES',h:null,o:{n:6}}] },
 
-  { id:'drawer-tower',name:'Drawer Tower',     img:'drawers', art:'drawer-tower',
-    desc:'A bank of soft-close drawers with shelving over it.',
-    stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'SHELVES',h:null,o:{n:3}}] },
-
-  /* A double hang needs 70" of its own, so over a 34" drawer bank it asked
-     for 104" in an 80" section and was drawn hanging through the top shelf.
-     Drawers under a short hang is what this actually is, and what gets built. */
-  { id:'hang-drawers',name:'Hanging + Drawers', img:'drawers', art:'hang-drawers',
-    desc:'Drawers at the bottom, a hanging rod above. The usual bedroom answer.',
-    stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'HANG',h:null,o:{}}] },
-
-  { id:'baskets',     name:'Pull-Out Baskets',  img:'baskets', art:'basket-shelf',
-    desc:'Chrome wire on full-extension glides, shelving above.',
-    stack:[{m:'BASKETS',h:30,o:{n:3}},{m:'SHELVES',h:null,o:{n:3}}] },
-
-  { id:'shoe-wall',   name:'Shoe Wall',         img:'shoe-slant',
-    desc:'Angled shoe shelving the full height of the section.',
-    stack:[{m:'SHOE_SLANT',h:null,o:{}}] },
-
-  { id:'hamper',      name:'Hamper + Hanging',  img:'hamper', art:'hamper-hang',
-    desc:'Tilt-out laundry hamper with a hanging rod over it. The rod is a short hang, because a hamper takes the bottom 28".',
-    stack:[{m:'HAMPER',h:28,o:{}},{m:'HANG',h:null,o:{}}] },
-
-
-  { id:'cubbies',     name:'Cubbies',           img:'cubbies',
+  { id:'cubbies', name:'Cubbies', img:'cubbies', slot:'either',
     desc:'A grid of open compartments for bags, hats and folded knits.',
     stack:[{m:'CUBBIES',h:null,o:{n:4}}] },
+
+  { id:'shoe-shelving', name:'Shoe shelving', img:'shoes', slot:'either',
+    desc:'Flat shelves at 8 inch spacing, the cheapest way to get shoes off the floor.',
+    stack:[{m:'SHOES',h:null,o:{}}] },
+
+  { id:'slanted-shoe', name:'Slanted shoe', img:'shoe-slant', slot:'either',
+    desc:'Angled shelves with a front rail, so you see the whole shoe rather than its toe.',
+    stack:[{m:'SHOE_SLANT',h:null,o:{}}] },
+
+  { id:'leave-open', name:'Leave it open', img:'open', slot:'either',
+    desc:'Empty space. Long coats, a laundry basket, a vacuum, the washing machine.',
+    stack:[{m:'OPEN',h:null,o:{}}] },
+
+  { id:'drawers', name:'Drawers', img:'drawers', slot:'bottom',
+    desc:'Soft-close undermount glides, nine stocked box heights from 7½ to 25 inches.',
+    stack:[{m:'DRAWERS',h:34,o:{n:4}}] },
+
+  { id:'pull-out-baskets', name:'Pull-out baskets', img:'baskets', slot:'bottom',
+    desc:'Chrome wire on full extension, so you see the back without unloading the front.',
+    stack:[{m:'BASKETS',h:30,o:{n:3}}] },
+
+  { id:'tilt-out-hamper', name:'Tilt-out hamper', img:'hamper', slot:'bottom',
+    desc:'A basket on a flap stay. Laundry off the floor and out of sight.',
+    stack:[{m:'HAMPER',h:28,o:{}}] },
+
+  { id:'closed-door', name:'Closed door', img:'door', slot:'whole',
+    desc:'A slab front across the whole section. Dust out, mess hidden.',
+    stack:[{m:'DOOR',h:null,o:{}}] },
+
+  { id:'glass-door', name:'Glass door', img:'glass-door', slot:'whole',
+    desc:'A framed glass front. You can see what is in there without opening it.',
+    stack:[{m:'GLASS_DOOR',h:null,o:{}}] },
 ];
+
+/* The ten combination ids the old layout pages linked with. Each one points
+   at the piece that page was really about, so an old link still opens
+   something sensible instead of an empty room. */
+export const PRESET_ALIAS = {
+  'double-hang':'hanging', 'long-hang':'hanging', 'hang-shelf':'hanging',
+  'hang-drawers':'drawers', 'drawer-tower':'drawers',
+  'shelves':'adjustable-shelves', 'baskets':'pull-out-baskets',
+  'shoe-wall':'slanted-shoe', 'hamper':'tilt-out-hamper', 'cubbies':'cubbies'
+};
 
 /* the price difference a preset makes, against the cheapest one, so the
    list can read "Incl." / "+$85" the way a customer expects */

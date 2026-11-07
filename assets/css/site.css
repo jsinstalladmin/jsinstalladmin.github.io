@@ -1439,6 +1439,18 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
   .abflip{display:none}
 }
 
+/* ── "where it goes", at the top of every piece page ──
+   The question these pages exist to answer is which half of a section the
+   piece can go in, so it is the first thing under the hero rather than a
+   line buried in the numbers table. */
+.slotcard-pg{border:1px solid var(--line);border-left:3px solid var(--accent,#A8824C);
+  border-radius:var(--r-md);background:var(--paper);padding:clamp(20px,2.6vw,30px)}
+.slotcard-pg .label{display:block;margin-bottom:.5em}
+.slotcard-pg h2{margin:0 0 .4em;font-size:clamp(1.25rem,2.1vw,1.6rem)}
+.slotcard-pg p{margin:0;max-width:62ch;color:var(--body)}
+/* the chip on a piece card says where it goes, so it is a label not a name */
+.laygrid .dcard .chip{font-size:.66rem;letter-spacing:.06em}
+
 /* ── filtering the layouts by which half they belong to ── */
 .layfilter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
   margin:0 0 clamp(18px,2.2vw,26px)}

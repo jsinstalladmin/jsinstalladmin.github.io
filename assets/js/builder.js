@@ -14,7 +14,7 @@ const PART_TILE = {
 };
 
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
-         buildDesign, makeBay, defaultStackFor, canAdd, PRESETS,
+         buildDesign, makeBay, defaultStackFor, canAdd, PRESETS, PRESET_ALIAS,
          presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit, wallGap,
          ROOM_PLANS, cornerBlocked,
          slots, setSlot, clearSlot, setCounter, canSit,
@@ -346,7 +346,10 @@ applyType(S.type);
    and already priced, instead of on an empty room with a blank panel. */
 const qPre = qp.get('preset');
 if(qPre){
-  const pre = PRESETS.find(p => p.id === qPre);
+  /* an id from one of the old combination pages resolves to the piece it was
+     really about, so a bookmarked link still lands on something */
+  const want = PRESET_ALIAS[qPre] || qPre;
+  const pre = PRESETS.find(p => p.id === want);
   const wall = Object.keys(S.runs).find(w => S.runs[w]?.on);
   if(pre && wall){
     const nb = makeBay(clampBay(Math.min(32, wallLength(wall))),
