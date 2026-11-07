@@ -14,12 +14,11 @@ export const TT_URL = 'https://www.thumbtack.com/ny/astoria/kitchen-cabinet-make
 
 export const TT_STATS = {
   rating: 4.8, reviews: 36, hires: 66, years: 18, team: 4,
-  /* `hires` is Thumbtack's own counter: jobs booked through that one
-     platform. It is NOT the number of closets the company has installed,
-     which Joseph says is well over two thousand. Put that figure here once
-     he confirms it and the box appears on its own; until then the site
-     claims only the number that can be checked on his public profile. */
-  jobs: null,
+  /* `jobs` is the real figure: closets Joseph has installed since he started
+     the company. `hires` is only Thumbtack's own counter, which began the day
+     he joined Thumbtack and therefore misses most of the work. The two are
+     different numbers and the big one is the true one. */
+  jobs: '2,000+',
   badges: ['Top Pro 2025', 'Top Pro 2024', 'Background checked']
 };
 
@@ -75,8 +74,7 @@ export function mountReviews(base=''){
         <span class="rsub">${TT_STATS.reviews} reviews on Thumbtack</span>
       </div>
       <div class="rstats">
-        ${TT_STATS.jobs ? `<div class="rbox"><b>${TT_STATS.jobs}</b><span>Closets installed</span></div>` : ''}
-        <div class="rbox"><b>${TT_STATS.hires}</b><span>Hired through Thumbtack</span></div>
+        ${TT_STATS.jobs ? `<div class="rbox rbox-hero"><b>${TT_STATS.jobs}</b><span>Closets installed</span></div>` : ''}
         <div class="rbox"><b>${TT_STATS.years}</b><span>Years in business</span></div>
         <div class="rbox"><b>Top&nbsp;Pro</b><span>2024 and 2025</span></div>
       </div>

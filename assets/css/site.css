@@ -730,6 +730,12 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
   line-height:1;color:var(--ink);letter-spacing:-.02em}
 .rstats .rbox span{font-size:.62rem;letter-spacing:.09em;text-transform:uppercase;
   color:var(--muted);line-height:1.45}
+/* the installed count is the biggest thing on this row, so it is given the
+   room to be read as such rather than sitting level with the badges */
+.rstats .rbox-hero{flex:1.5 1 150px;border-color:var(--accent,#A8824C);
+  background:linear-gradient(180deg,rgba(168,130,76,.08),transparent)}
+.rstats .rbox-hero b{font-size:1.9rem;color:var(--accent,#A8824C)}
+@media(max-width:700px){ .rstats .rbox-hero b{font-size:1.3rem} }
 @media(max-width:700px){
   /* STACKED, BUT NOT STRETCHED.
      Turning .rhead into a column turns flex-grow into a request for HEIGHT,
