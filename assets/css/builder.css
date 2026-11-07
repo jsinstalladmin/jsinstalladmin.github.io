@@ -1001,7 +1001,7 @@ body[data-step="6"] .pacts{margin-top:0}
 .bload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   gap:7px;flex-direction:column;pointer-events:none;
   transition:opacity .45s ease}
-.bload.gone{opacity:0}
+.bload.gone{opacity:0;visibility:hidden}
 .bload-b{position:absolute;bottom:50%;width:34px;border-radius:3px;
   background:linear-gradient(180deg,rgba(197,160,118,.55),rgba(197,160,118,.18));
   animation:bloadb 1.25s ease-in-out infinite}

@@ -540,14 +540,36 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
   const moving = (MOVING && (performance.now() - MOVING < 130)) || DRAGGING;
   if(!moving && MOVING){ MOVING = 0; needsFrame = true; }
   /* the one frame where the expensive passes are worth paying for */
-  /* drop any wall the camera has moved behind, so nothing is ever drawn
-     between the viewer and the cabinetry */
+  /* Drop any wall the camera has moved behind, so nothing is ever drawn
+     between the viewer and the cabinetry.
+
+     This flipped .visible but did not ask for a frame, so the change sat in
+     the scene graph unrendered and the wall stayed on screen until something
+     else happened to trigger a draw. Culling a wall IS a change to the
+     picture, so it has to say so. */
   for(const w of WALLS){
     _camV.copy(cam.position).sub(w.p);
-    w.m.visible = _camV.dot(w.n) > 0;
+    const vis = _camV.dot(w.n) > 0;
+    if(w.m.visible !== vis){ w.m.visible = vis; needsFrame = true; }
   }
   if(!moving && shadowDirty){
     shadowDirty = false; renderer.shadowMap.needsUpdate = true; needsFrame = true;
+  }
+
+  /* THE LOADER COMES OFF HERE, ABOVE THE FRAME GATE.
+
+     It used to come off after the render below, which is past `if(!needsFrame)
+     return`. The closet finishes building, `built` goes true, and on the very
+     next frame nothing has changed so the loop returns at the gate and never
+     reaches the line that hides the loader. Nothing changes after that either,
+     so needsFrame stays false and "Drawing your room" sits over a finished
+     closet forever. It depended entirely on `built` happening to flip on a
+     frame that was already going to draw. */
+  if(!drawnOnce && built){
+    drawnOnce = true;
+    document.getElementById('bload')?.classList.add('gone');
+    const idle = window.requestIdleCallback || (f => setTimeout(f, 90));
+    idle(() => { upgradeRoom(); idle(startComposer, {timeout:1500}); }, {timeout:900});
   }
 
   if(!needsFrame) return;
@@ -560,12 +582,6 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
      picture nicer rather than present waits for this moment and then goes in
      order: the real floor and walls first, because that is what you can see,
      then the post-processing chain behind it. */
-  if(!drawnOnce && built){
-    drawnOnce = true;
-    document.getElementById('bload')?.classList.add('gone');
-    const idle = window.requestIdleCallback || (f => setTimeout(f, 90));
-    idle(() => { upgradeRoom(); idle(startComposer, {timeout:1500}); }, {timeout:900});
-  }
 })();
 
 /* ───────── room + closet ───────── */
@@ -1847,6 +1863,80 @@ function paintStack(){
      priced by building a whole throwaway design through presetDelta just to
      show a "+$85" badge, on every single repaint of this panel. They are gone
      from the panel, so the work is gone with them. */
+
+  /* ══════════════════════════════════════════════════════════════════
+     A section is two halves. Each half shows only what can actually go
+     there, which is a build rule and not a preference.
+     ══════════════════════════════════════════════════════════════════ */
+  const sl = slots(bay.stack);
+  const pick = S.pick;                                  // 'top' | 'bottom' | null
+
+  /* a small elevation of this section, with one half lit up */
+  const dia = lit => {
+    const bH = sl.bottom ? (sl.bottom.m === 'DRAWERS'
+        ? drawerBankHeight(sl.bottom.o?.sizes || defaultDrawerSizes(sl.bottom.o?.n))
+        : (sl.bottom.h ?? MODULES[sl.bottom.m].defH)) : 0;
+    const tH = Math.max(8, usable - bH);
+    return `<span class="swapdia" aria-hidden="true">
+      ${sl.bottom ? `<span class="${lit==='bottom'?'on':''}" style="flex:${bH.toFixed(1)} 1 0"></span>` : ''}
+      ${sl.top || lit==='top' ? `<span class="${lit==='top'?'on':''}" style="flex:${tH.toFixed(1)} 1 0"></span>` : ''}
+      <span class="cap"></span></span>`;
+  };
+
+  /* what the drawer bank is, drawer by drawer, in sizes he actually stocks */
+  const drawerRows = st => {
+    const sizes = (st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n));
+    const bank  = drawerBankHeight(sizes);
+    return `<div class="dsizes">
+      <span class="dlbl">Top to bottom, the way it is drawn &middot; ${(+bank.toFixed(2))}" of bank</span>
+      <ol class="dlist">
+        ${sizes.map((h, i) => ({ h, i })).reverse().map(({ h, i }) => `<li>
+          <b>${i + 1}${i === sizes.length - 1 ? ' · top' : i === 0 ? ' · bottom' : ''}</b>
+          <select data-dsize="${i}" aria-label="Box height for drawer ${i + 1}">
+            ${DRAWER_SIZES.map(z => `<option value="${z.h}" ${+h === z.h ? 'selected' : ''}>${z.label} box</option>`).join('')}
+          </select>
+          <i>${(DRAWER_SIZES.find(z => z.h === +h) || {}).use || ''}</i>
+        </li>`).join('')}
+      </ol>
+      <div class="dacts">
+        <button type="button" data-dadd="1" ${sizes.length >= 8 ? 'disabled' : ''}>Add a drawer</button>
+        <button type="button" data-drm="1" ${sizes.length <= 1 ? 'disabled' : ''}>Remove the top one</button>
+      </div>
+      <p class="dnote">These are the box sizes he stocks. The front is an inch
+        taller than the box, so the bank is exactly what the drawers add up to.</p>
+    </div>`;
+  };
+
+  /* one half of the section */
+  const half = (slot, st) => {
+    const open = pick === slot;
+    if(!st) return `<button class="slotcard empty ${open?'on':''}" type="button" data-pickslot="${slot}">
+      <span class="sico"><svg viewBox="0 0 24 32"><path d="M2 7h20M4 7v3M20 7v3"/></svg></span>
+      <span class="sname"><b>${slot === 'top' ? 'Nothing at the top yet' : 'Nothing underneath yet'}</b>
+        <i>${slot === 'top'
+            ? 'Pick what fills the section'
+            : 'Optional. Drawers, a hamper, baskets, shoes or shelving'}</i></span>
+      <span class="slotgo">${slot === 'top' ? 'Choose' : 'Add'}</span></button>`;
+    const d = MODULES[st.m];
+    const isDrawers = !!d.sizes;
+    const hText = isDrawers
+      ? `${(st.o?.sizes?.length || defaultDrawerSizes(st.o?.n).length)} drawers`
+      : (st.h == null ? 'fills the space' : `${st.h}" tall`);
+    return `<div class="slotcard ${open?'on':''}">
+      <div class="slothd">
+        <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
+        <span class="sname"><b>${d.label}</b><i>${hText}</i></span>
+        <span class="slotrhs">
+          ${d.opt ? `<span class="sopt"><button data-opt="-1" data-slot="${slot}" title="Fewer">−</button><i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-slot="${slot}" title="More">+</button></span>` : ''}
+          <button class="sswap ${open?'on':''}" type="button" data-pickslot="${slot}">Change</button>
+          ${slot === 'bottom' ? '<button class="slotx" type="button" data-clearslot="bottom" title="Take it out">×</button>' : ''}
+        </span>
+      </div>
+      ${isDrawers ? drawerRows(st) : ''}
+      ${slot === 'bottom' ? `<label class="ctop"><input type="checkbox" data-counter="1" ${sl.counter?'checked':''}>
+        <span><b>A worktop over it</b> — a folding bench or a packing surface, 2" thick.</span></label>` : ''}
+    </div>`;
+  };
 
   /* only what can go in the half being changed */
   /* Only what is buildable in THIS half right now. A half with the other one
