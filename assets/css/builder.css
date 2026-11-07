@@ -1134,3 +1134,68 @@ body[data-step="6"] .pacts{margin-top:0}
 .srhs{grid-column:2/-1;display:flex;flex-wrap:wrap;align-items:center;
   gap:6px;justify-content:flex-end;margin-top:2px}
 .srow .sname b,.srow .sname i{white-space:normal;overflow:visible}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE SHELF OVER THE TOP
+
+   Every render on the site caps the section with a shelf and every section
+   is built with one, so it is on. A double hang taken to the ceiling does
+   not want one, and nor does a section under a slope, so it is a choice —
+   and it sits at the head of the list, which is where the shelf is.
+   ══════════════════════════════════════════════════════════════════════ */
+.toprow{display:grid;grid-template-columns:30px minmax(0,1fr);gap:2px 8px;
+  align-items:start;border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:.55em .6em;background:var(--paper-2);margin-bottom:5px}
+.toprow.off{border-style:dashed;background:var(--paper)}
+/* the panel is 460px and the row has an icon, a name, a note and two buttons
+   in it, so the buttons go on their own line rather than squeezing the name
+   down to "Shelf over the …" */
+.toprow .sname b,.toprow .sname i{white-space:normal;overflow:visible;
+  text-overflow:clip;line-height:1.3}
+.toprow .segrow.mini{grid-column:2;margin-top:.45em}
+.segrow.mini{flex-wrap:nowrap;gap:.25rem}
+.segrow.mini button{flex:0 0 auto;padding:.32rem .66rem;font-size:.74rem;
+  border-radius:7px;text-align:center}
+
+/* ══════════════════════════════════════════════════════════════════════
+   CHANGING ONE PART OF A SECTION
+
+   The heading said "the bottom part" and left you to work out which one that
+   was in a section with four things in it. It now draws the section — the
+   same stack, bottom to top — with the part being changed lit up, so there
+   is nothing to work out.
+   ══════════════════════════════════════════════════════════════════════ */
+.swaphd{display:grid;grid-template-columns:62px minmax(0,1fr);gap:14px;
+  align-items:center;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--paper-2);padding:.7em .8em;margin:-2px 0 11px}
+.swapdia{display:flex;flex-direction:column-reverse;gap:2px;width:62px;
+  height:86px;border:1px solid var(--ink-3);border-radius:4px;padding:2px;
+  background:var(--paper)}
+.swapdia span{display:block;border-radius:2px;background:var(--line);
+  min-height:5px;position:relative}
+.swapdia span.cap{flex:0 0 5px;background:var(--ink-3)}
+.swapdia span.on{background:var(--accent,#A8824C);
+  box-shadow:0 0 0 1.5px var(--accent,#A8824C)}
+.swaptx b{display:block;font-size:.86rem;color:var(--ink);line-height:1.25}
+.swaptx span{display:block;font-size:.75rem;color:var(--muted);margin-top:.22em;
+  line-height:1.4}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE WAY ON
+
+   The step bar is at the TOP of a panel you have just scrolled to the bottom
+   of, so finishing a step meant scrolling back up to find the next one.
+   Every step now ends with it.
+   ══════════════════════════════════════════════════════════════════════ */
+.stepnext{margin-top:clamp(18px,2.4vw,30px);padding-top:clamp(14px,1.8vw,20px);
+  border-top:1px solid var(--line)}
+.stepnext .btn{width:100%;justify-content:center;gap:.55em;
+  padding-top:.78em;padding-bottom:.78em}
+.stepnext svg{width:17px;height:17px;fill:none;stroke:currentColor;
+  stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* "How tall" and "How thick" sat in a three-wide grid built for Width, Depth
+   and Ceiling, so both labels wrapped onto two lines in a cell too narrow
+   for them. The baseboard has two numbers, not three. */
+.basebox .pfields{grid-template-columns:repeat(2,1fr)}
+.pfield span{white-space:nowrap}

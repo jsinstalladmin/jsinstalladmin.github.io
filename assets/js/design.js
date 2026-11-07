@@ -267,9 +267,15 @@ export function cornerBlocked(cfg, wall, bayIndex, bayStart, bayWidth){
 
 /* The real constraint is vertical: everything in the bay has to fit between
    the toe kick and the top shelf at its own minimum height. */
-export function canAdd(stack, id, usableH){
+export function canAdd(stack, id, usableH, inCorner){
   const def = MODULES[id];
   if(!def) return { ok:false, why:'Unknown part.' };
+
+  /* A section in an inside corner has the next run returning across its
+     front. This used to be built and then flagged in the warnings, which is
+     the wrong way round: it cannot be used, so it is not offered. */
+  if(inCorner && OPENING_FRONT.has(id))
+    return { ok:false, why:`This section is in the corner where the ${inCorner} wall returns across its front, so ${def.label.toLowerCase()} here would open straight into that run and could not be used. A corner section takes shelving or hanging.` };
 
   const n = stack.filter(s => s.m === id).length;
   const lim = LIMIT[id] ?? 2;
@@ -339,15 +345,28 @@ export const MODULES = {
      real product for that gap: one rod, 38" to 52" of clear drop, shirts and
      folded trousers. Closet companies sell it as its own thing. */
   SHORT_HANG: {
-    label:'Short hang', hint:'One rod over something else. Shirts, jackets, folded trousers.',
-    spec:'One rod · 38"–54" of drop',
+    label:'Short hang', hint:'A shelf with a rod under it, over drawers or a hamper. Shirts and folded trousers.',
+    spec:'Shelf with a rod under it · 38"–54" of drop',
     icon:'M2 5h20M6 9h12M7 9v8M11 9v9M15 9v8M19 9v9',
     defH:46, minH:38, maxH:54, fill:true,
+    /* A rod on its own, with open air over it, is not a thing anybody builds
+       and it did not read as one either. A short hang is a SHELF with a rod
+       hung under it: the shelf is what the rod sockets screw into, and it is
+       where the folded stack goes. If the section's own top shelf is already
+       capping this module, that shelf IS the one — so it does not get a
+       second one 3/4" under the first. */
     build(c){
-      const {w,d,y,h,G,parts} = c;
+      const {w,d,y,h,G,parts,capped} = c;
+      let rodTop = y + h;                                  // underside of the shelf
+      if(!capped){
+        parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Shelf over the short hang'));
+        G.push({k:'shelf', p:[0, y + h - SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
+        rodTop = y + h - SPEC.panel;
+      }
+      const rodY = rodTop - 2.5;                           // where the sockets go
       parts.push(P('HANGROD',1,0,0,'Hang rod'));
-      G.push({k:'rod', p:[0, y+h-5, 0], s:[w-1,1.4,1.4], m:'metal'});
-      hang(G, 0, y+h-5, Math.min(h-9, 34), w, d);
+      G.push({k:'rod', p:[0, rodY, 0], s:[w-1,1.4,1.4], m:'metal'});
+      hang(G, 0, rodY, Math.min(rodY - y - 2, 34), w, d);
     }
   },
 
@@ -613,6 +632,141 @@ export const MODULES = {
     build(){}
   }
 };
+/* ══════════════════════════════════════════════════════════════════════
+   WHOLE-ROOM PLANS
+
+   A PRESET fills one section. A PLAN lays out a whole room: the type, the
+   dimensions and every section on every wall. The room pages each show three
+   builds with "See the build" across the photograph, and until now that said
+   nothing and went nowhere. Each one is a plan, so pressing it opens the
+   builder with that room already drawn and already priced, and the customer
+   starts from the thing they just looked at instead of an empty box.
+
+   Every width here divides its wall exactly and sits inside the 24"–36"
+   section range, and every stack obeys the same rules the picker enforces.
+   They are starting points: everything in them can be changed.
+   ══════════════════════════════════════════════════════════════════════ */
+const m = (id, h, o) => ({ m:id, h: h ?? null, o: o || {} });
+
+export const ROOM_PLANS = {
+  /* ── walk-in ─────────────────────────────────────────────────────── */
+  'walkin-l': { name:'L-Shape walk-in', type:'walk-in', shape:'l',
+    room:{w:78,d:84,h:96},
+    runs:{ back:[ {w:26,s:[m('DOUBLE_HANG')]},
+                  {w:26,s:[m('DRAWERS',34,{n:4}), m('SHELVES',null,{n:3})]},
+                  {w:26,s:[m('DOUBLE_HANG')]} ],
+           left:[ {w:30,s:[m('LONG_HANG')]},
+                  {w:30,s:[m('SHOE_SLANT')]} ] } },
+
+  'walkin-u': { name:'U-Shape walk-in', type:'walk-in', shape:'u',
+    room:{w:96,d:96,h:96},
+    runs:{ back:[ {w:32,s:[m('DOUBLE_HANG')]},
+                  {w:32,s:[m('DRAWERS',34,{n:4}), m('SHELVES',null,{n:3})]},
+                  {w:32,s:[m('DOUBLE_HANG')]} ],
+           left:[ {w:36,s:[m('LONG_HANG')]},
+                  {w:36,s:[m('SHELVES',null,{n:6})]} ],
+           right:[{w:36,s:[m('SHOE_SLANT')]},
+                  {w:36,s:[m('DOUBLE_HANG')]} ] } },
+
+  /* The island itself is not cabinetry against a wall, so the builder draws
+     the three runs round it. The island is sized on the day, against the
+     walkway the room actually leaves. */
+  'walkin-island': { name:'Walk-in with an island', type:'walk-in', shape:'u',
+    room:{w:120,d:120,h:96},
+    runs:{ back:[ {w:30,s:[m('DOUBLE_HANG')]},
+                  {w:30,s:[m('DOUBLE_HANG')]},
+                  {w:30,s:[m('DRAWERS',34,{n:4}), m('SHELVES',null,{n:3})]},
+                  {w:30,s:[m('DOUBLE_HANG')]} ],
+           left:[ {w:32,s:[m('LONG_HANG')]},
+                  {w:32,s:[m('SHELVES',null,{n:6})]},
+                  {w:32,s:[m('DOUBLE_HANG')]} ],
+           right:[{w:32,s:[m('SHOE_SLANT')]},
+                  {w:32,s:[m('BASKETS',30,{n:3}), m('SHELVES',null,{n:3})]},
+                  {w:32,s:[m('DOUBLE_HANG')]} ] } },
+
+  /* ── reach-in ────────────────────────────────────────────────────── */
+  'reachin-essential': { name:'Essential reach-in', type:'reach-in', shape:'straight',
+    room:{w:72,d:24,h:96},
+    runs:{ back:[ {w:36,s:[m('DOUBLE_HANG')]}, {w:36,s:[m('DOUBLE_HANG')]} ] } },
+
+  'reachin-drawers': { name:'Reach-in with drawers', type:'reach-in', shape:'straight',
+    room:{w:72,d:24,h:96},
+    runs:{ back:[ {w:24,s:[m('DOUBLE_HANG')]},
+                  {w:24,s:[m('DRAWERS',34,{n:4}), m('SHELVES',null,{n:3})]},
+                  {w:24,s:[m('DOUBLE_HANG')]} ] } },
+
+  'reachin-premium': { name:'Premium reach-in', type:'reach-in', shape:'straight',
+    room:{w:96,d:24,h:96},
+    runs:{ back:[ {w:24,s:[m('HAMPER',28), m('SHORT_HANG')]},
+                  {w:36,s:[m('DOUBLE_HANG')]},
+                  {w:36,s:[m('SHOE_SLANT')]} ] } },
+
+  /* ── garage ──────────────────────────────────────────────────────── */
+  'garage-wall-run': { name:'Garage wall run', type:'garage', shape:'straight',
+    room:{w:144,d:20,h:108}, mounting:'wall',
+    runs:{ back:[ {w:36,s:[m('SHELVES',null,{n:4})]}, {w:36,s:[m('SHELVES',null,{n:4})]},
+                  {w:36,s:[m('SHELVES',null,{n:4})]}, {w:36,s:[m('SHELVES',null,{n:4})]} ] } },
+
+  'garage-lockers': { name:'Garage lockers', type:'garage', shape:'straight',
+    room:{w:144,d:20,h:108},
+    runs:{ back:[ {w:36,s:[m('SHELVES',null,{n:5})]}, {w:36,s:[m('SHELVES',null,{n:5})]},
+                  {w:36,s:[m('SHELVES',null,{n:5})]}, {w:36,s:[m('SHELVES',null,{n:5})]} ] } },
+
+  'garage-bench': { name:'Garage workbench', type:'garage', shape:'straight',
+    room:{w:144,d:20,h:108},
+    runs:{ back:[ {w:36,s:[m('SHELVES',null,{n:4})]},
+                  {w:36,s:[m('DRAWERS',34,{n:4}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:36,s:[m('OPEN',34), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:36,s:[m('SHELVES',null,{n:4})]} ] } },
+
+  /* ── laundry ─────────────────────────────────────────────────────── */
+  /* The machines stand in the OPEN section under the counter, which is why
+     that section is 36" of nothing rather than cabinetry. */
+  'laundry-counter': { name:'Laundry folding counter', type:'laundry', shape:'straight',
+    room:{w:96,d:24,h:96},
+    runs:{ back:[ {w:32,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:32,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:32,s:[m('SHELVES',null,{n:5})]} ] } },
+
+  'laundry-full': { name:'Full-wall laundry', type:'laundry', shape:'straight',
+    room:{w:120,d:24,h:96},
+    runs:{ back:[ {w:30,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:30,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:30,s:[m('HAMPER',28), m('SHORT_HANG')]},
+                  {w:30,s:[m('SHELVES',null,{n:3})]} ] } },
+
+  'laundry-compact': { name:'Laundry closet', type:'laundry', shape:'straight',
+    room:{w:54,d:24,h:96},
+    runs:{ back:[ {w:27,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:27,s:[m('SHELVES',null,{n:5})]} ] } },
+
+  /* ── pantry ──────────────────────────────────────────────────────── */
+  'pantry-essential': { name:'Essential pantry', type:'pantry', shape:'straight',
+    room:{w:56,d:16,h:96},
+    runs:{ back:[ {w:28,s:[m('SHELVES',null,{n:7})]}, {w:28,s:[m('SHELVES',null,{n:7})]} ] } },
+
+  'pantry-baskets': { name:'Pantry with baskets and drawers', type:'pantry', shape:'straight',
+    room:{w:56,d:16,h:96},
+    runs:{ back:[ {w:28,s:[m('BASKETS',30,{n:3}), m('SHELVES',null,{n:4})]},
+                  {w:28,s:[m('DRAWERS',28,{n:3}), m('SHELVES',null,{n:4})]} ] } },
+
+  'pantry-counter': { name:'Counter pantry', type:'pantry', shape:'straight',
+    room:{w:56,d:16,h:96},
+    runs:{ back:[ {w:28,s:[m('DRAWERS',34,{n:3}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:28,s:[m('SHELVES',null,{n:7})]} ] } },
+
+  /* ── linen ───────────────────────────────────────────────────────── */
+  /* A linen closet is a shallow reach-in, so that is the type it opens as. */
+  'linen-standard': { name:'Linen closet', type:'reach-in', shape:'straight',
+    room:{w:48,d:14,h:96},
+    runs:{ back:[ {w:24,s:[m('SHELVES',null,{n:7})]}, {w:24,s:[m('SHELVES',null,{n:7})]} ] } },
+
+  'linen-drawers': { name:'Linen closet with drawers', type:'reach-in', shape:'straight',
+    room:{w:48,d:14,h:96},
+    runs:{ back:[ {w:24,s:[m('DRAWERS',30,{n:3}), m('SHELVES',null,{n:5})]},
+                  {w:24,s:[m('DRAWERS',30,{n:3}), m('SHELVES',null,{n:5})]} ] } },
+};
+
 /* ---- LAYOUT PRESETS ------------------------------------------------------
    A customer does not think in "modules". They think "I want a drawer tower
    there". Handing them thirteen raw parts and asking them to assemble
@@ -678,7 +832,14 @@ export const PRESETS = [
 /* Does this ready-made layout physically fit the section it is being offered
    for? Single parts were already checked by canAdd; the ready-made ones were
    not, so one could be clicked into a section too short to hold it. */
-export function presetFits(preset, usableH){
+export function presetFits(preset, usableH, inCorner){
+  /* A corner section has the next run returning across its front, so a layout
+     with a drawer bank, a hamper or baskets in it cannot be opened there. */
+  if(inCorner){
+    const blocked = preset.stack.filter(x => OPENING_FRONT.has(x.m));
+    if(blocked.length) return { ok:false, corner:inCorner,
+      why:`${blocked.map(x=>MODULES[x.m].label.toLowerCase()).join(' and ')} would open into the ${inCorner} wall's run` };
+  }
   const need = preset.stack.reduce((a,x) => a + (x.h ?? MODULES[x.m].minH), 0);
   return { ok: need <= usableH + 0.5, need };
 }
@@ -975,6 +1136,10 @@ export function buildDesign(cfg, cat){
       let y = floorY;
       for(const s of mods){
         const sub = [];
+        /* The last module in the stack is the one the bay's top shelf sits
+           on. A module that wants a shelf of its own has to know that, or a
+           short hang under a capped section gets two shelves 3/4" apart. */
+        const capped = (s === mods[mods.length-1]) && wantsTop;
         /* Everything this module pushes gets stamped with the module id, so the
            review panel can say "Drawer bank  $1,240" instead of listing forty
            panels. Parts pushed by the carcass code below carry no stamp and
@@ -982,7 +1147,7 @@ export function buildDesign(cfg, cat){
         if(s.short > 0.5) warnings.push(
           `Section ${bi+1} on the ${run.wall} wall: ${MODULES[s.m].label.toLowerCase()} needs ${MODULES[s.m].minH}" and only ${s.H.toFixed(0)}" is left after everything else in that section. Take something out, make the section taller, or pick a part that fits.`);
         const mark = parts.length;
-        MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull,
+        MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull, capped,
                               boxStyle: cfg.boxStyle || DEFAULT_BOX_STYLE,
                               basketFinish: BASKET_FINISH[cfg.pullFinish] || 'Chrome',
                               warn: m => warnings.push(m) });

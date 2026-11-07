@@ -16,7 +16,7 @@ import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS, ROLES,
 import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
 import { describe } from '../assets/js/enquiry.js';
 import { packWeek, mondayOf, addDays } from '../assets/js/crewlink.js';
-import { quoteDoc, quoteNumbers, linearFeet } from './quote.js';
+import { quoteDoc, quoteNumbers, linearFeet, orderSheet } from './quote.js';
 
 const cat = await (await fetch((window.BASE||"")+'assets/data/catalog.json')).json();
 const $  = s => document.querySelector(s);
@@ -537,7 +537,11 @@ V.settings = () => {
       </div>
       <div class="f2">
         <div class="f"><label>Deposit to book (%)</label><input id="s-dep" type="number" step="1" value="${esc(s.depositPct ?? 50)}"></div>
-        <div class="f"></div>
+        <div class="f"><label>Board waste allowance (%)</label>
+          <input id="s-waste" type="number" step="1" min="0" max="40" value="${esc(s.boardWastePct ?? 15)}">
+          <small>What the order sheet adds on top of the bare square footage before
+            rounding up to whole sheets. It prints both numbers, so you can always
+            see what the allowance did.</small></div>
       </div>
       <div class="btnrow"><button class="btn btn-p" data-act="savebiz">Save</button></div></div>`)
 
@@ -673,7 +677,8 @@ function doAct(a){
       markup:+($('#s-markup')?.value||2.8), officeEmail:$('#s-mailto')?.value,
       resendKey:$('#s-resend')?.value, mapsEmbed:$('#s-map')?.value,
       installPerFt:+($('#s-ipf')?.value||0), installMin:+($('#s-imin')?.value||0),
-      taxRate:+($('#s-tax')?.value||0), depositPct:+($('#s-dep')?.value||50)});
+      taxRate:+($('#s-tax')?.value||0), depositPct:+($('#s-dep')?.value||50),
+      boardWastePct:+($('#s-waste')?.value||15)});
     render(); toast('Saved.'); return;
   }
   if(a==='refresh'){
@@ -920,7 +925,8 @@ function openQuote(id){
       <table><thead><tr><th>Item</th><th class="mono">Qty</th><th class="mono">Sq ft</th><th class="mono">Band ft</th><th>Detail</th></tr></thead>
       <tbody>${(d.order||[]).map(o=>`<tr><td>${esc(o.item)}</td><td class="mono">${o.qty}</td>
         <td class="mono">${o.sq_ft??''}</td><td class="mono">${o.edgeband_ft??''}</td><td class="sub">${esc(o.detail||'')}</td></tr>`).join('')}</tbody></table></div>
-      <div class="btnrow"><button class="btn btn-sm" id="q-csv">Download the parts list</button></div></div>`:''}
+      <div class="btnrow"><button class="btn btn-sm" id="q-csv">Download the parts list</button>
+        <button class="btn btn-sm" id="q-order">Open the order sheet</button></div></div>`:''}
     ${q ? (() => {
       const n = quoteNumbers(q, DB.settings());
       return `<div class="dlglist"><label>What the customer would see</label>
@@ -963,6 +969,16 @@ function openQuote(id){
       status:$('#m-st').value, summary:$('#m-su').value };
     q ? DB.updateQuote(q.id,p) : DB.addQuote(p);
     close(); render(); toast(q?'Saved.':'Quote added.');
+  };
+  /* The quote is what the customer signs. The order sheet is the other half:
+     the same parts list, grouped the way board and hardware are bought, with
+     the sheet count worked out per finish. */
+  const osb = dlg.querySelector('#q-order');
+  if(osb) osb.onclick = () => {
+    const w = window.open('', '_blank');
+    if(!w) return toast('Your browser blocked the new tab. Allow pop-ups for this page.', true);
+    w.document.write(orderSheet(q, DB.client(q.client), DB.settings()));
+    w.document.close();
   };
   const doc = dlg.querySelector('#q-doc');
   if(doc) doc.onclick = () => {

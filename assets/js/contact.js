@@ -30,6 +30,32 @@ if(design && note){
   if(design.typeLabel && sel) [...sel.options].forEach(o=>{ if(o.text === design.typeLabel) o.selected = true; });
 }
 
+/* ── what they pressed to get here ──────────────────────────────────────
+   The wall-bed page's three builds are configurations the 3D builder cannot
+   draw, so those cards come here instead of into the designer. The one they
+   pressed arrives as ?project=, picks the room out of the list and opens the
+   message with the configuration's name, so Joseph is not guessing which of
+   the three they meant. */
+const PROJECT_FROM_CARD = {
+  'queen vertical'  : ['Wall Beds', 'a queen vertical wall bed, with a tower each side'],
+  'queen horizontal': ['Wall Beds', 'a queen horizontal wall bed, for a wall with a window above it'],
+  'bed and office'  : ['Wall Beds', 'a queen wall bed with a desk that stays up when the bed comes down'],
+};
+(function carryProject(){
+  const want = new URLSearchParams(location.search).get('project');
+  if(!want) return;
+  const sel = document.getElementById('t'); if(!sel) return;
+  const hit = PROJECT_FROM_CARD[want.trim().toLowerCase()];
+  const room = hit ? hit[0] : want.trim();
+  const opt = [...sel.options].find(o => o.text.toLowerCase() === room.toLowerCase());
+  if(opt) opt.selected = true;
+  const m = document.getElementById('m');
+  if(m && !m.value){
+    m.value = hit ? `I am looking at ${hit[1]}.`
+                  : `I am looking at ${want.trim()}.`;
+  }
+})();
+
 /* ── build the whole package ─────────────────────────────────────────── */
 function gather(){
   const v = n => (f.elements[n]?.value || '').trim();

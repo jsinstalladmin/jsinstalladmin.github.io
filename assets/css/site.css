@@ -101,6 +101,41 @@ p{margin:0 0 1.05em}
 .nvm.wide{min-width:470px;display:grid;grid-template-columns:1fr 1fr;gap:0 2px}
 .nvm.wide .nvall{grid-column:1/-1}
 .nvm.wide .nvsep{grid-column:1/-1}
+
+/* ── the Layouts menu ──
+   Eleven sentences stacked two abreast made the panel taller than the
+   viewport and nobody read a word of it. A layout is a shape, so the menu
+   shows the shape: the same render the layout's own page opens with, cropped
+   square so twelve of them sit in a block the height of the header's shadow.
+   The name is the only text, because the name plus the picture IS the
+   description. */
+.nvm.lay{min-width:0;width:min(536px,92vw);display:grid;
+  grid-template-columns:repeat(4,1fr);gap:2px;padding:8px;
+  /* 536px centred on a button near the right of the bar hangs off the screen,
+     so this one hangs from the button's right edge instead */
+  left:auto;right:0;transform:translate(0,-7px)}
+.nvd:hover .nvm.lay,.nvd:focus-within .nvm.lay,
+.nvt[aria-expanded="true"] + .nvm.lay{transform:translate(0,0)}
+.nvm.lay a{padding:7px 6px 9px;text-align:center;display:block}
+/* width:100% alone leaves the img's own height attribute standing, and the
+   thumbnail comes out 320px tall in a 122px column */
+.nvm.lay a img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:cover;
+  border-radius:10px;background:var(--paper-3);margin-bottom:.46em;
+  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out)}
+.nvm.lay a b{font-size:.775rem;line-height:1.25;letter-spacing:-.01em}
+.nvm.lay a:hover img{transform:translateY(-3px) scale(1.035);
+  box-shadow:0 10px 22px rgba(26,18,10,.17)}
+/* the twelfth cell is the door to the full index, so it is drawn rather than
+   photographed: four panes, the same square as the thumbnails beside it */
+.nvm.lay .nvallq{display:grid;place-items:center;width:100%;aspect-ratio:1;
+  border-radius:10px;margin-bottom:.46em;background:var(--ink);
+  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out)}
+.nvm.lay .nvallq svg{width:40%;height:40%;fill:none;stroke:#D7B37A;stroke-width:1.5}
+.nvm.lay .nvall:hover .nvallq{transform:translateY(-3px) scale(1.035);
+  box-shadow:0 10px 22px rgba(26,18,10,.22)}
+@media(prefers-reduced-motion:reduce){
+  .nvm.lay a:hover img,.nvm.lay .nvall:hover .nvallq{transform:none}
+}
 @media(max-width:1180px){.nvt{font-size:.8rem;padding:.5em .72em}}
 @media(max-width:1000px){.nvd{display:none}}
 body.over-dark .hdr:not(.solid) .nvt{color:rgba(248,245,240,.84)}
@@ -177,7 +212,10 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 @media(max-width:900px){.ed{grid-template-columns:1fr;gap:20px}.ed > h2{position:static}}
 
 /* ---------- PAGE HEADER — the big fix ---------- */
-.phero{position:relative;min-height:min(86svh,780px);display:flex;align-items:flex-end;
+/* 86svh meant the title band filled the screen and the first scroll on every
+   inner page was spent getting past it. Two thirds of the fold is enough to
+   read as a cover and still show that the page continues. */
+.phero{position:relative;min-height:min(62svh,560px);display:flex;align-items:flex-end;
   background:var(--ink);overflow:hidden;isolation:isolate}
 .phero-media{position:absolute;inset:0;z-index:-2}
 /* a directional wash from the text corner — not a blanket veil over the photo */
@@ -192,7 +230,7 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .phero::before{content:'';position:absolute;inset:0 0 auto;height:190px;z-index:-1;
   background:linear-gradient(rgba(10,8,6,.5),transparent 92%)}
 .phero-in{position:relative;width:var(--shell);margin-inline:auto;
-  padding:clamp(130px,19vh,210px) 0 clamp(34px,5vw,56px)}
+  padding:clamp(112px,13vh,152px) 0 clamp(30px,4vw,46px)}
 .phero h1{color:var(--paper);max-width:15ch;margin-bottom:.26em}
 .phero .lede{color:rgba(248,245,240,.8);max-width:46ch}
 .phero .crumb{color:rgba(248,245,240,.74)}
@@ -385,11 +423,24 @@ body[data-hero="dark"]  .hero-veil{background:
 .skip:focus{left:0}
 .tag{display:inline-block;font-size:.7rem;letter-spacing:.13em;text-transform:uppercase;
   color:var(--accent-ink);border:1px solid var(--line);border-radius:var(--r-pill);padding:.36em .82em}
-.cta-band{background:var(--ink);color:rgba(248,245,240,.78);border-radius:var(--r-xl);
+/* This was a flat brown slab on a page that is otherwise photographs of the
+   work. It is now one of them, with a wash across the text side so every word
+   stays legible and the cabinetry still reads on the right. */
+.cta-band{position:relative;isolation:isolate;overflow:hidden;
+  background:var(--ink);color:rgba(248,245,240,.82);border-radius:var(--r-xl);
   padding:clamp(32px,5.2vw,78px);display:grid;gap:clamp(18px,3vw,46px);
   grid-template-columns:1.5fr auto;align-items:center}
+.cta-band::before{content:'';position:absolute;inset:0;z-index:-2;
+  background-image:var(--ctabg,url(../../img/work/work-10@1600.jpg));
+  background-size:cover;background-position:62% 52%}
+.cta-band::after{content:'';position:absolute;inset:0;z-index:-1;
+  background:linear-gradient(97deg,rgba(12,9,7,.93) 0%,rgba(12,9,7,.86) 36%,
+    rgba(12,9,7,.62) 64%,rgba(12,9,7,.42) 100%)}
+@media(max-width:800px){
+  .cta-band{grid-template-columns:1fr}
+  .cta-band::after{background:linear-gradient(rgba(12,9,7,.9),rgba(12,9,7,.78))}
+}
 .cta-band h2{color:var(--paper);max-width:17ch}
-@media(max-width:800px){.cta-band{grid-template-columns:1fr}}
 .quote{margin:clamp(40px,9vw,140px) 0 0;font-size:9px;text-transform:uppercase;word-spacing:.25em;
   letter-spacing:.09em;line-height:2.5;text-align:justify;color:var(--muted)}
 .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
@@ -900,6 +951,22 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
 @media(max-width:820px){
   .infobox.withpic{grid-template-columns:1fr}
   .infobox.withpic .infopic{min-height:220px;max-height:280px}
+}
+/* The drawing beside the numbers is a <figure>, not a cover photo, and it was
+   left at its own aspect ratio: the four landscape renders sat neatly in the
+   panel while the seven portrait ones stretched the whole row to 1200px and
+   ran out past the rounded corner. Every one of them now gets the same band
+   of the same height and is fitted inside it, so a tall section and a wide one
+   are the same size on the page and the whole piece is still visible. */
+.infobox.withpic .artfig{margin:0;min-width:0;display:flex;flex-direction:column;
+  justify-content:center;background:var(--paper-3);
+  padding:clamp(18px,2.2vw,32px) clamp(18px,2.2vw,32px) clamp(14px,1.6vw,22px)}
+.infobox.withpic .artfig img{width:100%;height:clamp(240px,25vw,340px);
+  object-fit:contain;background:#F2EFEB;border-radius:clamp(10px,.9vw,14px);
+  border:1px solid rgba(26,18,10,.07);box-shadow:0 6px 18px rgba(26,18,10,.06)}
+.infobox.withpic .artfig figcaption{margin-top:.8em;text-align:center;max-width:none}
+@media(max-width:820px){
+  .infobox.withpic .artfig img{height:clamp(200px,52vw,280px)}
 }
 
 /* ── the layouts index ──

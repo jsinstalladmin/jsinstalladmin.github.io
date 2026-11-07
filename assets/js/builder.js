@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS,
          presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit, wallGap,
+         ROOM_PLANS, cornerBlocked,
          baseHeight } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, makeComposer } from './render.js';
@@ -309,6 +310,31 @@ if(qPre){
     S.runs[wall].bays.push(nb);
     S.sel = { wall, i:0 };
   }
+}
+
+/* Every "See the build" on a room page carries ?plan=, so the photograph the
+   customer pressed opens as a drawn, priced room rather than as an empty box
+   of the right type. A plan sets the room, the walls and every section; from
+   that point it is theirs and everything in it can be changed. */
+const qPlan = qp.get('plan');
+if(qPlan && ROOM_PLANS[qPlan]){
+  const pl = ROOM_PLANS[qPlan];
+  S.type = pl.type;
+  S.room = { ...pl.room };
+  S.mounting = pl.mounting || 'floor';
+  applyShape(pl.shape);
+  for(const wall of Object.keys(pl.runs || {})){
+    const r = S.runs[wall];
+    if(!r) continue;
+    let at = 0;
+    r.bays = pl.runs[wall].map(sec => {
+      const b = makeBay(sec.w, structuredClone(sec.s), sec.top !== false);
+      b.at = at; at += sec.w;
+      return b;
+    });
+  }
+  const first = Object.keys(pl.runs || {}).find(w => S.runs[w]?.bays.length);
+  if(first) S.sel = { wall:first, i:0 };
 }
 
 function cfg(){
@@ -1658,6 +1684,11 @@ function paintStack(){
   const usable = (cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.h)
     ?? (Math.min(SPEC.topShelf, S.room.h - 6) - floorY);
 
+  /* Is the section being edited the one in the inside corner? If it is, the
+     picker does not offer anything with a front on it, because the next run
+     comes across that front and it could not be opened. */
+  const inCorner = cornerBlocked(cfg(), S.sel.wall, S.sel.i, bay.at ?? 0, bay.w);
+
   const cheapest = PRESETS.reduce((lo, p) => {
     const v = presetDelta(p, bay.w, usable, cat, S.finish);
     return (v != null && (lo == null || v < lo)) ? v : lo; }, null);
@@ -1707,19 +1738,24 @@ function paintStack(){
       : `<img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async"
              width="420" height="315">`;
     const on = matched?.id === pre.id;
-    const fit = presetFits(pre, usable);
+    const fit = presetFits(pre, usable, inCorner);
     return `<button class="pcard ready" data-preset="${pre.id}" aria-pressed="${on}"
                     ${fit.ok ? '' : 'disabled'}
-                    title="${(fit.ok ? pre.desc : `${pre.name} needs ${fit.need}" and this section only has ${usable.toFixed(0)}". Make the section taller or pick something shorter.`).replace(/"/g,'&quot;')}">
+                    title="${(fit.ok ? pre.desc
+                        : fit.corner ? `This section is in the corner where the ${fit.corner} wall returns across its front, so ${fit.why}. A corner section takes shelving or hanging.`
+                        : `${pre.name} needs ${fit.need}" and this section only has ${usable.toFixed(0)}". Make the section taller or pick something shorter.`).replace(/"/g,'&quot;')}">
       ${art}<i>${pre.name}</i>
-      <span class="phov"><em>${fit.ok ? pre.desc : `Needs ${fit.need}", this section has ${usable.toFixed(0)}".`}</em></span>
+      <span class="phov"><em>${fit.ok ? pre.desc
+        : fit.corner ? `In this corner, ${fit.why}.`
+        : `Needs ${fit.need}", this section has ${usable.toFixed(0)}".`}</em></span>
       <span class="pbadge">${on ? 'Current' : 'Ready-made'}</span>${
-        fit.ok ? (tag ? `<u>${tag}</u>` : '') : '<u class="full">Too tall</u>'}</button>`;
+        fit.ok ? (tag ? `<u>${tag}</u>` : '')
+        : fit.corner ? '<u class="full">Not in a corner</u>' : '<u class="full">Too tall</u>'}</button>`;
   }).join('');
 
   const partCards = MODULE_IDS.map(id => {
     const d = MODULES[id], img = id.toLowerCase().replace(/_/g,'-');
-    const chk = canAdd(bay.stack, id, usable);
+    const chk = canAdd(bay.stack, id, usable, inCorner);
     const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
     return `<button class="pcard" data-add="${id}" ${chk.ok?'':'disabled'} title="${tip}">
       <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
@@ -1727,7 +1763,7 @@ function paintStack(){
       <i>${d.label}</i>
       <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
         <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
-      ${chk.ok ? '' : '<u class="full">No room</u>'}</button>`;
+      ${chk.ok ? '' : `<u class="full">${/corner/.test(chk.why) ? 'Not in a corner' : 'No room'}</u>`}</button>`;
   }).join('');
 
   /* ── Changing one part of a section ────────────────────────────────────
@@ -1743,7 +1779,7 @@ function paintStack(){
     const cur_ = bay.stack[S.swap];
     swapCards = MODULE_IDS.map(id => {
       const d = MODULES[id], img = id.toLowerCase().replace(/_/g,'-');
-      const chk = id === cur_.m ? { ok:true } : canAdd(without, id, usable);
+      const chk = id === cur_.m ? { ok:true } : canAdd(without, id, usable, inCorner);
       const on  = id === cur_.m;
       const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
       return `<button class="pcard" data-swapto="${id}" aria-pressed="${on}"
@@ -1769,6 +1805,23 @@ function paintStack(){
         <button class="rmsec" data-rmsec="1" title="Remove this section">Remove section</button>
       </span></div>
 
+    ${/* Every render on the site shows a shelf capping the section, and every
+          section is built with one, so it is on. But a double hang run to the
+          ceiling does not want one, and neither does a section under a sloped
+          ceiling, so it is a choice — made here, at the top of the list, which
+          is where the shelf is. */''}
+    <div class="toprow ${bay.top === false ? 'off' : ''}">
+      <span class="sico"><svg viewBox="0 0 24 32"><path d="M2 7h20M4 7v3M20 7v3"/></svg></span>
+      <span class="sname"><b>Shelf over the top</b>
+        <i>${bay.top === false
+            ? 'Left off, so what is below runs to full height.'
+            : 'Standard, and what the drawings show.'}</i></span>
+      <span class="segrow mini">
+        <button type="button" data-top="1" class="${bay.top === false ? '' : 'on'}">Shelf</button>
+        <button type="button" data-top="0" class="${bay.top === false ? 'on' : ''}">Open</button>
+      </span>
+    </div>
+
     ${bay.stack.length ? `<div class="stacklist">${bay.stack.slice().reverse().map((st,ri)=>{
       const i=bay.stack.length-1-ri, d=MODULES[st.m];
       /* The name and the controls are on separate lines. Seven controls and a
@@ -1793,10 +1846,25 @@ function paintStack(){
 
     ${swapOpen ? `
     <h4 class="subh">Change ${slotName(S.swap, bay.stack.length)}</h4>
-    <p class="note" style="margin:-2px 0 10px">
-      It is <b>${MODULES[bay.stack[S.swap].m].label}</b> at the moment. Everything below fits
-      ${slotName(S.swap, bay.stack.length)} of this section with the rest of it left alone.
-      <button class="swapback" data-swapback="1" type="button">Show everything instead</button></p>
+    ${/* A drawing of this section, bottom to top, with the part being changed
+          lit up. "The bottom part" is a phrase you have to decode against a
+          section with four things in it; this is the section. */''}
+    <div class="swaphd">
+      <span class="swapdia" aria-hidden="true">
+        ${bay.stack.map((st,i) => {
+          const h = st.h ?? MODULES[st.m].defH;
+          return `<span class="${i===S.swap?'on':''}" style="flex:${h.toFixed(1)} 1 0"></span>`;
+        }).join('')}
+        ${bay.top === false ? '' : '<span class="cap"></span>'}
+      </span>
+      <span class="swaptx">
+        <b>${slotName(S.swap, bay.stack.length)[0].toUpperCase()
+             + slotName(S.swap, bay.stack.length).slice(1)} is
+           ${MODULES[bay.stack[S.swap].m].label.toLowerCase()}</b>
+        <span>Everything below fits in its place. The rest of the section does not move.
+          <button class="swapback" data-swapback="1" type="button">Show everything instead</button></span>
+      </span>
+    </div>
     <div class="pgrid">${swapCards}</div>`
     : `
     <h4 class="subh">${bay.stack.length ? 'Change this section to' : 'What goes in this section'}</h4>
@@ -2267,12 +2335,13 @@ $('#stack').onclick=e=>{
   }
   if(t.dataset.preset){
     const pre = PRESETS.find(p=>p.id===t.dataset.preset);
-    if(pre){ bay.stack = structuredClone(pre.stack); bay.top = true; rebuild(true); }
+    if(pre){ bay.stack = structuredClone(pre.stack); rebuild(true); }   // their top-shelf choice stands
     return;
   }
-  /* the top shelf is a choice per section, not a law */
-  /* The top deck is what ties the partitions together and squares the box.
-     It was offered as a choice; it is not one. Every section gets one. */
+  /* The top shelf is a choice per section. It is on everywhere by default,
+     because that is how these are built and how every render on the site
+     shows them, but a section run to the ceiling has no shelf over it. */
+  if(t.dataset.top != null){ bay.top = t.dataset.top === '1'; rebuild(true); return; }
   if(t.dataset.move){
     /* Slide it along the wall. Held against a neighbour it swaps with it, so
        the arrows still reorder when there is no room to simply move. */

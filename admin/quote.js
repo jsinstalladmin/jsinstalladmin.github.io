@@ -200,3 +200,138 @@ export function quoteDoc(quote, client, settings, opts = {}){
 ].filter(Boolean).join('\n'))}</pre>
 </body></html>`;
 }
+
+
+/* ============================================================
+   orderSheet — the sheet Joseph orders FROM.
+
+   The quote is what the customer signs. This is the other half: every part
+   in the job, grouped the way it is bought, with the board split by finish
+   so he can see how many sheets to put on the order and how many feet of
+   edge band go with them. Nothing here is recalculated — it is the same
+   parts list the builder priced, counted up.
+
+   A 4x8 sheet is 32 square feet. Yield is never 100%, so the sheet count is
+   printed as the bare arithmetic AND with the waste allowance set in
+   Settings, and it says which is which rather than quietly padding.
+   ============================================================ */
+export function orderSheet(quote, client, settings = {}){
+  const d = quote.design;
+  const today = new Date().toISOString().slice(0,10);
+  const biz = settings.business || 'JS Installations & Closets';
+  const waste = Math.max(0, Math.min(40, +settings.boardWastePct || 15));
+  const order = (d?.order || []);
+
+  /* board is anything with square footage against it; everything else is
+     hardware and is counted by the piece */
+  const board = order.filter(o => (+o.sq_ft || 0) > 0);
+  const hw    = order.filter(o => !((+o.sq_ft || 0) > 0));
+
+  const byFinish = new Map();
+  for(const o of board){
+    const f = o.finish || '—';
+    const g = byFinish.get(f) || { sqft:0, edge:0, items:0 };
+    g.sqft += +o.sq_ft || 0; g.edge += +o.edgeband_ft || 0; g.items += +o.qty || 0;
+    byFinish.set(f, g);
+  }
+  const totSq   = board.reduce((a,o)=>a+(+o.sq_ft||0),0);
+  const totEdge = order.reduce((a,o)=>a+(+o.edgeband_ft||0),0);
+  const totQty  = order.reduce((a,o)=>a+(+o.qty||0),0);
+
+  const sheetRows = [...byFinish.entries()].map(([f,g]) => {
+    const bare = g.sqft/32, pad = bare*(1+waste/100);
+    return `<tr><td>${esc(f)}</td><td class="n">${g.items}</td>
+      <td class="n">${g.sqft.toFixed(1)}</td>
+      <td class="n">${bare.toFixed(2)}</td>
+      <td class="n"><b>${Math.ceil(pad)}</b></td>
+      <td class="n">${g.edge.toFixed(1)}</td></tr>`;
+  }).join('');
+
+  const boardRows = board.map(o => `<tr><td>${esc(o.item)}</td><td>${esc(o.finish||'')}</td>
+    <td class="n">${o.qty}</td><td class="n">${(+o.sq_ft||0).toFixed(2)}</td>
+    <td class="n">${(+o.edgeband_ft||0).toFixed(1)}</td>
+    <td class="dim">${esc(o.detail||'')}</td></tr>`).join('');
+
+  const hwRows = hw.map(o => `<tr><td>${esc(o.item)}</td><td>${esc(o.finish||'')}</td>
+    <td class="n">${o.qty}</td><td class="dim" colspan="3">${esc(o.detail||'')}</td></tr>`).join('');
+
+  const secRows = (d?.bays||[]).map((b,i) => `<tr><td class="n">${i+1}</td>
+    <td>${esc((b.wall||'').replace(/^./,c=>c.toUpperCase()))}</td>
+    <td class="n">${b.width}"</td>
+    <td>${b.stack.map(x=>esc(x.module)+(x.height?` at ${x.height}"`:'')).join(' over ') || 'Empty'}</td>
+    <td>${b.topShelf === false ? 'No top shelf' : 'Top shelf'}</td></tr>`).join('');
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Order sheet — ${esc(quote.title||'')}</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#F2EFEA;color:#17120E;
+    font:15px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial}
+  .sheet{max-width:980px;margin:26px auto;background:#fff;padding:34px 38px 44px;
+    border-radius:12px;box-shadow:0 10px 50px rgba(26,18,10,.1)}
+  h1{font-size:1.5rem;margin:0 0 .15em}
+  h2{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:#7A7067;
+    margin:30px 0 9px;font-weight:600}
+  .top{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;
+    padding-bottom:18px;border-bottom:2px solid #17120E}
+  .dim{color:#7A7067;font-size:.86rem}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th{text-align:left;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
+    color:#7A7067;font-weight:600;padding:0 8px 7px 0;border-bottom:1px solid #E2DCD4}
+  td{padding:8px 8px 8px 0;border-bottom:1px solid #EFEAE3;vertical-align:top}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .sum{border:1px solid #E2DCD4;border-radius:10px;padding:14px 16px;margin-top:10px}
+  .sum table td{border:0;padding:4px 8px 4px 0}
+  .note{margin-top:26px;padding-top:16px;border-top:1px solid #E2DCD4;
+    color:#7A7067;font-size:.82rem;line-height:1.6}
+  .noprint{max-width:980px;margin:0 auto;display:flex;gap:9px;justify-content:flex-end}
+  .noprint button{font:inherit;font-size:.85rem;padding:.6em 1.1em;border-radius:999px;
+    border:1px solid #E2DCD4;background:#fff;cursor:pointer}
+  .noprint button.p{background:#17120E;color:#fff;border-color:#17120E}
+  @media print{ body{background:#fff} .sheet{box-shadow:none;margin:0;max-width:none;
+    border-radius:0;padding:0} .noprint{display:none} }
+</style></head><body>
+<div class="noprint"><button onclick="window.print()" class="p">Print</button></div>
+<div class="sheet">
+  <div class="top">
+    <div><h1>Order sheet</h1>
+      <div class="dim">${esc(quote.title||'')} &middot; ${esc(client?.name||'')}</div></div>
+    <div class="dim" style="text-align:right">${esc(biz)}<br>${today}<br>
+      ${d ? `${d.room.w}" &times; ${d.room.d}" &times; ${d.room.h}"` : ''}</div>
+  </div>
+
+  <h2>Board to order</h2>
+  <table><thead><tr><th>Finish</th><th class="n">Pieces</th><th class="n">Sq ft</th>
+    <th class="n">Sheets, bare</th><th class="n">Sheets at +${waste}%</th>
+    <th class="n">Edge band ft</th></tr></thead>
+    <tbody>${sheetRows || '<tr><td colspan="6" class="dim">Nothing on this design.</td></tr>'}</tbody></table>
+  <div class="sum dim">A 4&times;8 sheet is 32 square feet. <b>Sheets, bare</b> is the square
+    footage divided by 32 with no allowance at all. <b>Sheets at +${waste}%</b> adds the
+    waste allowance from Settings and rounds up, which is the number to order.</div>
+
+  <h2>Every panel</h2>
+  <table><thead><tr><th>Item</th><th>Finish</th><th class="n">Qty</th>
+    <th class="n">Sq ft</th><th class="n">Band ft</th><th>Where it goes</th></tr></thead>
+    <tbody>${boardRows || '<tr><td colspan="6" class="dim">—</td></tr>'}</tbody></table>
+
+  <h2>Hardware and fittings</h2>
+  <table><thead><tr><th>Item</th><th>Finish</th><th class="n">Qty</th><th colspan="3">Detail</th></tr></thead>
+    <tbody>${hwRows || '<tr><td colspan="6" class="dim">—</td></tr>'}</tbody></table>
+
+  <h2>What goes where</h2>
+  <table><thead><tr><th class="n">#</th><th>Wall</th><th class="n">Width</th>
+    <th>Section, bottom to top</th><th>Top</th></tr></thead>
+    <tbody>${secRows || '<tr><td colspan="5" class="dim">—</td></tr>'}</tbody></table>
+
+  ${(d?.warnings||[]).length ? `<h2>Read before ordering</h2>
+    <ul class="dim" style="margin:0;padding-left:1.1em;line-height:1.7">
+      ${d.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+
+  <div class="note">
+    ${totQty} parts and pieces &middot; ${totSq.toFixed(1)} sq ft of board &middot;
+    ${totEdge.toFixed(1)} ft of edge band.<br>
+    Every dimension on this sheet comes from the drawing as it stands today. Confirm
+    the room at the measure before any of it is cut.
+  </div>
+</div></body></html>`;
+}
