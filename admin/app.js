@@ -209,7 +209,7 @@ V.today = () => {
       `<button class="btn" data-act="newclient">+ Client</button>
        <button class="btn btn-p" data-act="newjob">+ Book a visit</button>`)
 
-  + panel('What wants doing',
+  + panel('To do',
       todo ? `${unread.length?unread.length+' unanswered · ':''}${waiting.length?waiting.length+' awaiting an answer':''}` : '',
       todo ? `<div class="dolist">${todo}</div>`
            : empty('Nothing waiting on you. Every lead is answered and nothing is stuck.'),
@@ -530,18 +530,24 @@ V.inbox = () => {
 };
 
 function inboxPreview(e){
+  /* A lead that came in without a contact block — a connection test, a form
+     posted with nothing in it — used to take every one of these dot-accesses
+     down with a TypeError. The click handler calls this straight, so the
+     exception escaped, the modal never opened, and from the office it looked
+     like clicking the row simply did nothing. */
+  const ct = e.contact || {};
   const d = e.design;
   const rm = REGIONS.find(r=>r.id===e.regionId);
   const parts = (d?.order||[]).reduce((a,o)=>a+(+o.qty||0),0);
-  const existing = DB.findClient(e.contact.name);
+  const existing = ct.name ? DB.findClient(ct.name) : null;
   return `<div class="note ok"><b>Read it.</b> ${esc(describe(e))}</div>
     <table class="kv"><tbody>
-      <tr><th>Name</th><td>${esc(e.contact.name||'—')}</td></tr>
-      <tr><th>Phone</th><td>${esc(e.contact.phone||'—')}</td></tr>
-      <tr><th>Email</th><td>${esc(e.contact.email||'—')}</td></tr>
-      <tr><th>Where</th><td>${esc([e.contact.address,e.contact.location].filter(Boolean).join(', ')||'—')}</td></tr>
+      <tr><th>Name</th><td>${esc(ct.name||'—')}</td></tr>
+      <tr><th>Phone</th><td>${esc(ct.phone||'—')}</td></tr>
+      <tr><th>Email</th><td>${esc(ct.email||'—')}</td></tr>
+      <tr><th>Where</th><td>${esc([ct.address,ct.location].filter(Boolean).join(', ')||'—')}</td></tr>
       <tr><th>Region</th><td>${rm ? esc(rm.name) : '<b>Could not work it out from the ZIP. Pick one below.</b>'}</td></tr>
-      <tr><th>Project</th><td>${esc(e.contact.project||'—')}</td></tr>
+      <tr><th>Project</th><td>${esc(ct.project||'—')}</td></tr>
       ${d?`<tr><th>Room</th><td>${d.room.w}" × ${d.room.d}" × ${d.room.h}" · ${esc(d.mounting||'')}</td></tr>
       <tr><th>Sections</th><td>${(d.bays||[]).length}, ${parts} parts and pieces</td></tr>
       <tr><th>Finish</th><td>${esc(d.finish)}${d.frontFinish&&d.frontFinish!==d.finish?' carcass · '+esc(d.frontFinish)+' fronts':''}</td></tr>
@@ -550,7 +556,7 @@ function inboxPreview(e){
       ${(d.fittings||[]).length?`<tr><th>On the walls</th><td>${d.fittings.map(f=>esc(f.item)+(f.note?' ('+esc(f.note)+')':'')).join(', ')}</td></tr>`:''}
       <tr><th>Estimate</th><td class="mono">${money(d.price)}</td></tr>
       ${(d.warnings||[]).length?`<tr><th>Flags</th><td>${d.warnings.map(esc).join(' ')}</td></tr>`:''}`:''}
-      ${e.contact.message?`<tr><th>They said</th><td>${esc(e.contact.message)}</td></tr>`:''}
+      ${ct.message?`<tr><th>They said</th><td>${esc(ct.message)}</td></tr>`:''}
     </tbody></table>
     ${existing?`<div class="note warn">There is already a client called <b>${esc(existing.name)}</b> in ${esc(DB.regionMeta(existing.region).name)}. Filing this adds the job to them rather than making a second record.</div>`:''}
     <div class="f2">
@@ -572,25 +578,25 @@ function inboxFile(){
   const region = $('#inbox-region')?.value || DB.region();
   const stage  = $('#inbox-stage')?.value || 'new';
   const d = e.design;
-  let client = DB.findClient(e.contact.name);
+  let client = DB.findClient(ct.name);
   if(!client){
-    client = DB.addClient({ region, name:e.contact.name || 'Website enquiry',
-      phone:e.contact.phone||'', email:e.contact.email||'',
-      addr:[e.contact.address, e.contact.location].filter(Boolean).join(', '),
-      source: e.source || 'Website', notes: e.contact.message || '', stage });
+    client = DB.addClient({ region, name:ct.name || 'Website enquiry',
+      phone:ct.phone||'', email:ct.email||'',
+      addr:[ct.address, ct.location].filter(Boolean).join(', '),
+      source: e.source || 'Website', notes: ct.message || '', stage });
   } else {
     DB.updateClient(client.id, {
-      phone: client.phone || e.contact.phone || '',
-      email: client.email || e.contact.email || '',
-      addr:  client.addr  || [e.contact.address, e.contact.location].filter(Boolean).join(', ') });
+      phone: client.phone || ct.phone || '',
+      email: client.email || ct.email || '',
+      addr:  client.addr  || [ct.address, ct.location].filter(Boolean).join(', ') });
   }
-  const title = d ? `${d.typeLabel || e.contact.project || 'Closet'} from the 3D builder`
-                  : (e.contact.project || 'Website enquiry');
+  const title = d ? `${d.typeLabel || ct.project || 'Closet'} from the 3D builder`
+                  : (ct.project || 'Website enquiry');
   const job = DB.addJob({ region, client:client.id, title,
-    type: d?.typeLabel || e.contact.project || 'Walk-In Closets',
+    type: d?.typeLabel || ct.project || 'Walk-In Closets',
     stage:'lead', value:0, date:today(), kind:'measure',
     finish: d?.finish || 'n/a', crew:'', crewIds:[],
-    notes:[describe(e), e.contact.message].filter(Boolean).join(' — ') });
+    notes:[describe(e), ct.message].filter(Boolean).join(' — ') });
   let quote = null;
   if(d) quote = DB.addQuote({ region, client:client.id, title, total:Math.round(d.price||0),
       status:'draft', summary:d.summary, design:d });
@@ -709,7 +715,13 @@ document.addEventListener('click', e => {
   if(ee){ e.stopPropagation(); return openEmployee(ee.dataset.empEdit); }
 
   const lop = e.target.closest('[data-leadopen]');
-  if(lop){ e.stopPropagation(); return openLead(lop.dataset.leadopen); }
+  if(lop){ e.stopPropagation();
+    /* If opening a record throws, SAY SO. A row that swallows its own error
+       is indistinguishable from a row that is not wired up at all, which is
+       exactly how this looked from the outside. */
+    try { openLead(lop.dataset.leadopen); }
+    catch(err){ console.error(err); toast('That enquiry would not open: ' + err.message, true); }
+    return; }
 
   const lo = e.target.closest('[data-lead-open]');
   if(lo){ e.stopPropagation(); return lo.dataset.leadOpen ? openClient(lo.dataset.leadOpen) : null; }
