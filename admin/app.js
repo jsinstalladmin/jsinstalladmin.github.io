@@ -15,7 +15,7 @@ import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS, ROLES,
          PIPE, PIPE_ID, PIPE_LABEL, PIPE_COLOR } from './store.js';
 import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
 import { describe } from '../assets/js/enquiry.js';
-import { packWeek, mondayOf, addDays } from '../assets/js/crewlink.js';
+import { packWeekShort, mondayOf, addDays } from '../assets/js/crewlink.js';
 import { quoteDoc, quoteNumbers, linearFeet, orderSheet } from './quote.js';
 
 const cat = await (await fetch((window.BASE||"")+'assets/data/catalog.json')).json();
@@ -24,6 +24,14 @@ const money = n => '$'+Math.round(n||0).toLocaleString();
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const today  = () => new Date().toISOString().slice(0,10);
 const fmtD   = iso => new Date(iso+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+/* The date a lead came in. This lived as a `const when` INSIDE V.inbox, and
+   openLead -- a top-level function -- called it. On a laptop you never saw it,
+   because you normally reach a lead from the inbox view and... no, you never
+   saw it there either: the reference throws every time, and the try/catch
+   around the click handler turned the crash into a toast that said "That
+   enquiry would not open: Can't find variable: when". The toast was mine and
+   it was the wrong fix. A helper two functions use is a module-level helper. */
+const leadWhen = l => fmtD((l?.created || today()).slice(0,10));
 const fmtFull= iso => new Date(iso+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 
@@ -39,6 +47,17 @@ const panel = (title, right, body, cls='') =>
   `<section class="panel ${cls}">
      ${title?`<header><h3>${title}</h3>${right?`<span>${right}</span>`:''}</header>`:''}
      ${body}</section>`;
+
+/* THE HOW-IT-WORKS PANELS WERE ALWAYS OPEN.
+   Crew and Inbox each ended with four paragraphs explaining the page you
+   were already looking at. It is worth reading once and it is in the way
+   every day after that -- on Crew it was taller than the two people on it.
+   Same words, folded away behind one line, and the browser remembers which
+   ones you have opened. */
+const helpPanel = (title, body) =>
+  `<details class="panel help" name="adminhelp">
+     <summary><span class="helpq">?</span>${title}</summary>
+     ${body}</details>`;
 
 const empty = msg => `<div class="empty">${msg}</div>`;
 const scroll = t => `<div class="tscroll">${t}</div>`;
@@ -348,7 +367,12 @@ V.jobs = () => {
       ? `${money(doneSum)} across ${done.length} install${done.length===1?'':'s'}`
         + (thisMonth.length ? ` · ${money(thisMonth.reduce((a,j)=>a+(+j.value||0),0))} this month` : '')
       : '', done.length ? tbl(done) : empty('Nothing finished yet.'))
-  + panel('Everything else', `${rest.length}`, rest.length ? tbl(rest) : empty('Nothing here yet.'));
+  /* "Everything else · 1" told you nothing: it is the jobs with a date that
+     has already gone by and no install recorded against them, which is the
+     one group on this page that needs chasing. */
+  + panel('Past their date', rest.length
+      ? `${rest.length} not marked installed${rest.length===1?'':' yet'} · chase or re-date ${rest.length===1?'it':'them'}`
+      : '', rest.length ? tbl(rest) : empty('Nothing overdue.'), rest.length?'warn':'');
 };
 
 /* ───────── quotes ───────── */
@@ -433,7 +457,9 @@ V.crew = () => {
         <span class="sub">${esc(e.role||'Installer')}${DB.region()==='all'?' · '+DB.regionMeta(e.region).short:''}</span>
         ${e.phone?`<a class="sub lnk" href="tel:${esc(e.phone.replace(/[^+\d]/g,''))}" data-stop="1">${esc(e.phone)}</a>`:''}
       </div>
-      <div class="cstat"><span><b>${ahead}</b>booked</span><span><b>${doneM}</b>this month</span></div>
+      <div class="cstat">
+        <span><b>${ahead}</b>visit${ahead===1?'':'s'} ahead</span>
+        <span><b>${doneM}</b>installed this month</span></div>
       ${e.active===false?'<span class="pill p-lost offtag">Not active</span>':''}
       <div class="cacts">
         <button class="btn btn-sm btn-p" data-weeklink="${e.id}" data-stop="1">Build the week</button>
@@ -447,7 +473,7 @@ V.crew = () => {
   + panel('', '', es.length
       ? `<div class="bd"><div class="crewgrid">${es.map(card).join('')}</div></div>`
       : empty('Nobody on the books in this region yet.'))
-  + panel('How a crew week works', '', `<div class="bd"><div class="note">
+  + helpPanel('How a crew week works', `<div class="bd"><div class="note">
       <b>Build the week</b> opens that person's seven days. Put a client on a day, say what the
       visit is, and leave them a note for that morning. Everything you book there is a real
       visit: it shows up on the <b>Schedule</b> the moment you add it, with their name against it.
@@ -490,7 +516,7 @@ V.inbox = () => {
     .filter(l => DB.region()==='all' || !l.regionId || l.regionId===DB.region());
   const filed = DB.enquiries().map(asEnq)
     .filter(l => DB.region()==='all' || l.regionId===DB.region());
-  const when = l => fmtD((l.created||today()).slice(0,10));
+  const when = leadWhen;
 
   return head('Incoming leads',
       `${fresh.length} waiting${fresh.length?'':' — all clear'} · ${filed.length} filed${DB.region()==='all'?' across every region':' in '+DB.regionMeta().name}`,
@@ -523,7 +549,7 @@ V.inbox = () => {
 
   + `<div id="inbox-out"></div>`
 
-  + panel('How a lead gets here', '', `<div class="bd"><div class="note">
+  + helpPanel('How a lead gets here', `<div class="bd"><div class="note">
       <b>1.</b> The customer fills in the free measure form, or draws their closet at <b>/design/</b> and presses &ldquo;Send this to us&rdquo;.<br><br>
       <b>2.</b> It is written straight into this Inbox the moment they press send, they get an automatic reply, and you get an email. There is nothing to copy and nothing to paste.<br><br>
       <b>3.</b> You press <b>Open it</b>, check it, and file it. The client, a measure visit and a draft quote are created in the region the ZIP belongs to, with the whole parts list on the quote, and the client lands in the first column of the <b>Pipeline</b>.</div></div>`);
@@ -578,7 +604,12 @@ function inboxFile(){
   const region = $('#inbox-region')?.value || DB.region();
   const stage  = $('#inbox-stage')?.value || 'new';
   const d = e.design;
-  let client = DB.findClient(ct.name);
+  /* Same guard as inboxPreview: a lead can arrive with no contact block at
+     all (the setup check does exactly that), and every field below reads
+     through it. Without this line the whole function threw on its first
+     statement and filing a lead did nothing at all. */
+  const ct = e.contact || {};
+  let client = ct.name ? DB.findClient(ct.name) : null;
   if(!client){
     client = DB.addClient({ region, name:ct.name || 'Website enquiry',
       phone:ct.phone||'', email:ct.email||'',
@@ -840,7 +871,7 @@ function openLead(id){
   INBOX_DRAFT = { ...l, regionId:l.region_id };
   const c = INBOX_DRAFT.contact || {};
   dlg.innerHTML = `<h2>${esc(c.name || 'Website enquiry')}</h2>
-    <p class="sub dlgsub">${esc(INBOX_DRAFT.source || 'Website')} · came in ${esc(when(INBOX_DRAFT))}</p>
+    <p class="sub dlgsub">${esc(INBOX_DRAFT.source || 'Website')} · came in ${esc(leadWhen(INBOX_DRAFT))}</p>
     ${inboxPreview(INBOX_DRAFT)}
     <form method="dialog" class="btnrow" style="margin-top:.9em">
       <button class="btn" value="cancel">Close</button>
@@ -1270,16 +1301,24 @@ function buildWeek(empId, offset){
    to pin in their WhatsApp sits underneath it rather than being the
    whole point. Anything booked here is a real visit on the Schedule the
    moment it is added, with their name against it.                     */
+let PAINT_ID = 0;
 function openWeekLink(empId){
   WEEK_OFFSET = 0;
   let openDay = null;                       // which day's "add" form is showing
   let pickDay = today();                    // which day's panel is open
 
   const paint = () => {
+    PAINT_ID++;
     const e  = DB.employee(empId);
     const wk = buildWeek(empId, WEEK_OFFSET);
     const total = wk.days.reduce((a,d)=>a+d.items.length,0);
-    const url = location.origin + location.pathname.replace(/admin\/.*$/,'') + 'crew/#' + packWeek(wk);
+    /* The link is built asynchronously (it is deflated), so the dialog is
+       painted with a placeholder and the real one is dropped in when it is
+       ready. It takes about a millisecond; the placeholder exists so the
+       share buttons are never wired to an empty string if the paint and the
+       pack ever get out of order. */
+    const base = location.origin + location.pathname.replace(/admin\/.*$/,'') + 'crew/';
+    let url = base;
     const label = `${fmtD(wk.start)} to ${fmtD(addDays(wk.start,6))}`;
 
     /* Two lists, not one. "Which client?" used to be every client ever, in
@@ -1363,7 +1402,8 @@ function openWeekLink(empId){
         </label>
       </section>`;
 
-    const msg = `${e?.name || 'Your'} week, ${label}. ${total} visit${total===1?'':'s'}: ${url}`;
+    const msgFor = u => `${e?.name || 'Your'} week, ${label}. ${total} visit${total===1?'':'s'}: ${u}`;
+    let msg = msgFor(url);
 
     dlg.innerHTML = `<h2>${esc(wk.crew)}&rsquo;s week</h2>
       <p class="sub dlgsub">${esc(label)} · ${total} visit${total===1?'':'s'} booked</p>
@@ -1377,15 +1417,22 @@ function openWeekLink(empId){
 
       <details class="wklink">
         <summary>Send this week to ${esc((e?.name||'them').split(' ')[0])}</summary>
-        <p class="note">The week travels inside the link, so send a fresh one whenever it
-          changes. Nothing on that page can be edited and it shows only this person&rsquo;s work.</p>
-        <div class="btnrow wkshare">
-          <a class="btn btn-sm" id="wk-wa" target="_blank" rel="noopener">WhatsApp</a>
-          <a class="btn btn-sm" id="wk-sms">Text it</a>
-          <a class="btn btn-sm" id="wk-mail">Email it</a>
-          <button class="btn btn-sm" id="wk-open">Open it myself</button>
-          <button class="btn btn-sm btn-p" id="wk-copy">Copy the link</button></div>
-        <div class="f"><textarea id="wk-url" rows="2" readonly>${esc(url)}</textarea></div>
+        <div class="wklinkbd">
+          <p class="note">The week travels inside the link, so send a fresh one whenever it
+            changes. Nothing on that page can be edited and it shows only this person&rsquo;s work.</p>
+          <div class="wkurl">
+            <input id="wk-url" readonly value="${esc(url)}" aria-label="The link to send">
+            <button class="btn btn-sm btn-p" id="wk-copy">Copy</button>
+          </div>
+          <p class="wkmeta"><span id="wk-len">building&hellip;</span> &middot; opens on any phone,
+            no app and no password</p>
+          <div class="btnrow wkshare">
+            <a class="btn btn-sm" id="wk-wa" target="_blank" rel="noopener">WhatsApp</a>
+            <a class="btn btn-sm" id="wk-sms">Text it</a>
+            <a class="btn btn-sm" id="wk-mail">Email it</a>
+            <button class="btn btn-sm" id="wk-open">Open it myself</button>
+          </div>
+        </div>
       </details>
 
       <div class="dlgacts"><button class="btn btn-p" value="cancel">Done</button></div>`;
@@ -1406,11 +1453,30 @@ function openWeekLink(empId){
     $('#wk-mail').href = `mailto:${encodeURIComponent(e?.email||'')}`
       + `?subject=${encodeURIComponent(`Your week, ${label}`)}&body=${encodeURIComponent(msg)}`;
 
+    /* One place that writes the link into every control that carries it, so
+       they can never disagree about what is being sent. */
+    const wireLink = u => {
+      url = u; msg = msgFor(u);
+      const box = $('#wk-url'); if(box) box.value = u;
+      const len = $('#wk-len'); if(len) len.textContent = `${u.length} characters`;
+      $('#wk-wa').href   = `https://wa.me/${ph.replace(/^\+/,'')}?text=${encodeURIComponent(msg)}`;
+      $('#wk-sms').href  = `sms:${ph}${/iPhone|iPad|Mac/.test(navigator.platform)?'&':'?'}body=${encodeURIComponent(msg)}`;
+      $('#wk-mail').href = `mailto:${encodeURIComponent(e?.email||'')}`
+        + `?subject=${encodeURIComponent(`Your week, ${label}`)}&body=${encodeURIComponent(msg)}`;
+    };
+    const painting = PAINT_ID;
+    packWeekShort(wk).then(code => {
+      /* the dialog may have been repainted (next week, a visit added) while
+         this was packing; a stale link must not overwrite the new one */
+      if(painting !== PAINT_ID) return;
+      wireLink(base + '#' + code);
+    });
+
     $('#wk-copy').onclick = async () => {
       const b = $('#wk-copy');
       try{ await navigator.clipboard.writeText(url); b.textContent='Copied'; }
       catch(err){ $('#wk-url').select(); b.textContent='Press ⌘C'; }
-      setTimeout(()=>{ b.textContent='Copy the link'; }, 2200);
+      setTimeout(()=>{ b.textContent='Copy'; }, 2200);
     };
 
     /* the kind picker inside the add form */

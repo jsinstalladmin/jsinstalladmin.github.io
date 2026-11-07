@@ -101,14 +101,18 @@ function fail(msg){
     link, so an old or half-copied link cannot show anything.</p></div>`;
 }
 
-try{
-  const code = location.hash.slice(1);
-  if(!code) fail('There is nothing after the # in this address, so there is no week in it.');
-  else render(unpackWeek(code));
-}catch(e){ fail(e.message || 'The link is damaged.'); }
+/* unpackWeek is async because a CREW3 link is deflated and
+   DecompressionStream is a stream. Both entry points await it, and both
+   still catch, so a damaged link shows the "will not open" card rather
+   than an unhandled rejection and a blank page. */
+async function show(code){
+  try{
+    if(!code) return fail('There is nothing after the # in this address, so there is no week in it.');
+    render(await unpackWeek(code));
+  }catch(e){ fail(e.message || 'The link is damaged.'); }
+}
+
+show(location.hash.slice(1));
 
 /* Pasting a new link into the same tab should repaint rather than need a reload. */
-addEventListener('hashchange', () => {
-  try{ render(unpackWeek(location.hash.slice(1))); }
-  catch(e){ fail(e.message || 'The link is damaged.'); }
-});
+addEventListener('hashchange', () => show(location.hash.slice(1)));

@@ -169,6 +169,28 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .drawer .x{position:absolute;top:22px;right:22px;background:transparent;border:1px solid var(--line-dk);
   color:inherit;border-radius:var(--r-pill);padding:.5em 1em;font:inherit;cursor:pointer}
 
+/* ── the drawer's groups (built by foldDrawer in site.js) ──
+   Five group names fit on one screen; opening one drops its links in under
+   it and closes whichever was open before, so the menu is never longer than
+   the phone. The group name is the tap target, 56px tall. */
+.dgrp{border-bottom:1px solid var(--line-dk)}
+.dgrp > summary{list-style:none;cursor:pointer;display:flex;align-items:center;
+  gap:.6em;min-height:56px;padding:.1em 0;
+  font-family:'Instrument Serif',serif;font-size:1.65rem;letter-spacing:-.02em}
+.dgrp > summary::-webkit-details-marker{display:none}
+.dgrp > summary::after{content:'';margin-left:auto;width:11px;height:11px;flex:0 0 11px;
+  border-right:1.5px solid rgba(248,245,240,.5);border-bottom:1.5px solid rgba(248,245,240,.5);
+  rotate:45deg;translate:0 -3px;transition:rotate .22s var(--ease-out)}
+.dgrp[open] > summary::after{rotate:-135deg;translate:0 2px}
+.dgrp[open] > summary{color:var(--paper)}
+.dgrpbd{padding:0 0 .7em}
+/* the links inside a group step down a size and lose the full-width rule,
+   so a group reads as one block rather than as more top-level items */
+.dgrp .dsm{font-size:1.12rem;font-family:inherit;letter-spacing:0;
+  padding:.62em 0 .62em 1.1em;border-bottom:0;color:rgba(248,245,240,.82)}
+.dgrp .dsm + .dsm{border-top:1px solid rgba(248,245,240,.07)}
+.dgrp .dsm:hover,.dgrp .dsm:focus-visible{color:var(--paper)}
+
 .lk{display:flex;align-items:center;gap:11px;text-decoration:none;flex:0 0 auto;
   padding:4px 12px 4px 4px;border-radius:var(--r-pill);transition:background .3s}
 .lk:hover{background:var(--line-2)}

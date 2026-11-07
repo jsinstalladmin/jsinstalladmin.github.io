@@ -71,7 +71,51 @@ document.querySelectorAll('[data-rv]').forEach(el=>io.observe(el));
 
 /* mobile drawer */
 const mb=document.getElementById('menuBtn'), dr=document.getElementById('drawer');
+
+/* ── THE DRAWER OPENS AS GROUPS, NOT AS EVERY LINK AT ONCE ──
+   The markup is a flat run of <h5>Group</h5> followed by that group's links,
+   repeated five times. On a phone that is twenty-five lines, so tapping Menu
+   gave you a wall of them: three screens of scrolling to reach Contact, and
+   the ten layout pages buried in the middle of it pushing everything else
+   down.
+
+   The groups fold here rather than in the markup because the same drawer is
+   written into all thirty-seven pages, and a run-time transform cannot get
+   out of step with some of them. The links stay in the DOM either way, so
+   nothing changes for a crawler, and the drawer is display:none until it is
+   opened, so there is no flash of the flat list.
+
+   Which group you open is remembered, so coming back to the menu for a
+   second layout does not mean opening Layouts again. */
+function foldDrawer(d){
+  if(!d || d.dataset.folded) return;
+  d.dataset.folded = '1';
+  let saved = '';
+  try{ saved = localStorage.getItem('js_drawer_open') || ''; }catch(e){}
+  [...d.querySelectorAll('h5')].forEach(h => {
+    const det = document.createElement('details');
+    det.className = 'dgrp';
+    const sum = document.createElement('summary');
+    sum.textContent = h.textContent;
+    det.appendChild(sum);
+    const body = document.createElement('div');
+    body.className = 'dgrpbd';
+    let n = h.nextElementSibling;
+    while(n && n.tagName === 'A'){ const next = n.nextElementSibling; body.appendChild(n); n = next; }
+    det.appendChild(body);
+    det.open = sum.textContent === saved;
+    det.addEventListener('toggle', () => {
+      if(!det.open) return;
+      /* one at a time, so the drawer is never taller than the screen */
+      [...d.querySelectorAll('details.dgrp')].forEach(o => { if(o !== det) o.open = false; });
+      try{ localStorage.setItem('js_drawer_open', sum.textContent); }catch(e){}
+    });
+    h.replaceWith(det);
+  });
+}
+
 if(mb&&dr){
+  foldDrawer(dr);
   const set=o=>{dr.classList.toggle('open',o);mb.setAttribute('aria-expanded',o);
     document.documentElement.style.overflow=o?'hidden':''};
   mb.addEventListener('click',()=>set(!dr.classList.contains('open')));

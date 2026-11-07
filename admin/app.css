@@ -314,11 +314,15 @@ table.kv tr:last-child td{border-bottom:0}
 .crewcard .ct b{font-weight:500;font-size:.96rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .crewcard .ct .sub{font-size:.76rem}
 .crewcard .lnk{color:var(--info);text-decoration:none}
-.crewcard .cstat{grid-column:2;display:flex;gap:16px;margin-top:8px}
-.crewcard .cstat span{display:flex;flex-direction:column;font-size:.68rem;color:var(--muted);
-  letter-spacing:.06em;text-transform:uppercase}
-.crewcard .cstat b{font-size:1.05rem;color:var(--fg);letter-spacing:-.01em;
-  font-variant-numeric:tabular-nums;text-transform:none}
+/* The two figures used to be a bare "0 booked / 1 this month" side by side,
+   which left you working out what either number counted. The captions that
+   say it properly do not fit beside each other in a 268px card, so the
+   number and its caption sit on one line and the two stack. */
+.crewcard .cstat{grid-column:2;display:flex;flex-direction:column;gap:3px;margin-top:9px}
+.crewcard .cstat span{display:flex;align-items:baseline;gap:.5em;font-size:.72rem;
+  color:var(--muted);letter-spacing:.01em}
+.crewcard .cstat b{min-width:1.1em;font-size:.98rem;color:var(--fg);letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums}
 .crewcard .cacts{grid-column:1/-1;display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
 .crewcard .offtag{position:absolute;top:12px;right:14px}
 
@@ -635,6 +639,22 @@ button.backlink:hover{opacity:1}
 .dltot{border-top:1px solid var(--line);margin-top:.3em;padding-top:.5em;font-weight:500}
 .dltot .mono{color:var(--brass2)}
 
+/* ── the how-it-works panels, folded ──
+   Same shell as a .panel so the page keeps one language of boxes, but it
+   opens from one line instead of standing four paragraphs tall for ever. */
+.panel.help{padding:0;cursor:default}
+.panel.help > summary{cursor:pointer;list-style:none;display:flex;align-items:center;
+  gap:.6em;padding:.95em 1.15em;font-size:.84rem;color:var(--muted)}
+.panel.help > summary::-webkit-details-marker{display:none}
+.panel.help > summary:hover{color:var(--fg)}
+.panel.help[open] > summary{color:var(--fg);border-bottom:1px solid var(--line)}
+.helpq{display:grid;place-items:center;width:18px;height:18px;flex:0 0 18px;
+  border:1px solid var(--line);border-radius:50%;font-size:.66rem;line-height:1;
+  color:var(--muted)}
+.panel.help[open] .helpq{border-color:var(--brass2);color:var(--brass2)}
+.panel.help > summary::after{content:'▸';margin-left:auto;color:var(--muted);font-size:.8em}
+.panel.help[open] > summary::after{content:'▾'}
+
 .wkcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:4px 0 10px}
 .wkc{display:flex;flex-direction:column;align-items:center;gap:1px;padding:.5em .2em .4em;
   border:1px solid var(--line);border-radius:10px;background:var(--surf2);
@@ -653,7 +673,7 @@ button.backlink:hover{opacity:1}
 
 .wkgrid{display:flex;flex-direction:column;gap:9px;margin:4px 0 14px}
 .wkday{border:1px solid var(--line);border-radius:11px;padding:11px 12px;
-  background:var(--panel-2,rgba(255,255,255,.02))}
+  background:var(--panel-2,rgba(255,255,255,.02));margin-bottom:2px}
 .wkday.now{border-color:color-mix(in srgb,#3F7A4D 55%,var(--line))}
 .wkday.has{background:rgba(255,255,255,.035)}
 .wkday > header{display:flex;align-items:baseline;gap:.6em;margin-bottom:.5em}
@@ -688,13 +708,35 @@ button.backlink:hover{opacity:1}
   border-radius:9px;color:var(--fg);padding:.55em .7em;font-size:.82rem;
   line-height:1.45;resize:vertical}
 .wknote textarea:focus{outline:0;border-color:var(--brass2)}
-.wknote em{display:block;font-style:normal;font-size:.68rem;letter-spacing:.07em;
-  text-transform:uppercase;color:var(--muted);margin-bottom:.3em}
 .wknote em{display:block;font-style:normal;font-size:.72rem;letter-spacing:.06em;
   text-transform:uppercase;color:var(--muted);margin-bottom:.3em}
-.wklink{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;padding:0 12px}
-.wklink > summary{cursor:pointer;padding:.7em 0;font-size:.82rem;list-style:none}
+/* ── the link to send, and the gap above it ──
+   Two faults, both visible in one screenshot. The rounded box sat flush
+   against the bottom of the open day above it, so two separate panels read
+   as one shape with a line through it. And the link itself was a two-row
+   monospace textarea holding 834 characters of base64 that overflowed its
+   own box -- the thing Joseph is supposed to send someone looked like a
+   crash dump.
+
+   The link is 180-350 characters now (see crewlink.js), which fits on one
+   line with the Copy button beside it, and the box keeps its distance. */
+.wklink{margin:14px 0 12px;border:1px solid var(--line);border-radius:12px;
+  padding:0 14px;background:var(--surf2)}
+.wklink > summary{cursor:pointer;padding:.8em 0;font-size:.82rem;list-style:none;
+  display:flex;align-items:center;gap:.5em}
 .wklink > summary::-webkit-details-marker{display:none}
-.wklink > summary::before{content:'▸ ';color:var(--muted)}
-.wklink[open] > summary::before{content:'▾ '}
-.wklink > *:last-child{margin-bottom:.8em}
+.wklink > summary::before{content:'▸';color:var(--muted);font-size:.8em;width:.9em}
+.wklink[open] > summary::before{content:'▾'}
+.wklink[open] > summary{border-bottom:1px solid var(--line)}
+.wklinkbd{padding:.9em 0 1em}
+.wklinkbd .note{margin:0 0 .8em}
+
+.wkurl{display:flex;gap:7px;align-items:stretch}
+.wkurl input{flex:1 1 auto;min-width:0;background:var(--panel);
+  border:1px solid var(--line);border-radius:9px;color:var(--muted);
+  padding:.5em .7em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.72rem;text-overflow:ellipsis}
+.wkurl input:focus{outline:0;border-color:var(--brass2);color:var(--fg)}
+.wkurl .btn{flex:0 0 auto}
+.wkmeta{margin:.55em 0 .9em;font-size:.72rem;color:var(--muted)}
+.wkmeta #wk-len{font-variant-numeric:tabular-nums}
