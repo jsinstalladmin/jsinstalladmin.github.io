@@ -91,7 +91,7 @@
     <span class="laycount"></span>
   </div>
   <div class="designs laygrid">
-      <a class="dcard" href="double-hanging.html" style="--accent:#A8824C" data-top="DOUBLE_HANG" data-bottom="" data-kind="whole">
+      <a class="dcard" href="double-hanging.html" style="--accent:#A8824C" data-top="HANG" data-bottom="HANG" data-kind="whole">
         <figure style="--tile:#F4F0ED">
           <img src="../img/parts/double-hang-tall.jpg" alt="Double Hanging closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -104,7 +104,7 @@
           <p style="margin:0;font-size:.95rem">Two rods stacked in one section, at 80 inches and 40 inches. Shirts and jackets up top, folded trousers below.</p>
         </div></a>
       
-      <a class="dcard" href="long-hanging.html" style="--accent:#A8824C" data-top="LONG_HANG" data-bottom="" data-kind="whole">
+      <a class="dcard" href="long-hanging.html" style="--accent:#A8824C" data-top="HANG" data-bottom="" data-kind="whole">
         <figure style="--tile:#F4F2EE">
           <img src="../img/parts/long-hang-tall.jpg" alt="Long Hanging closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -116,7 +116,7 @@
           <h3>Long Hanging</h3>
           <p style="margin:0;font-size:.95rem">One rod at 66 inches with clear floor under it. Dresses, coats, robes, anything long.</p>
         </div></a>
-      <a class="dcard" href="hanging-and-shelves.html" style="--accent:#A8824C" data-top="SHELVES" data-bottom="LONG_HANG" data-kind="pair">
+      <a class="dcard" href="hanging-and-shelves.html" style="--accent:#A8824C" data-top="SHELVES" data-bottom="HANG" data-kind="pair">
         <figure style="--tile:#DED9D6">
           <img src="../img/parts/hang-shelf.jpg" alt="Hanging + Shelves closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -152,7 +152,7 @@
           <h3>Drawer Tower</h3>
           <p style="margin:0;font-size:.95rem">A bank of soft-close drawers with open shelving over it. The piece that stops a closet being only rails.</p>
         </div></a>
-      <a class="dcard" href="hanging-and-drawers.html" style="--accent:#A8824C" data-top="SHORT_HANG" data-bottom="DRAWERS" data-kind="pair">
+      <a class="dcard" href="hanging-and-drawers.html" style="--accent:#A8824C" data-top="HANG" data-bottom="DRAWERS" data-kind="pair">
         <figure style="--tile:#D2CAC7">
           <img src="../img/parts/hang-drawers.jpg" alt="Hanging + Drawers closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -188,7 +188,7 @@
           <h3>Shoe Wall</h3>
           <p style="margin:0;font-size:.95rem">Angled shelves with a front fence, the full height of the section. You see the shoe, not the toe.</p>
         </div></a>
-      <a class="dcard" href="hamper-and-hanging.html" style="--accent:#A8824C" data-top="SHORT_HANG" data-bottom="HAMPER" data-kind="pair">
+      <a class="dcard" href="hamper-and-hanging.html" style="--accent:#A8824C" data-top="HANG" data-bottom="HAMPER" data-kind="pair">
         <figure style="--tile:#D2CDC9">
           <img src="../img/parts/hamper-hang.jpg" alt="Hamper + Hanging closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -219,34 +219,12 @@
         <figure style="--tile:#F3F3EF">
           <img src="../img/parts/long-hang.jpg" alt="Long hang closet piece"
             loading="lazy" decoding="async" width="840" height="630">
-          <span class="chip">Rod at 66"</span>
+          <span class="chip">One rod</span>
         </figure>
         <div class="body">
-          <h3>Long hang</h3>
-          <p style="margin:0;font-size:.95rem">A rod with full clearance under it. Coats and dresses.</p>
-          <p class="pwhere">Top or bottom</p>
-        </div></article>
-      <article class="dcard piece" data-top="1" data-bottom="0">
-        <figure style="--tile:#F3EFEB">
-          <img src="../img/parts/double-hang.jpg" alt="Double hang closet piece"
-            loading="lazy" decoding="async" width="840" height="630">
-          <span class="chip">Rods at 80" and 40"</span>
-        </figure>
-        <div class="body">
-          <h3>Double hang</h3>
-          <p style="margin:0;font-size:.95rem">Two rods, one over the other. Twice the capacity per foot.</p>
-          <p class="pwhere">Top of a section</p>
-        </div></article>
-      <article class="dcard piece" data-top="1" data-bottom="0">
-        <figure style="--tile:#F1EBE7">
-          <img src="../img/parts/short-hang.jpg" alt="Short hang closet piece"
-            loading="lazy" decoding="async" width="840" height="630">
-          <span class="chip">38"–54" of drop</span>
-        </figure>
-        <div class="body">
-          <h3>Short hang</h3>
-          <p style="margin:0;font-size:.95rem">A shelf with a rod under it, over drawers or a hamper.</p>
-          <p class="pwhere">Top of a section</p>
+          <h3>Hanging</h3>
+          <p style="margin:0;font-size:.95rem">One rod. On its own it hangs full length for coats and dresses; over drawers or a hamper it shortens to suit; a rod in both halves is a double hang.</p>
+          <p class="pwhere">Top, bottom, or both</p>
         </div></article>
       <article class="dcard piece" data-top="1" data-bottom="1">
         <figure style="--tile:#F3F1EE">
@@ -379,7 +357,7 @@ const count  = document.querySelector('.laycount');
 const layCards   = [...lay.querySelectorAll('.dcard')];
 const pieceCards = [...pieces.querySelectorAll('.dcard')];
 const NOTE = {
-  all:    'Eleven sections people ask for by name. Each one is a top, a bottom, or both together.',
+  all:    'Ten sections people ask for by name. Each one is a top, a bottom, or both together.',
   top:    'What can cap a section. A drawer bank is not on this list: a drawer you cannot see into is not a drawer.',
   bottom: 'What can sit under something else. Drawers, hampers and baskets only ever go here, because they open towards you.',
   whole:  'One piece, floor to top shelf, with nothing under it.'

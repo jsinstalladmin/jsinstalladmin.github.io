@@ -235,7 +235,7 @@ const fit = (list, max) => { const ok = list.filter(v => v <= max); return ok.le
    LIMIT  = how many of this module belong in one bay
    GROUP  = modules in the same group are mutually exclusive (one front only) */
 export const LIMIT = {
-  LONG_HANG:1, DOUBLE_HANG:1, SHORT_HANG:1, DOOR:1, GLASS_DOOR:1, HAMPER:1, COUNTER:2,
+  HANG:2, LONG_HANG:1, DOUBLE_HANG:1, SHORT_HANG:1, DOOR:1, GLASS_DOOR:1, HAMPER:1, COUNTER:2,
   DRAWERS:2, BASKETS:2, SHOES:2, SHOE_SLANT:2, SHELVES:3, CUBBIES:2, OPEN:2
 };
 const GROUP = { DOOR:'front', GLASS_DOOR:'front' };
@@ -266,11 +266,14 @@ export const SLOT = {
      and over a drawer bank neither a long hang nor a double hang fits, so
      both were quietly resolved down to the short hang anyway. Three cards,
      one result. */
-  LONG_HANG  : { top:true,  bottom:true,  whole:true,  over:false },
-  /* 70" of its own, so it is a whole section or it is nothing */
-  DOUBLE_HANG: { top:true,  bottom:false, whole:true,  over:false },
-  /* a short hang IS the thing over a drawer bank or a hamper, and only that */
-  SHORT_HANG : { top:true,  bottom:false, whole:false, over:true  },
+  /* The rod. Either half, every time: on its own it hangs long, over
+     something it hangs short, and one in each half is a double hang. */
+  HANG       : { top:true,  bottom:true,  whole:true,  over:true  },
+  /* Kept only so designs saved before the three became one still draw.
+     whole:false and over:false mean they are never offered again. */
+  LONG_HANG  : { top:true,  bottom:true,  whole:false, over:false },
+  DOUBLE_HANG: { top:true,  bottom:false, whole:false, over:false },
+  SHORT_HANG : { top:true,  bottom:false, whole:false, over:false },
   SHELVES    : { top:true,  bottom:true,  whole:true,  over:true  },
   CUBBIES    : { top:true,  bottom:true,  whole:true,  over:true  },
   SHOES      : { top:true,  bottom:true,  whole:true,  over:true  },
@@ -299,6 +302,9 @@ export const canSit = (id, slot) => !!(SLOT[id] || { top:true, bottom:true })[sl
    whether this half is a whole opening or the short one left over. */
 export function canOffer(id, slot, hasOther){
   const r = SLOT[id];
+  /* `legacy` pieces still build, so a design saved before the three hanging
+     products became one still draws correctly. They are never offered again. */
+  if(MODULES[id]?.legacy) return false;
   if(!r || r.cap) return false;
   if(!r[slot]) return false;
   if(slot === 'bottom') return true;
@@ -485,8 +491,52 @@ export function canAdd(stack, id, usableH, inCorner, slot){
 }
 
 export const MODULES = {
+  /* ══════════════════════════════════════════════════════════════════
+     ONE hanging piece, not three.
+
+     "Long hang", "short hang" and "double hang" were sold to the customer as
+     three different products, and they are not. They are ONE product — a rod
+     — and the three names describe how much DROP it ended up with, which is
+     decided by what else is in the section:
+
+       rod in the top, nothing under it     → the full drop. A long hang.
+       rod in the top, drawers under it     → whatever is left. A short hang.
+       rod in the top AND a rod underneath  → two rods. A double hang.
+
+     Offering them as separate cards meant the customer picked an outcome
+     instead of a part, and then the engine quietly overrode them anyway: a
+     "long hang" chosen over a drawer bank could not have 62" so it was
+     resolved down to a short one. Now the rod is the choice and the drop
+     follows from the section, which is how the shop actually builds it.
+     ══════════════════════════════════════════════════════════════════ */
+  HANG: {
+    label:'Hanging', img:'long-hang',
+    hint:'A rod with a shelf over it. Put one in the top half on its own and it hangs full length; put drawers or a hamper underneath and it shortens to suit; put a rod in both halves and you have a double hang.',
+    spec:'One rod · 38" of drop minimum',
+    icon:'M2 4h20M6 8h12M7 8v18M11 8v20M15 8v17M19 8v19',
+    defH:null, minH:38, maxH:84, fill:true,
+    build(c){
+      const {w,d,y,h,G,parts,capped} = c;
+      /* The shelf is what the rod sockets screw into, and when this piece is
+         the bottom half it is also the divider under the rod above. If the
+         section's own top shelf already caps this piece, that shelf IS the
+         one, so it does not get a second 3/4" under the first. */
+      let rodTop = y + h;
+      if(!capped){
+        parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Shelf over the rod'));
+        G.push({k:'shelf', p:[0, y + h - SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
+        rodTop = y + h - SPEC.panel;
+      }
+      const rodY = rodTop - 2.5;
+      parts.push(P('HANGROD',1,0,0,'Hang rod'));
+      G.push({k:'rod', p:[0, rodY, 0], s:[w-1, 1.4, 1.4], m:'metal'});
+      /* the garments drop as far as the space allows and no further, which is
+         the whole point: the same piece reads long or short on its own */
+      hang(G, 0, rodY, Math.max(10, Math.min(rodY - y - 2, 74)), w, d);
+    }
+  },
   LONG_HANG: {
-    label:'Long hang', hint:'Coats and dresses. One rod with full clearance below.',
+    legacy:true, label:'Long hang', hint:'Coats and dresses. One rod with full clearance below.',
     spec:'Rod at 66\" · needs 62\" min',
     icon:'M2 4h20M6 8h12M7 8v18M11 8v20M15 8v17M19 8v19',
     defH:70, minH:62, maxH:84, fill:true,
@@ -498,7 +548,7 @@ export const MODULES = {
     }
   },
   DOUBLE_HANG: {
-    label:'Double hang', hint:'Shirts and folded trousers. Two rods, twice the capacity.',
+    legacy:true, label:'Double hang', hint:'Shirts and folded trousers. Two rods, twice the capacity.',
     spec:'Rods at 80\" and 40\" · needs 70\" min',
     icon:'M2 3h20M6 7h12M7 7v5M11 7v6M15 7v5M19 7v6M2 15h20M6 19h12M7 19v5M11 19v6M15 19v5M19 19v6',
     defH:78, minH:70, maxH:84, fill:true,
@@ -521,7 +571,7 @@ export const MODULES = {
      real product for that gap: one rod, 38" to 52" of clear drop, shirts and
      folded trousers. Closet companies sell it as its own thing. */
   SHORT_HANG: {
-    label:'Short hang', hint:'A shelf with a rod under it, over drawers or a hamper. Shirts and folded trousers.',
+    legacy:true, label:'Short hang', hint:'A shelf with a rod under it, over drawers or a hamper. Shirts and folded trousers.',
     spec:'Shelf with a rod under it · 38"–54" of drop',
     icon:'M2 5h20M6 9h12M7 9v8M11 9v9M15 9v8M19 9v9',
     defH:46, minH:38, maxH:54, fill:true,
@@ -741,6 +791,20 @@ export const MODULES = {
         rail(0, top,  bd/2-BW, bw, BW*1.4, BW*1.4);
         rail(-bw/2+BW, top, 0, BW*1.4, BW*1.4, bd);
         rail( bw/2-BW, top, 0, BW*1.4, BW*1.4, bd);
+        /* THE MID RAIL. A real chrome basket has a horizontal wire running
+           right round it about halfway up, welded across every vertical: it is
+           what stops the sides splaying under a load. Without it the verticals
+           hung off the top rail with nothing tying them together and the basket
+           read as a loose comb rather than one welded piece. A deep basket gets
+           two of them, which is also how they are made. */
+        const mids = (top - bot) > 7 ? 2 : 1;
+        for(let r=1; r<=mids; r++){
+          const my = bot + (top - bot) * (r / (mids + 1));
+          rail(0, my, -bd/2+BW, bw, BW*1.15, BW*1.15);
+          rail(0, my,  bd/2-BW, bw, BW*1.15, BW*1.15);
+          rail(-bw/2+BW, my, 0, BW*1.15, BW*1.15, bd);
+          rail( bw/2-BW, my, 0, BW*1.15, BW*1.15, bd);
+        }
         // corner posts
         for(const sx of [-1,1]) for(const sz of [-1,1])
           rail(sx*(bw/2-BW), (bot+top)/2, sz*(bd/2-BW), BW*1.3, top-bot, BW*1.3);
@@ -868,53 +932,53 @@ export const ROOM_PLANS = {
   /* ── walk-in ─────────────────────────────────────────────────────── */
   'walkin-l': { name:'L-Shape walk-in', type:'walk-in', shape:'l',
     room:{w:78,d:84,h:96},
-    runs:{ back:[ {w:26,s:[m('DOUBLE_HANG')]},
+    runs:{ back:[ {w:26,s:[m('HANG',40), m('HANG')]},
                   {w:26,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('SHELVES',null,{n:3})]},
-                  {w:26,s:[m('DOUBLE_HANG')]} ],
-           left:[ {w:30,s:[m('LONG_HANG')]},
+                  {w:26,s:[m('HANG',40), m('HANG')]} ],
+           left:[ {w:30,s:[m('HANG')]},
                   {w:30,s:[m('SHOE_SLANT')]} ] } },
 
   'walkin-u': { name:'U-Shape walk-in', type:'walk-in', shape:'u',
     room:{w:96,d:96,h:96},
-    runs:{ back:[ {w:32,s:[m('DOUBLE_HANG')]},
+    runs:{ back:[ {w:32,s:[m('HANG',40), m('HANG')]},
                   {w:32,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('SHELVES',null,{n:3})]},
-                  {w:32,s:[m('DOUBLE_HANG')]} ],
-           left:[ {w:36,s:[m('LONG_HANG')]},
+                  {w:32,s:[m('HANG',40), m('HANG')]} ],
+           left:[ {w:36,s:[m('HANG')]},
                   {w:36,s:[m('SHELVES',null,{n:6})]} ],
            right:[{w:36,s:[m('SHOE_SLANT')]},
-                  {w:36,s:[m('DOUBLE_HANG')]} ] } },
+                  {w:36,s:[m('HANG',40), m('HANG')]} ] } },
 
   /* The island itself is not cabinetry against a wall, so the builder draws
      the three runs round it. The island is sized on the day, against the
      walkway the room actually leaves. */
   'walkin-island': { name:'Walk-in with an island', type:'walk-in', shape:'u',
     room:{w:120,d:120,h:96},
-    runs:{ back:[ {w:30,s:[m('DOUBLE_HANG')]},
-                  {w:30,s:[m('DOUBLE_HANG')]},
+    runs:{ back:[ {w:30,s:[m('HANG',40), m('HANG')]},
+                  {w:30,s:[m('HANG',40), m('HANG')]},
                   {w:30,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('SHELVES',null,{n:3})]},
-                  {w:30,s:[m('DOUBLE_HANG')]} ],
-           left:[ {w:32,s:[m('LONG_HANG')]},
+                  {w:30,s:[m('HANG',40), m('HANG')]} ],
+           left:[ {w:32,s:[m('HANG')]},
                   {w:32,s:[m('SHELVES',null,{n:6})]},
-                  {w:32,s:[m('DOUBLE_HANG')]} ],
+                  {w:32,s:[m('HANG',40), m('HANG')]} ],
            right:[{w:32,s:[m('SHOE_SLANT')]},
                   {w:32,s:[m('BASKETS',30,{n:3}), m('SHELVES',null,{n:3})]},
-                  {w:32,s:[m('DOUBLE_HANG')]} ] } },
+                  {w:32,s:[m('HANG',40), m('HANG')]} ] } },
 
   /* ── reach-in ────────────────────────────────────────────────────── */
   'reachin-essential': { name:'Essential reach-in', type:'reach-in', shape:'straight',
     room:{w:72,d:24,h:96},
-    runs:{ back:[ {w:36,s:[m('DOUBLE_HANG')]}, {w:36,s:[m('DOUBLE_HANG')]} ] } },
+    runs:{ back:[ {w:36,s:[m('HANG',40), m('HANG')]}, {w:36,s:[m('HANG',40), m('HANG')]} ] } },
 
   'reachin-drawers': { name:'Reach-in with drawers', type:'reach-in', shape:'straight',
     room:{w:72,d:24,h:96},
-    runs:{ back:[ {w:24,s:[m('DOUBLE_HANG')]},
+    runs:{ back:[ {w:24,s:[m('HANG',40), m('HANG')]},
                   {w:24,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('SHELVES',null,{n:3})]},
-                  {w:24,s:[m('DOUBLE_HANG')]} ] } },
+                  {w:24,s:[m('HANG',40), m('HANG')]} ] } },
 
   'reachin-premium': { name:'Premium reach-in', type:'reach-in', shape:'straight',
     room:{w:96,d:24,h:96},
-    runs:{ back:[ {w:24,s:[m('HAMPER',28), m('SHORT_HANG')]},
-                  {w:36,s:[m('DOUBLE_HANG')]},
+    runs:{ back:[ {w:24,s:[m('HAMPER',28), m('HANG')]},
+                  {w:36,s:[m('HANG',40), m('HANG')]},
                   {w:36,s:[m('SHOE_SLANT')]} ] } },
 
   /* ── garage ──────────────────────────────────────────────────────── */
@@ -948,7 +1012,7 @@ export const ROOM_PLANS = {
     room:{w:120,d:24,h:96},
     runs:{ back:[ {w:30,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
                   {w:30,s:[m('OPEN',36), m('COUNTER',2), m('SHELVES',null,{n:3})]},
-                  {w:30,s:[m('HAMPER',28), m('SHORT_HANG')]},
+                  {w:30,s:[m('HAMPER',28), m('HANG')]},
                   {w:30,s:[m('SHELVES',null,{n:3})]} ] } },
 
   'laundry-compact': { name:'Laundry closet', type:'laundry', shape:'straight',
@@ -994,15 +1058,15 @@ export const ROOM_PLANS = {
 export const PRESETS = [
   { id:'double-hang', name:'Double Hanging',   img:'double-hang',
     desc:'Two rods: shirts up top, trousers below. The most storage per foot.',
-    stack:[{m:'DOUBLE_HANG',h:null,o:{}}] },
+    stack:[{m:'HANG',h:40,o:{}},{m:'HANG',h:null,o:{}}] },
 
   { id:'long-hang',   name:'Long Hanging',     img:'long-hang',
     desc:'One full-height rod for dresses and coats.',
-    stack:[{m:'LONG_HANG',h:null,o:{}}] },
+    stack:[{m:'HANG',h:null,o:{}}] },
 
   { id:'hang-shelf',  name:'Hanging + Shelves', img:'shelves', art:'hang-shelf',
     desc:'A rod below, folded storage above.',
-    stack:[{m:'LONG_HANG',h:null,o:{}},{m:'SHELVES',h:18,o:{n:2}}] },
+    stack:[{m:'HANG',h:null,o:{}},{m:'SHELVES',h:18,o:{n:2}}] },
 
   { id:'shelves',     name:'Adjustable Shelves', img:'shelves',
     desc:'Six shelves on 32mm centres. Move any of them later.',
@@ -1017,7 +1081,7 @@ export const PRESETS = [
      Drawers under a short hang is what this actually is, and what gets built. */
   { id:'hang-drawers',name:'Hanging + Drawers', img:'drawers', art:'hang-drawers',
     desc:'Drawers at the bottom, a hanging rod above. The usual bedroom answer.',
-    stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'SHORT_HANG',h:null,o:{}}] },
+    stack:[{m:'DRAWERS',h:34,o:{n:4}},{m:'HANG',h:null,o:{}}] },
 
   { id:'baskets',     name:'Pull-Out Baskets',  img:'baskets', art:'basket-shelf',
     desc:'Chrome wire on full-extension glides, shelving above.',
@@ -1029,7 +1093,7 @@ export const PRESETS = [
 
   { id:'hamper',      name:'Hamper + Hanging',  img:'hamper', art:'hamper-hang',
     desc:'Tilt-out laundry hamper with a hanging rod over it. The rod is a short hang, because a hamper takes the bottom 28".',
-    stack:[{m:'HAMPER',h:28,o:{}},{m:'SHORT_HANG',h:null,o:{}}] },
+    stack:[{m:'HAMPER',h:28,o:{}},{m:'HANG',h:null,o:{}}] },
 
 
   { id:'cubbies',     name:'Cubbies',           img:'cubbies',
@@ -1114,12 +1178,12 @@ export function makeBay(width, stack, top){
 }
 export function defaultStackFor(type){
   return ({
-    'reach-in':[{m:'DOUBLE_HANG',h:null,o:{}}],
-    'walk-in' :[{m:'DOUBLE_HANG',h:null,o:{}}],
+    'reach-in':[{m:'HANG',h:40,o:{}},{m:'HANG',h:null,o:{}}],
+    'walk-in' :[{m:'HANG',h:40,o:{}},{m:'HANG',h:null,o:{}}],
     'pantry'  :[{m:'SHELVES',h:null,o:{n:6}}],
     'garage'  :[{m:'SHELVES',h:null,o:{n:4}}],
     'laundry' :[{m:'SHELVES',h:null,o:{n:3}}],
-  }[type]) || [{m:'DOUBLE_HANG',h:null,o:{}}];
+  }[type]) || [{m:'HANG',h:40,o:{}},{m:'HANG',h:null,o:{}}];
 }
 
 /* resolve module heights inside one bay: fixed ones keep their height,
@@ -1505,7 +1569,7 @@ const BLOCKS_WALL = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER','BASKETS']);
    what a closet IS. SHORT_HANG was left out when it was added, so a hamper or
    a drawer bank with a rod over it printed a line reading "SHORT_HANG  $8" on
    the customer's quote. */
-const BASE_GRP = new Set(['LONG_HANG','DOUBLE_HANG','SHORT_HANG','OPEN']);
+const BASE_GRP = new Set(['HANG','LONG_HANG','DOUBLE_HANG','SHORT_HANG','OPEN']);
 const OPT_NAME = {
   LONG_HANG:'Long hanging', DOUBLE_HANG:'Double hanging', SHORT_HANG:'Short hanging',
   SHELVES:'Adjustable shelves', DRAWERS:'Drawer bank', BASKETS:'Pull-out baskets',
@@ -1552,7 +1616,8 @@ export function quoteSummary(price, bays, runs){
   const optSum = options.reduce((a,o) => a + o.price, 0);
 
   /* Don't claim the base covers hanging when nothing in the design hangs. */
-  const hasHang = stack.some(s => s.m === 'LONG_HANG' || s.m === 'DOUBLE_HANG' || s.m === 'SHORT_HANG');
+  const HANGING = new Set(['HANG','LONG_HANG','DOUBLE_HANG','SHORT_HANG']);
+  const hasHang = stack.some(s => HANGING.has(s.m));
 
   return {
     sections, linFt:+linFt.toFixed(1),

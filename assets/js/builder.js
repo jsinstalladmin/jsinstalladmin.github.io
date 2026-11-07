@@ -511,6 +511,9 @@ const PERF = new URLSearchParams(location.search).has('perf')
       composed(){ composer ? composer.render() : renderer.render(scene, cam); } })
   : null;
 let MOVING = 0, shadowDirty = true;
+/* the room's four walls, with the direction each one faces into the room */
+const WALLS = [];
+const _camV = new THREE.Vector3();
 /* Up here with the others, not beside the drag code 750 lines down: the
    render loop below reads it on its very first frame, and a `let` further
    down the file is in its temporal dead zone at that moment. */
@@ -537,6 +540,12 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
   const moving = (MOVING && (performance.now() - MOVING < 130)) || DRAGGING;
   if(!moving && MOVING){ MOVING = 0; needsFrame = true; }
   /* the one frame where the expensive passes are worth paying for */
+  /* drop any wall the camera has moved behind, so nothing is ever drawn
+     between the viewer and the cabinetry */
+  for(const w of WALLS){
+    _camV.copy(cam.position).sub(w.p);
+    w.m.visible = _camV.dot(w.n) > 0;
+  }
   if(!moving && shadowDirty){
     shadowDirty = false; renderer.shadowMap.needsUpdate = true; needsFrame = true;
   }
@@ -794,17 +803,30 @@ function drawRoom(){
   };
 
   // walls — the tooth texture repeats on a real-world scale, not per-wall
-  const mkWall = (w, h, px, py, pz, rx, ry) => {
+  /* Each wall remembers which way it faces into the room, so the render loop
+     can drop the ones the camera has gone behind.
+
+     FrontSide with inward normals was supposed to handle this on its own, and
+     it does for the wall you are looking straight through. It does NOT handle
+     a wall you are beside: orbit round and the left or right wall swings
+     between the camera and the closet, edge-on, and fills the frame with a
+     grey slab. That is the "wall in front of the closet". Culling per frame
+     by which side the camera is actually on fixes every angle, not just the
+     head-on one. */
+  WALLS.length = 0;
+  const mkWall = (w, h, px, py, pz, rx, ry, nx, nz) => {
     const mat = wallMat();
     mat.map = T.wall.clone(); mat.map.needsUpdate = true;
     mat.map.repeat.set(w / 40, h / 40);
-    plane(w, h, px, py, pz, rx, ry, mat);
+    const m = plane(w, h, px, py, pz, rx, ry, mat);
+    WALLS.push({ m, p:new THREE.Vector3(px, py, pz), n:new THREE.Vector3(nx, 0, nz) });
+    return m;
   };
   const X0 = 0;                            // room's left wall IS closet x = 0
-  mkWall(W, H, X0 + W/2, H/2, 0,   0,  0);            // back,  faces +z
-  mkWall(D, H, X0,       H/2, D/2, 0,  Math.PI/2);    // left,  faces +x
-  mkWall(D, H, X0 + W,   H/2, D/2, 0, -Math.PI/2);    // right, faces -x
-  mkWall(W, H, X0 + W/2, H/2, D,   0,  Math.PI);      // front, faces -z
+  mkWall(W, H, X0 + W/2, H/2, 0,   0,  0,           0,  1);  // back,  faces +z
+  mkWall(D, H, X0,       H/2, D/2, 0,  Math.PI/2,   1,  0);  // left,  faces +x
+  mkWall(D, H, X0 + W,   H/2, D/2, 0, -Math.PI/2,  -1,  0);  // right, faces -x
+  mkWall(W, H, X0 + W/2, H/2, D,   0,  Math.PI,     0, -1);  // front, faces -z
 
   /* No ceiling. It only ever existed to close the box, and it blocked the
      plan view, which is the one angle where you can read the whole layout at
@@ -1821,153 +1843,10 @@ function paintStack(){
      comes across that front and it could not be opened. */
   const inCorner = cornerBlocked(cfg(), S.sel.wall, S.sel.i, bay.at ?? 0, bay.w);
 
-  const cheapest = PRESETS.reduce((lo, p) => {
-    const v = presetDelta(p, bay.w, usable, cat, S.finish);
-    return (v != null && (lo == null || v < lo)) ? v : lo; }, null);
-
-  /* A preset made of two modules was showing one module's photo, so
-     "Hanging + Shelves" was a picture of shelves with no rod in it. The card
-     now draws the actual stack, top module above bottom module, in the same
-     order it will be built. */
-  const partImg = id => (window.BASE||'') + 'img/parts/' + id.toLowerCase().replace(/_/g,'-') + '.jpg';
-  /* Which ready-made layout is this section already set to? Compare the
-     module order, so switching between layouts shows you what you are on
-     rather than making you guess. */
-  const sig = st => st.map(x => x.m).join('>');
-  const nowSig = sig(bay.stack);
-  const matched = PRESETS.find(p => sig(p.stack) === nowSig
-                                 && p.top !== false);
-  const presetCards = PRESETS.map(pre => {
-    const price = presetDelta(pre, bay.w, usable, cat, S.finish);
-    const delta = (price != null && cheapest != null) ? Math.round(price - cheapest) : null;
-    const tag   = delta == null ? '' : delta <= 0 ? 'Incl.' : '+' + money(delta);
-    const ids   = [...new Set(pre.stack.map(x => x.m))].reverse();   // top of stack first
-    /* A layout made of two parts used to show its two part photos stacked one
-       on top of the other, which reads as two things rather than one section.
-       `pre.art` names a single picture of the whole layout. If that file is
-       not on the server yet the img's own onerror swaps the stacked pair back
-       in, so the cards keep working either way and the new pictures light up
-       the moment they are dropped into img/parts/. */
-    /* The fallback is only a STACK when the layout really is two parts. A
-       one-module layout such as the open-top double hang falls back to its
-       single picture; putting it in a two-row stack left the bottom half of
-       the card empty. */
-    const single = id => `<img src="${partImg(id)}" alt="" loading="lazy" decoding="async"
-             width="420" height="560">`;
-    const stacked = ids.length > 1
-      ? `<span class="pstack">${ids.map(id =>
-          `<img src="${partImg(id)}" alt="" loading="lazy" decoding="async">`).join('')}</span>`
-      : single(ids[0] || 'OPEN');
-    /* ART_GONE remembers which combined pictures are not on the server yet, so
-       the browser asks for each missing file once rather than on every repaint
-       of the panel. The moment the file is dropped into img/parts/ and the
-       page is reloaded, the card uses it. */
-    const art = (pre.art && !ART_GONE.has(pre.art))
-      ? `<img src="${(window.BASE||'')}img/parts/${pre.art}.jpg" alt="" loading="lazy" decoding="async"
-             width="420" height="560"
-             onerror="window.__artGone&&window.__artGone('${pre.art}');this.outerHTML=${JSON.stringify(stacked).replace(/"/g,'&quot;')}">`
-      : ids.length > 1 ? stacked
-      : `<img src="${(window.BASE||'')}img/parts/${pre.img}.jpg" alt="" loading="lazy" decoding="async"
-             width="420" height="315">`;
-    const on = matched?.id === pre.id;
-    const fit = presetFits(pre, usable, inCorner);
-    return `<button class="pcard ready" data-preset="${pre.id}" aria-pressed="${on}"
-                    ${fit.ok ? '' : 'disabled'}
-                    title="${(fit.ok ? pre.desc
-                        : fit.corner ? `This section is in the corner where the ${fit.corner} wall returns across its front, so ${fit.why}. A corner section takes shelving or hanging.`
-                        : `${pre.name} needs ${fit.need}" and this section only has ${usable.toFixed(0)}". Make the section taller or pick something shorter.`).replace(/"/g,'&quot;')}">
-      ${art}<i>${pre.name}</i>
-      <span class="phov"><em>${fit.ok ? pre.desc
-        : fit.corner ? `In this corner, ${fit.why}.`
-        : `Needs ${fit.need}", this section has ${usable.toFixed(0)}".`}</em></span>
-      <span class="pbadge">${on ? 'Current' : 'Ready-made'}</span>${
-        fit.ok ? (tag ? `<u>${tag}</u>` : '')
-        : fit.corner ? '<u class="full">Not in a corner</u>' : '<u class="full">Too tall</u>'}</button>`;
-  }).join('');
-
-
-  /* ══════════════════════════════════════════════════════════════════
-     A SECTION IS A TOP AND A BOTTOM
-
-     It used to be an open-ended stack: add anything, in any order, and the
-     drawing would build it. So you could put a drawer bank above a rod at
-     eye height, or three things in a section that only has room for two, and
-     the only thing stopping you was a warning after the fact.
-
-     A section is two halves. Each half shows only what can actually go
-     there, which is a build rule and not a preference: a drawer you cannot
-     see into is not a drawer, a tilt-out hamper swings down to the floor,
-     and a short hang only exists as the thing above something else.
-     ══════════════════════════════════════════════════════════════════ */
-  const sl = slots(bay.stack);
-  const pick = S.pick;                                  // 'top' | 'bottom' | null
-
-  /* a small elevation of this section, with one half lit up */
-  const dia = lit => {
-    const bH = sl.bottom ? (sl.bottom.m === 'DRAWERS'
-        ? drawerBankHeight(sl.bottom.o?.sizes || defaultDrawerSizes(sl.bottom.o?.n))
-        : (sl.bottom.h ?? MODULES[sl.bottom.m].defH)) : 0;
-    const tH = Math.max(8, usable - bH);
-    return `<span class="swapdia" aria-hidden="true">
-      ${sl.bottom ? `<span class="${lit==='bottom'?'on':''}" style="flex:${bH.toFixed(1)} 1 0"></span>` : ''}
-      ${sl.top || lit==='top' ? `<span class="${lit==='top'?'on':''}" style="flex:${tH.toFixed(1)} 1 0"></span>` : ''}
-      <span class="cap"></span></span>`;
-  };
-
-  /* what the drawer bank is, drawer by drawer, in sizes he actually stocks */
-  const drawerRows = st => {
-    const sizes = (st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n));
-    const bank  = drawerBankHeight(sizes);
-    return `<div class="dsizes">
-      <span class="dlbl">Top to bottom, the way it is drawn &middot; ${(+bank.toFixed(2))}" of bank</span>
-      <ol class="dlist">
-        ${sizes.map((h, i) => ({ h, i })).reverse().map(({ h, i }) => `<li>
-          <b>${i + 1}${i === sizes.length - 1 ? ' · top' : i === 0 ? ' · bottom' : ''}</b>
-          <select data-dsize="${i}" aria-label="Box height for drawer ${i + 1}">
-            ${DRAWER_SIZES.map(z => `<option value="${z.h}" ${+h === z.h ? 'selected' : ''}>${z.label} box</option>`).join('')}
-          </select>
-          <i>${(DRAWER_SIZES.find(z => z.h === +h) || {}).use || ''}</i>
-        </li>`).join('')}
-      </ol>
-      <div class="dacts">
-        <button type="button" data-dadd="1" ${sizes.length >= 8 ? 'disabled' : ''}>Add a drawer</button>
-        <button type="button" data-drm="1" ${sizes.length <= 1 ? 'disabled' : ''}>Remove the top one</button>
-      </div>
-      <p class="dnote">These are the box sizes he stocks. The front is an inch
-        taller than the box, so the bank is exactly what the drawers add up to.</p>
-    </div>`;
-  };
-
-  /* one half of the section */
-  const half = (slot, st) => {
-    const open = pick === slot;
-    if(!st) return `<button class="slotcard empty ${open?'on':''}" type="button" data-pickslot="${slot}">
-      <span class="sico"><svg viewBox="0 0 24 32"><path d="M2 7h20M4 7v3M20 7v3"/></svg></span>
-      <span class="sname"><b>${slot === 'top' ? 'Nothing at the top yet' : 'Nothing underneath yet'}</b>
-        <i>${slot === 'top'
-            ? 'Pick what fills the section'
-            : 'Optional. Drawers, a hamper, baskets, shoes or shelving'}</i></span>
-      <span class="slotgo">${slot === 'top' ? 'Choose' : 'Add'}</span></button>`;
-    const d = MODULES[st.m];
-    const isDrawers = !!d.sizes;
-    const hText = isDrawers
-      ? `${(st.o?.sizes?.length || defaultDrawerSizes(st.o?.n).length)} drawers`
-      : (st.h == null ? 'fills the space' : `${st.h}" tall`);
-    return `<div class="slotcard ${open?'on':''}">
-      <div class="slothd">
-        <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
-        <span class="sname"><b>${d.label}</b><i>${hText}</i></span>
-        <span class="slotrhs">
-          ${d.opt ? `<span class="sopt"><button data-opt="-1" data-slot="${slot}" title="Fewer">−</button><i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-slot="${slot}" title="More">+</button></span>` : ''}
-          <button class="sswap ${open?'on':''}" type="button" data-pickslot="${slot}">Change</button>
-          ${slot === 'bottom' ? '<button class="slotx" type="button" data-clearslot="bottom" title="Take it out">×</button>' : ''}
-        </span>
-      </div>
-      ${isDrawers ? drawerRows(st) : ''}
-      ${slot === 'bottom' ? `<label class="ctop"><input type="checkbox" data-counter="1" ${sl.counter?'checked':''}>
-        <span><b>A worktop over it</b> — a folding bench or a packing surface, 2" thick.</span></label>` : ''}
-    </div>`;
-  };
+  /* The ready-made cards used to be built here: eleven presets, each one
+     priced by building a whole throwaway design through presetDelta just to
+     show a "+$85" badge, on every single repaint of this panel. They are gone
+     from the panel, so the work is gone with them. */
 
   /* only what can go in the half being changed */
   /* Only what is buildable in THIS half right now. A half with the other one
@@ -1980,7 +1859,7 @@ function paintStack(){
     const other = slot === 'top' ? sl.bottom : sl.top;
     return canOffer(id, slot, !!other) || here?.m === id;
   }).map(id => {
-    const d = MODULES[id], img = id.toLowerCase().replace(/_/g,'-');
+    const d = MODULES[id], img = d.img || id.toLowerCase().replace(/_/g,'-');
     const here = slot === 'top' ? sl.top : sl.bottom;
     const on   = here?.m === id;
     const other = slot === 'top' ? sl.bottom : sl.top;
@@ -2025,10 +1904,13 @@ function paintStack(){
       </span>
     </div>
     <div class="pgrid">${slotCards(pick)}</div>` : `
-    <details class="readymade"${bay.stack.length ? '' : ' open'}>
-      <summary><b>Ready-made layouts</b><span>${matched ? matched.name : 'Eleven sections people ask for, already put together'}</span></summary>
-      <div class="pgrid">${presetCards}</div>
-    </details>`}`;
+    `}`;
+  /* The ready-made block used to sit under the two halves, offering eleven
+     pre-assembled sections next to the very pickers that build them. Two ways
+     to do one job, and the pre-made one quietly wrote BOTH halves, so picking
+     a top could wipe a bottom the customer had already chosen. They pick the
+     top and the bottom; the named layouts stay on /layouts/ where they belong
+     as a showroom, not as a second control. */
   dockStack();
 }
 
