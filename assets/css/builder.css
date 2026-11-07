@@ -210,9 +210,17 @@
 .ordertab td{padding:.52em .7em;border-bottom:1px solid var(--line-2);vertical-align:top}
 .ordertab td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ordertab td.fin{color:var(--muted);font-size:.7rem}
-.warnbox{display:flex;flex-direction:column;gap:4px;margin-bottom:.8em}
-.warnbox span{font-size:.73rem;color:#F0C0A8;background:rgba(194,112,90,.16);
-  border:1px solid rgba(194,112,90,.34);border-radius:8px;padding:.45em .7em;line-height:1.4}
+/* ── what the design wants you to know ──
+   These used to sit on the price card, above the number, and every one the
+   design picked up pushed the card taller — on a busy closet the price was
+   three paragraphs down. They are inside the tip now, behind the button,
+   which carries the count. */
+.warnbox{display:flex;flex-direction:column;gap:5px;margin:0 0 .85em;
+  max-height:min(46vh,340px);overflow:auto;overscroll-behavior:contain}
+.warnbox .warnhd{font-size:.68rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;margin-bottom:.15em}
+.warnbox span{font-size:.74rem;color:#7A4A33;background:rgba(194,112,90,.12);
+  border:1px solid rgba(194,112,90,.3);border-radius:8px;padding:.5em .7em;line-height:1.45}
 
 /* ---------- room shape picker (step 1) ---------- */
 .pills.shapes{display:flex;gap:8px;flex-wrap:wrap}
@@ -467,7 +475,7 @@ body[data-step="6"] .pacts{margin-top:0}
   padding:0;transition:.2s var(--ease)}
 .pinfo:hover,.pinfo[aria-expanded="true"]{background:var(--paper);color:var(--ink);
   border-color:var(--paper)}
-.ptip{position:absolute;top:42px;right:12px;z-index:9;width:min(290px,calc(100% - 24px));
+.ptip{position:absolute;top:42px;right:12px;z-index:9;width:min(330px,calc(100% - 24px));
   background:var(--paper);color:var(--ink);border-radius:var(--r-sm);padding:.85em .95em;
   font-size:.75rem;line-height:1.55;box-shadow:0 14px 38px rgba(0,0,0,.3);
   opacity:0;visibility:hidden;translate:0 -4px;transition:.22s var(--ease)}
@@ -1136,28 +1144,6 @@ body[data-step="6"] .pacts{margin-top:0}
 .srow .sname b,.srow .sname i{white-space:normal;overflow:visible}
 
 /* ══════════════════════════════════════════════════════════════════════
-   THE SHELF OVER THE TOP
-
-   Every render on the site caps the section with a shelf and every section
-   is built with one, so it is on. A double hang taken to the ceiling does
-   not want one, and nor does a section under a slope, so it is a choice —
-   and it sits at the head of the list, which is where the shelf is.
-   ══════════════════════════════════════════════════════════════════════ */
-.toprow{display:grid;grid-template-columns:30px minmax(0,1fr);gap:2px 8px;
-  align-items:start;border:1px solid var(--line);border-radius:var(--r-sm);
-  padding:.55em .6em;background:var(--paper-2);margin-bottom:5px}
-.toprow.off{border-style:dashed;background:var(--paper)}
-/* the panel is 460px and the row has an icon, a name, a note and two buttons
-   in it, so the buttons go on their own line rather than squeezing the name
-   down to "Shelf over the …" */
-.toprow .sname b,.toprow .sname i{white-space:normal;overflow:visible;
-  text-overflow:clip;line-height:1.3}
-.toprow .segrow.mini{grid-column:2;margin-top:.45em}
-.segrow.mini{flex-wrap:nowrap;gap:.25rem}
-.segrow.mini button{flex:0 0 auto;padding:.32rem .66rem;font-size:.74rem;
-  border-radius:7px;text-align:center}
-
-/* ══════════════════════════════════════════════════════════════════════
    CHANGING ONE PART OF A SECTION
 
    The heading said "the bottom part" and left you to work out which one that
@@ -1199,3 +1185,135 @@ body[data-step="6"] .pacts{margin-top:0}
    for them. The baseboard has two numbers, not three. */
 .basebox .pfields{grid-template-columns:repeat(2,1fr)}
 .pfield span{white-space:nowrap}
+
+
+/* the button carries the count, so you can see there is something to read
+   without the card having to say it */
+.pinfo{display:grid;place-items:center;line-height:1}
+.pinfo .pinfoi{display:block}
+.pinfo u{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;
+  border-radius:9px;background:#C2705A;color:#fff;font-size:.62rem;font-style:normal;
+  font-weight:600;line-height:16px;text-align:center;text-decoration:none;
+  opacity:0;transform:scale(.6);transition:.2s var(--ease)}
+.pinfo.haswarn u{opacity:1;transform:scale(1)}
+.pinfo.haswarn{background:rgba(194,112,90,.28);border-color:rgba(194,112,90,.6);color:#F4D6C8}
+.ptip .ptipp{margin:0}
+.ptip .ptipp b{display:block;margin-bottom:.3em;font-weight:500}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   A SECTION IS A TOP AND A BOTTOM
+
+   The old editor was an open list: every piece a row, seven controls on each
+   row, and no shape to it. A section has two halves and they are not the
+   same job, so they are two cards and each one says which half it is.
+   ══════════════════════════════════════════════════════════════════════ */
+.halves{display:flex;flex-direction:column;gap:5px;margin-bottom:.9rem}
+.halflbl{font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--ink-3);margin-top:.35rem}
+.halflbl:first-child{margin-top:0}
+
+.slotcard{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper);
+  transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.slotcard.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.slothd{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:8px;
+  align-items:center;padding:.55em .6em}
+/* the part name is the thing you are reading; it wraps rather than becoming
+   "Adjustable she…" to make room for a stepper */
+.slothd .sname b,.slothd .sname i,.slotcard.empty .sname b,.slotcard.empty .sname i{
+  white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25}
+.slotcard.empty{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:8px;
+  align-items:center;padding:.6em;width:100%;text-align:left;font:inherit;
+  cursor:pointer;border-style:dashed;color:inherit}
+.slotcard.empty:hover{border-color:var(--ink-3);background:var(--paper-2)}
+.slotcard.empty .sname i{color:var(--muted)}
+.slotgo{font-size:.72rem;letter-spacing:.02em;padding:.32em .78em;border-radius:7px;
+  background:var(--ink);color:var(--paper);white-space:nowrap}
+.slotrhs{display:flex;align-items:center;gap:.35em}
+.slotx{width:24px;height:24px;border-radius:6px;border:1px solid var(--line);
+  background:var(--paper);color:var(--muted);cursor:pointer;line-height:1;font-size:.9rem}
+.slotx:hover{border-color:#C2705A;color:#C2705A}
+
+/* the worktop is a cap on the bottom piece, not a piece of its own */
+.ctop{display:flex;gap:.55em;align-items:flex-start;padding:.1em .7em .7em;
+  font-size:.75rem;line-height:1.45;color:var(--muted);cursor:pointer}
+.ctop input{margin-top:.18em;accent-color:var(--ink)}
+.ctop b{color:var(--ink);font-weight:500}
+
+/* ── the drawer bank, box by box ──
+   A bank used to be a height and a count, and five drawers in 34" gave 6.8"
+   fronts that no box he stocks will fit behind. Each drawer is now a real
+   SKU and the bank is as tall as they add up to. */
+.dsizes{border-top:1px solid var(--line);padding:.6em .7em .7em}
+.dlbl{display:block;font-size:.64rem;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:.5em}
+.dlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.dlist li{display:grid;grid-template-columns:72px 116px minmax(0,1fr);gap:8px;
+  align-items:center}
+.dlist b{font-size:.68rem;font-weight:500;color:var(--muted);
+  font-variant-numeric:tabular-nums}
+.dlist select{width:100%;font:inherit;font-size:.78rem;padding:.3em .4em;
+  border:1px solid var(--line);border-radius:7px;background:var(--paper);
+  color:var(--ink);cursor:pointer}
+.dlist select:focus{outline:none;border-color:var(--ink)}
+.dlist i{font-style:normal;font-size:.68rem;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dacts{display:flex;gap:.4em;margin-top:.6em}
+.dacts button{font:inherit;font-size:.72rem;padding:.34em .7em;border-radius:7px;
+  border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.dacts button:hover:not(:disabled){border-color:var(--ink-3)}
+.dacts button:disabled{opacity:.4;cursor:default}
+.dnote{margin:.6em 0 0;font-size:.68rem;line-height:1.5;color:var(--muted)}
+
+/* the ready-made layouts fold away once the section has something in it */
+.readymade{border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--paper-2);margin-top:.3rem}
+.readymade summary{display:flex;flex-direction:column;gap:.1em;padding:.65em .75em;
+  cursor:pointer;list-style:none}
+.readymade summary::-webkit-details-marker{display:none}
+.readymade summary::after{content:'';position:absolute;right:16px;width:8px;height:8px;
+  border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+  transform:translateY(5px) rotate(45deg);transition:transform .2s var(--ease)}
+.readymade[open] summary::after{transform:translateY(8px) rotate(-135deg)}
+.readymade summary{position:relative}
+.readymade summary b{font-size:.82rem;color:var(--ink);font-weight:500}
+.readymade summary span{font-size:.72rem;color:var(--muted)}
+.readymade .pgrid{padding:0 .6em .7em}
+
+@media(max-width:520px){
+  .dlist li{grid-template-columns:62px minmax(0,1fr)}
+  .dlist i{display:none}
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE TOUR
+
+   Six steps, each one beside the thing it is about rather than parked in
+   the middle of the screen. It runs once; the ? in the scene toolbar
+   brings it back.
+   ══════════════════════════════════════════════════════════════════════ */
+.tour{position:fixed;inset:0;z-index:120;background:rgba(14,11,8,.5);
+  backdrop-filter:blur(1.5px);animation:tourin .25s var(--ease)}
+@keyframes tourin{from{opacity:0}to{opacity:1}}
+.tourbox{position:fixed;width:min(340px,calc(100vw - 28px));background:var(--paper);
+  border-radius:var(--r-md);padding:1.15em 1.25em 1.05em;
+  box-shadow:0 28px 70px rgba(10,8,6,.4);z-index:2}
+.tourn{display:block;font-size:.62rem;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.55em}
+.tourbox h3{margin:0 0 .4em;font-size:1.18rem;line-height:1.22;color:var(--ink)}
+.tourbox p{margin:0;font-size:.86rem;line-height:1.6;color:var(--muted)}
+.tourdots{display:flex;gap:5px;margin:1em 0 .9em}
+.tourdots span{height:3px;flex:1;border-radius:2px;background:var(--line-2)}
+.tourdots span.on{background:var(--accent,#A8824C)}
+.touracts{display:flex;align-items:center;justify-content:space-between;gap:.6em}
+.tourgo{display:flex;gap:.45em}
+.tourskip{border:0;background:none;padding:0;font:inherit;font-size:.78rem;
+  color:var(--muted);cursor:pointer;text-decoration:underline;
+  text-underline-offset:3px}
+.tourskip:hover{color:var(--ink)}
+.tourback:disabled{opacity:.35;cursor:default}
+/* a ring round whatever the step is pointing at */
+.tourhalo{position:fixed;border-radius:14px;pointer-events:none;
+  box-shadow:0 0 0 2px var(--accent,#A8824C),0 0 0 9999px rgba(14,11,8,.32);
+  transition:all .3s var(--ease)}
+@media(prefers-reduced-motion:reduce){.tour,.tourhalo{animation:none;transition:none}}

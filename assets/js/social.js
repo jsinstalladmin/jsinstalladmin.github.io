@@ -35,37 +35,48 @@ const stars = n => '<span class="rstars" aria-label="' + n + ' out of 5">' +
 
 const card = r => `<article class="rcard">
   ${stars(5)}
-  <p>${r.text}</p>
-  <footer><b>${r.name}</b><span>${r.job} &middot; ${r.when}</span></footer>
+  <blockquote>${r.text}</blockquote>
+  <footer><b>${r.name}</b><span>${r.job}</span><em>${r.when}</em></footer>
 </article>`;
 
 export function mountReviews(base=''){
   const host = document.getElementById('reviews');
   if(!host) return;
-  /* ONE row, not two. Two rows travelling opposite ways meant the shorter of
-     them ran out and left a band of empty paper down the middle, and the eye
-     had two things to follow instead of one. Every review is in a single
-     track now, repeated so the loop has no seam: the animation translates by
-     exactly one copy width. */
-  const row = (list, dir) => `<div class="rrow ${dir}">
-      <div class="rtrack">${[...list,...list,...list,...list].map(card).join('')}</div>
-    </div>`;
+  /* This was a black band with the reviews sliding across it on a loop. Three
+     things were wrong with that. You cannot read a moving card, so the proof
+     — which is the whole point of the section — went past unread. The cards
+     clipped the text to four lines and ended on an ellipsis, so the longest
+     and best review was the one you saw least of. And it looked like a widget
+     dropped into the page rather than part of it: everything above and below
+     is paper, rules and rounded cards.
+
+     It is now what it should have been. Nothing moves, every review is whole,
+     and it is built out of the same pieces as the rest of the site. */
   host.innerHTML = `
     <div class="rhead">
-      <div>
+      <div class="rscore">
         <span class="label">What people say</span>
-        <h2 data-rv="up">${TT_STATS.rating} on Thumbtack,<br>across ${TT_STATS.reviews} reviews</h2>
+        <b class="rbig">${TT_STATS.rating}<em>/5</em></b>
+        ${stars(TT_STATS.rating)}
+        <span class="rsub">across ${TT_STATS.reviews} reviews on Thumbtack</span>
       </div>
       <div class="rmeta">
         <div><b>${TT_STATS.hires}</b><span>Jobs hired through Thumbtack</span></div>
         <div><b>${TT_STATS.years}</b><span>Years in business</span></div>
-        <div><b>Top Pro</b><span>2024 and 2025</span></div>
+        <div><b>Top&nbsp;Pro</b><span>2024 and 2025</span></div>
       </div>
     </div>
-    ${row(REVIEWS,'left')}
-    <p class="rsrc">Every review above is from the
-      <a href="${TT_URL}" target="_blank" rel="noopener">JS Installations &amp; Closets Thumbtack profile</a>,
-      shown with the reviewer's name as Thumbtack publishes it.</p>`;
+    <div class="rgrid">
+      ${REVIEWS.map(card).join('')}
+      <a class="rcard rall" href="${TT_URL}" target="_blank" rel="noopener">
+        <span class="rallq">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H9l-5 4z"/></svg>
+        </span>
+        <b>Read all ${TT_STATS.reviews} on Thumbtack</b>
+        <span>Every one of these is on his profile, under the reviewer's own
+          name. Nothing on this page was written by us.</span>
+      </a>
+    </div>`;
 }
 
 const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');

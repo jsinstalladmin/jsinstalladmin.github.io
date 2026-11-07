@@ -80,6 +80,7 @@
       <button data-a="spin" aria-pressed="false" title="Turntable"><svg viewBox="0 0 20 20"><path d="M10 3a7 7 0 1 1-6.3 4M3 3v4h4"/></svg><span>360°</span></button>
       <button data-a="evening" aria-pressed="false" title="Evening light"><svg viewBox="0 0 20 20"><path d="M16 11.5A6.5 6.5 0 0 1 8.5 4a6.5 6.5 0 1 0 7.5 7.5Z"/></svg><span>Evening</span></button>
       <button data-a="reset" title="Reset view"><svg viewBox="0 0 20 20"><path d="M3 10a7 7 0 1 1 2 4.9M3 16v-4h4"/></svg><span>Reset</span></button>
+      <button data-a="tour" title="Show me round again"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><path d="M8 8a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.4"/><path d="M10 14.2h.01"/></svg><span>Tour</span></button>
     </div>
     <span class="bhint">Drag to orbit · scroll to zoom</span>
   </div>
@@ -159,13 +160,16 @@
 </div>
 
     <div class="pfoot">
-      <div id="warn" class="warnbox" hidden></div>
+      <!-- The flags used to stack on top of the price and push the card taller
+           every time the design picked one up. They live behind this button
+           now: it counts them, and they open on hover or on a press. -->
       <button class="pinfo" id="pinfo" type="button" aria-expanded="false"
-              aria-label="What this price covers">i</button>
+              aria-label="What this price covers"><span class="pinfoi">i</span><u id="pinfoN"></u></button>
       <div class="ptip" role="note">
-        <b>Cabinetry only.</b>Installation is quoted once we have measured the room.
-        It depends on access, the shelving that has to come out and whether the
-        baseboard comes off.
+        <div id="warn" class="warnbox" hidden></div>
+        <p class="ptipp"><b>Cabinetry only.</b>Installation is quoted once we have measured
+        the room. It depends on access, the shelving that has to come out and whether the
+        baseboard comes off.</p>
       </div>
       <span class="plabel">Cabinetry only</span>
       <div id="price">…</div><span id="priceSub"></span>
@@ -220,6 +224,7 @@
 </div></footer>
 <script src="../assets/js/site.js" type="module"></script>
 <script src="../assets/js/builder.js" type="module"></script>
+<script type="module">import { mountTour } from "../assets/js/tour.js"; mountTour();</script>
 
 <script>
 /* Step tabs. Deliberately inline and dependency-free: if three.js or the

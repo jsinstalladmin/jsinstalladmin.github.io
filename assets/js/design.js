@@ -200,6 +200,28 @@ export const DRAWER_BOX = {
   h: [7.5, 8.75, 10, 15, 18.75, 25],
   d: [16, 20, 24, 30, 31]
 };
+/* The front overlays the box and covers the gap over the glide, so a front is
+   the box plus one inch. Every bank is now built from these and only these,
+   which is why the parts list can no longer come out saying NO STOCK BOX
+   FITS: the customer is choosing a real SKU, not a height we divide into. */
+export const DRAWER_REVEAL = 1.0;
+export const DRAWER_SIZES = DRAWER_BOX.h.map(h => ({
+  h,                                   // the box, as he stocks it
+  front: +(h + DRAWER_REVEAL).toFixed(2),
+  label: ({7.5:'7½"', 8.75:'8¾"', 10:'10"', 15:'15"', 18.75:'18¾"', 25:'25"'})[h] || h + '"',
+  use:   ({ 7.5:'Socks, ties, belts, jewellery trays',
+            8.75:'The everyday drawer. Folded tees and underwear',
+            10:'Folded knits and gym kit',
+            15:'Jeans, sweaters, bulk',
+            18.75:'Deep storage, bedding, handbags',
+            25:'A single deep drawer. Bedding or a laundry drop' })[h] || ''
+}));
+/* four everyday drawers, which is the 34" bank every closet company sells */
+export const defaultDrawerSizes = n =>
+  Array.from({ length: Math.max(1, Math.min(8, n || 4)) }, () => 7.5);
+export const drawerBankHeight = sizes =>
+  (sizes || []).reduce((a, h) => a + h + DRAWER_REVEAL, 0);
+
 const GLIDES = [10, 12, 14, 16, 18, 20, 22, 24, 30];
 const fit = (list, max) => { const ok = list.filter(v => v <= max); return ok.length ? Math.max(...ok) : null; };
 
@@ -217,6 +239,112 @@ export const LIMIT = {
   DRAWERS:2, BASKETS:2, SHOES:2, SHOE_SLANT:2, SHELVES:3, CUBBIES:2, OPEN:2
 };
 const GROUP = { DOOR:'front', GLASS_DOOR:'front' };
+
+/* ══════════════════════════════════════════════════════════════════════
+   WHAT GOES ON TOP AND WHAT GOES AT THE BOTTOM
+
+   A section is a bottom piece and a top piece, and the two are not
+   interchangeable. A drawer bank at eye level cannot be opened, a hamper
+   tilts down to the floor, and a short hang only exists as the thing above
+   something else. The picker used to offer all fourteen pieces for either
+   half of the section, so you could build a drawer bank over a rod and the
+   drawing would show it.
+
+   SLOT says where each piece can actually go. It is a build rule, not a
+   preference, and the reason for each one is below.
+   ══════════════════════════════════════════════════════════════════════ */
+export const SLOT = {
+  /* a rod with a shelf over it, or a rod with shelves over it: both real */
+  LONG_HANG  : { top:true,  bottom:true  },
+  /* 70" of its own. There is nothing left under it in an 80" section */
+  DOUBLE_HANG: { top:true,  bottom:false },
+  /* a short hang IS the thing over a drawer bank or a hamper */
+  SHORT_HANG : { top:true,  bottom:false },
+  SHELVES    : { top:true,  bottom:true  },
+  CUBBIES    : { top:true,  bottom:true  },
+  SHOES      : { top:true,  bottom:true  },
+  SHOE_SLANT : { top:true,  bottom:true  },
+  OPEN       : { top:true,  bottom:true  },
+  /* pull-out hardware. A drawer you cannot see into is not a drawer, and a
+     tilt-out hamper swings down to the floor */
+  DRAWERS    : { top:false, bottom:true  },
+  BASKETS    : { top:false, bottom:true  },
+  HAMPER     : { top:false, bottom:true  },
+  /* a worktop is not a piece of the section, it is the cap on the bottom
+     piece, so it is offered as a tick on that piece rather than as a slot */
+  COUNTER    : { top:false, bottom:false, cap:true },
+  /* a front covers the whole section, so it belongs to neither half */
+  DOOR       : { top:true,  bottom:false },
+  GLASS_DOOR : { top:true,  bottom:false },
+};
+export const canSit = (id, slot) => !!(SLOT[id] || { top:true, bottom:true })[slot];
+
+/* Read a stored stack as the two halves it really is. A stack is still how a
+   section is stored, priced and sent to the office, so nothing downstream had
+   to change: this is the view of it the picker works in. */
+export function slots(stack){
+  const st = stack || [];
+  const ci = st.findIndex(x => x.m === 'COUNTER');
+  const rest = st.map((x,i) => ({ x, i })).filter(e => e.x.m !== 'COUNTER');
+  if(!rest.length) return { bottom:null, top:null, counter:ci >= 0, bi:-1, ti:-1 };
+  if(rest.length === 1){
+    /* One piece on its own is the TOP of the section — it fills the whole
+       thing — unless it is something that can only sit on the floor, like a
+       drawer bank or a hamper, in which case it is the bottom with nothing
+       chosen above it yet. */
+    const only = rest[0];
+    return canSit(only.x.m, 'top')
+      ? { bottom:null, top:only.x, counter:ci >= 0, bi:-1, ti:only.i }
+      : { bottom:only.x, top:null, counter:ci >= 0, bi:only.i, ti:-1 };
+  }
+  return { bottom:rest[0].x, top:rest[rest.length-1].x, counter:ci >= 0,
+           bi:rest[0].i, ti:rest[rest.length-1].i };
+}
+
+/* Put a piece in one half of a section and leave the other half alone. The
+   heights follow from what the piece is: a drawer bank is as tall as its
+   boxes, the top piece fills whatever is left, and a fixed-height piece at
+   the bottom keeps its own height. */
+export function setSlot(bay, slot, id){
+  const s = slots(bay.stack);
+  const def = MODULES[id];
+  const keep = slot === 'top' ? s.bottom : s.top;
+  const made = { m:id, h:null, o:{} };
+  if(def.sizes) made.o = { sizes: defaultDrawerSizes(4) };
+  else if(def.opt) made.o = { [def.opt.key]: def.opt.def };
+  const next = slot === 'top'
+    ? { bottom: (keep && keep.m !== id) ? keep : (s.bottom && s.bottom.m !== id ? s.bottom : null), top: made }
+    : { bottom: made, top: keep && keep.m !== id ? keep : null };
+  return writeSlots(bay, next.bottom, next.top, s.counter);
+}
+export function clearSlot(bay, slot){
+  const s = slots(bay.stack);
+  return writeSlots(bay, slot === 'bottom' ? null : s.bottom,
+                         slot === 'top'    ? null : s.top,
+                    slot === 'bottom' ? false : s.counter);
+}
+export function setCounter(bay, on){
+  const s = slots(bay.stack);
+  return writeSlots(bay, s.bottom, s.top, !!on && !!s.bottom);
+}
+/* The one place a section's stack is written, so it can never come out in an
+   order the rest of the engine does not expect: bottom, worktop, top. */
+export function writeSlots(bay, bottom, top, counter){
+  const out = [];
+  if(bottom){
+    const d = MODULES[bottom.m];
+    out.push({ ...bottom, h: d.sizes ? null : (bottom.h ?? d.defH) });
+  }
+  if(counter && bottom) out.push({ m:'COUNTER', h:2, o:{} });
+  if(top){
+    const d = MODULES[top.m];
+    out.push({ ...top, h: (d.fill && bottom) ? null : (d.sizes ? null : (d.fill ? null : d.defH)) });
+  }
+  bay.stack = out;
+  bay.top = true;                       // every section is built with its shelf
+  return bay;
+}
+
 
 /* ══════════════════════════════════════════════════════════════════════
    WHAT CAN GO WITH WHAT
@@ -267,9 +395,31 @@ export function cornerBlocked(cfg, wall, bayIndex, bayStart, bayWidth){
 
 /* The real constraint is vertical: everything in the bay has to fit between
    the toe kick and the top shelf at its own minimum height. */
-export function canAdd(stack, id, usableH, inCorner){
+export function canAdd(stack, id, usableH, inCorner, slot){
   const def = MODULES[id];
   if(!def) return { ok:false, why:'Unknown part.' };
+
+  /* Filling one half of a section is a different question from adding to an
+     open-ended stack. The writer decides the heights — the bottom gets a
+     fixed one, the top fills what is left — so "this section already has
+     something filling the space" is not a reason to refuse, and neither is
+     the per-section limit, because a half holds one piece by definition.
+     What still applies: the corner, the pairs that physically clash, and
+     whether the two halves fit between the toe kick and the top shelf. */
+  if(slot){
+    if(!canSit(id, slot))
+      return { ok:false, why:`${def.label} cannot go ${slot === 'top' ? 'at the top of' : 'under'} a section.` };
+    if(inCorner && OPENING_FRONT.has(id))
+      return { ok:false, why:`This section is in the corner where the ${inCorner} wall returns across its front, so ${def.label.toLowerCase()} here would open straight into that run and could not be used. A corner section takes shelving or hanging.` };
+    for(const c of CLASH){
+      if((id===c.a && stack.some(st=>st.m===c.b)) || (id===c.b && stack.some(st=>st.m===c.a)))
+        return { ok:false, why:c.why };
+    }
+    const other = stack.reduce((a,st) => a + MODULES[st.m].minH, 0);
+    if(def.minH + other > usableH + 0.5)
+      return { ok:false, why:`${def.label} needs ${def.minH}" and only ${Math.max(0, usableH - other).toFixed(0)}" is free in this section. Make the section taller or pick something shorter.` };
+    return { ok:true };
+  }
 
   /* A section in an inside corner has the next run returning across its
      front. This used to be built and then flagged in the warnings, which is
@@ -386,29 +536,46 @@ export const MODULES = {
     label:'Drawers', hint:'Soft-close undermount glides. Nine box sizes.',
     spec:'Boxes 7½\"–25\" tall · bank 10\"–48\"',
     icon:'M2 3h20v6H2zM2 12h20v6H2zM2 21h20v6H2z',
-    defH:34, minH:10, maxH:48, opt:{key:'n',label:'Drawers',min:1,max:8,def:4},
+    defH:34, minH:8.5, maxH:48,
+    /* `sizes` is the bank, bottom to top, in real box heights. It used to be a
+       count: four drawers in a 34" bank gave 8.5" fronts and a box that
+       happened to fit, but five in the same bank gave 6.8" fronts and the
+       parts list printed NO STOCK BOX FITS and went to the supplier like
+       that. Each drawer is now a SKU the customer picked. */
+    sizes: true,
     build(c){
-      const {w,d,y,h,G,parts,o,pull,warn} = c;
-      const n = clamp(o.n ?? Math.max(2,Math.round(h/8.5)), 1, 8);
-      const fh = h/n;
+      const {w,d,y,G,parts,o,pull,warn} = c;
+      const sizes = (Array.isArray(o.sizes) && o.sizes.length)
+        ? o.sizes.filter(x => DRAWER_BOX.h.includes(+x)).map(Number)
+        : defaultDrawerSizes(o.n);
+      const n = sizes.length;
 
-      /* the front is cut to fh; the box behind it has to be a real SKU */
       const boxW = fit(DRAWER_BOX.w, w - 1.0);        // 1/2" glide each side
       const boxD = fit(DRAWER_BOX.d, d - 2.0);
-      const boxH = fit(DRAWER_BOX.h, fh - 1.0);       // front overlays the box
       const glide = fit(GLIDES, boxD || 0);
+      if(!boxW) warn && warn(`A ${w.toFixed(0)}" section is too narrow for a drawer box. The smallest he stocks is ${DRAWER_BOX.w[0]}" and needs a ${(DRAWER_BOX.w[0]+1).toFixed(0)}" opening.`);
 
-      if(!boxW) warn && warn(`A ${w.toFixed(0)}" bay is too narrow for a drawer box. The smallest he stocks is ${DRAWER_BOX.w[0]}" and needs a ${(DRAWER_BOX.w[0]+1).toFixed(0)}" opening.`);
-      if(!boxH) warn && warn(`${n} drawers across ${h.toFixed(0)}" gives ${fh.toFixed(1)}" fronts, too short for the ${DRAWER_BOX.h[0]}" box, the shallowest he stocks. Use fewer drawers.`);
-
-      parts.push({code:'DRAWER',qty:n,w,h:fh,d:Math.min(d-2,20),style:c.boxStyle,
-        note:`${n} drawers, ${fh.toFixed(1)}" fronts` +
-             (boxW&&boxH&&boxD ? ` · ${boxW}"×${boxH}"×${boxD}" boxes, ${glide}" glides` : ' · NO STOCK BOX FITS')});
-      for(let i=0;i<n;i++){
-        const cy = y + fh*i + fh/2;
+      /* one line per SIZE, because that is how they are ordered */
+      const byH = new Map();
+      sizes.forEach(h => byH.set(h, (byH.get(h) || 0) + 1));
+      for(const [bh, qty] of byH){
+        /* the BOX height goes to the pricer, because that is the SKU. The
+           front is an inch taller and is said in the note. */
+        parts.push({ code:'DRAWER', qty, w, h:bh,
+          d: boxD || Math.min(d-2, 20), boxW, boxD, style:c.boxStyle,
+          note: `${qty} × ${bh}" box` +
+                (boxW && boxD ? ` · ${boxW}"W × ${bh}"H × ${boxD}"D, ${glide}" glides` : '') +
+                ` · ${(bh + DRAWER_REVEAL).toFixed(2)}" front` });
+      }
+      let fy = y;
+      for(const bh of sizes){
+        const fh = bh + DRAWER_REVEAL;
+        const cy = fy + fh/2;
         G.push({k:'front', p:[0, cy, d/2-0.4], s:[w-0.2, fh-0.18, 0.8], m:'front'});
         addPull(G, pull, 0, cy, d/2, w, fh);
+        fy += fh;
       }
+      const h = drawerBankHeight(sizes);
       /* A drawer bank is capped. The module used to emit fronts and nothing
          else, so the top drawer had open carcass above it and you could see
          straight over it — which is both wrong on screen and wrong in the
@@ -471,27 +638,50 @@ export const MODULES = {
          but never billed, so a hamper was costed as the mechanism and the wire
          basket with the panel on the front of it free. */
       parts.push(P('DOOR',1,(w*h)/144,((w+h)*2)/12,'Tilt-out hamper front'));
-      /* It was a flat slab with a pull on it, indistinguishable from a door.
-         A tilt-out is drawn tilted: the front pivots at its bottom edge and
-         leans out, and the wire basket it carries is visible behind it. */
-      const TILT = 0.22;                                   // about 13 degrees
-      G.push({k:'front', p:[0, y+h/2, d/2 - 0.4 + Math.sin(TILT)*h*0.18],
-              s:[w-0.2, h-1, 0.8], m:'front', tilt:-TILT});
-      addPull(G, pull, 0, y + h*0.78, d/2 + Math.sin(TILT)*h*0.18, w, h);
-      /* the wire basket inside it */
-      const HW_ = 0.22, hw = w - 3, hd = d - 5;
-      const hb = y + 2.5, ht = y + h - 3;
-      const bar = (px,py,pz,sx,sy,sz) => G.push({k:'wire', p:[px,py,pz], s:[sx,sy,sz], m:'metal'});
+      /* A tilt-out pivots on a hinge at the BOTTOM of its front, so the front
+         swings down and out and the wire basket comes with it. It was being
+         rotated about its own centre instead, which pushed the bottom edge
+         forward and pulled the top edge back: the front came away from the
+         carcass and read as a loose panel leaning against the closet.
+
+         Rotating a panel of height H about its bottom edge puts its centre at
+         (H/2·cos θ) up and (H/2·sin θ) out, which is what keeps the hinge line
+         exactly where the cabinetry is. */
+      const TILT = 0.30;                                   // about 17 degrees
+      const fh = h - 0.6;                                  // the front panel
+      const hinge = { y: y + 0.3, z: d/2 - 0.4 };          // bottom front edge
+      const fcY = hinge.y + (fh/2) * Math.cos(TILT);
+      const fcZ = hinge.z + (fh/2) * Math.sin(TILT);
+      G.push({k:'front', p:[0, fcY, fcZ], s:[w-0.2, fh, 0.78], m:'front', tilt:TILT});
+      /* the pull sits on the front, near its top edge, and leans with it */
+      const pY = hinge.y + (fh - 2.2) * Math.cos(TILT);
+      const pZ = hinge.z + (fh - 2.2) * Math.sin(TILT) + 0.4;
+      addPull(G, pull, 0, pY, pZ, w, fh);
+      /* the wire basket is carried by the front, so it leans the same way and
+         you can see into it. Each wire is placed in the basket's own frame and
+         then rotated about the same hinge. */
+      const HW_ = 0.22, hw = w - 3, hd = d - 4.2;
+      const hb = y + 2.2, ht = y + h - 3.4;
+      /* every wire is placed where it would sit with the hamper shut, then
+         swung about the hinge with the front, so the basket leans out with it
+         instead of staying square behind a tilted panel */
+      const cT = Math.cos(TILT), sT = Math.sin(TILT);
+      const bar = (px,py,pz,sx,sy,sz) => {
+        const dy = py - hinge.y, dz = pz - hinge.z;
+        G.push({ k:'wire', m:'metal', tilt:TILT,
+                 p:[px, hinge.y + dy*cT - dz*sT, hinge.z + dy*sT + dz*cT],
+                 s:[sx,sy,sz] });
+      };
       const fN = Math.max(4, Math.round(hw/2.4));
-      for(let k=0;k<fN;k++) bar(-hw/2 + (hw/(fN-1))*k, hb, -1, HW_, HW_, hd);
-      bar(0, ht, -hd/2-1, hw, HW_*1.5, HW_*1.5);
-      bar(0, ht,  hd/2-1, hw, HW_*1.5, HW_*1.5);
-      for(const sx of [-1,1]) bar(sx*(hw/2), (hb+ht)/2, -1, HW_*1.4, ht-hb, HW_*1.4);
+      for(let k=0;k<fN;k++) bar(-hw/2 + (hw/(fN-1))*k, hb, -0.6, HW_, HW_, hd);
+      bar(0, ht, -hd/2-0.6, hw, HW_*1.5, HW_*1.5);
+      bar(0, ht,  hd/2-0.6, hw, HW_*1.5, HW_*1.5);
+      for(const sx of [-1,1]) bar(sx*(hw/2), (hb+ht)/2, -0.6, HW_*1.4, ht-hb, HW_*1.4);
       const vN2 = Math.max(5, Math.round(hw/2.6));
       for(let k=1;k<vN2;k++){
         const px = -hw/2 + (hw/vN2)*k;
-        bar(px, (hb+ht)/2, -hd/2-1, HW_, ht-hb, HW_);
-        bar(px, (hb+ht)/2,  hd/2-1, HW_, ht-hb, HW_);
+        bar(px, (hb+ht)/2, -hd/2-0.6, HW_, ht-hb, HW_);
+        bar(px, (hb+ht)/2,  hd/2-0.6, HW_, ht-hb, HW_);
       }
       if(pull && pull.id!=='none') parts.push({code:'PULL',qty:1,note:`1 × ${pull.name}`});
     }
@@ -653,7 +843,7 @@ export const ROOM_PLANS = {
   'walkin-l': { name:'L-Shape walk-in', type:'walk-in', shape:'l',
     room:{w:78,d:84,h:96},
     runs:{ back:[ {w:26,s:[m('DOUBLE_HANG')]},
-                  {w:26,s:[m('DRAWERS',34,{n:4}), m('SHELVES',null,{n:3})]},
+                  {w:26,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('SHELVES',null,{n:3})]},
                   {w:26,s:[m('DOUBLE_HANG')]} ],
            left:[ {w:30,s:[m('LONG_HANG')]},
                   {w:30,s:[m('SHOE_SLANT')]} ] } },
@@ -661,7 +851,7 @@ export const ROOM_PLANS = {
   'walkin-u': { name:'U-Shape walk-in', type:'walk-in', shape:'u',
     room:{w:96,d:96,h:96},
     runs:{ back:[ {w:32,s:[m('DOUBLE_HANG')]},
-                  {w:32,s:[m('DRAWERS',34,{n:4}), m('SHELVES',null,{n:3})]},
+                  {w:32,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('SHELVES',null,{n:3})]},
                   {w:32,s:[m('DOUBLE_HANG')]} ],
            left:[ {w:36,s:[m('LONG_HANG')]},
                   {w:36,s:[m('SHELVES',null,{n:6})]} ],
@@ -675,7 +865,7 @@ export const ROOM_PLANS = {
     room:{w:120,d:120,h:96},
     runs:{ back:[ {w:30,s:[m('DOUBLE_HANG')]},
                   {w:30,s:[m('DOUBLE_HANG')]},
-                  {w:30,s:[m('DRAWERS',34,{n:4}), m('SHELVES',null,{n:3})]},
+                  {w:30,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('SHELVES',null,{n:3})]},
                   {w:30,s:[m('DOUBLE_HANG')]} ],
            left:[ {w:32,s:[m('LONG_HANG')]},
                   {w:32,s:[m('SHELVES',null,{n:6})]},
@@ -692,7 +882,7 @@ export const ROOM_PLANS = {
   'reachin-drawers': { name:'Reach-in with drawers', type:'reach-in', shape:'straight',
     room:{w:72,d:24,h:96},
     runs:{ back:[ {w:24,s:[m('DOUBLE_HANG')]},
-                  {w:24,s:[m('DRAWERS',34,{n:4}), m('SHELVES',null,{n:3})]},
+                  {w:24,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('SHELVES',null,{n:3})]},
                   {w:24,s:[m('DOUBLE_HANG')]} ] } },
 
   'reachin-premium': { name:'Premium reach-in', type:'reach-in', shape:'straight',
@@ -715,7 +905,7 @@ export const ROOM_PLANS = {
   'garage-bench': { name:'Garage workbench', type:'garage', shape:'straight',
     room:{w:144,d:20,h:108},
     runs:{ back:[ {w:36,s:[m('SHELVES',null,{n:4})]},
-                  {w:36,s:[m('DRAWERS',34,{n:4}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+                  {w:36,s:[m('DRAWERS',null,{sizes:[7.5,7.5,7.5,7.5]}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
                   {w:36,s:[m('OPEN',34), m('COUNTER',2), m('SHELVES',null,{n:3})]},
                   {w:36,s:[m('SHELVES',null,{n:4})]} ] } },
 
@@ -748,11 +938,11 @@ export const ROOM_PLANS = {
   'pantry-baskets': { name:'Pantry with baskets and drawers', type:'pantry', shape:'straight',
     room:{w:56,d:16,h:96},
     runs:{ back:[ {w:28,s:[m('BASKETS',30,{n:3}), m('SHELVES',null,{n:4})]},
-                  {w:28,s:[m('DRAWERS',28,{n:3}), m('SHELVES',null,{n:4})]} ] } },
+                  {w:28,s:[m('DRAWERS',null,{sizes:[10,8.75,8.75]}), m('SHELVES',null,{n:4})]} ] } },
 
   'pantry-counter': { name:'Counter pantry', type:'pantry', shape:'straight',
     room:{w:56,d:16,h:96},
-    runs:{ back:[ {w:28,s:[m('DRAWERS',34,{n:3}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
+    runs:{ back:[ {w:28,s:[m('DRAWERS',null,{sizes:[15,8.75,8.75]}), m('COUNTER',2), m('SHELVES',null,{n:3})]},
                   {w:28,s:[m('SHELVES',null,{n:7})]} ] } },
 
   /* ── linen ───────────────────────────────────────────────────────── */
@@ -763,8 +953,8 @@ export const ROOM_PLANS = {
 
   'linen-drawers': { name:'Linen closet with drawers', type:'reach-in', shape:'straight',
     room:{w:48,d:14,h:96},
-    runs:{ back:[ {w:24,s:[m('DRAWERS',30,{n:3}), m('SHELVES',null,{n:5})]},
-                  {w:24,s:[m('DRAWERS',30,{n:3}), m('SHELVES',null,{n:5})]} ] } },
+    runs:{ back:[ {w:24,s:[m('DRAWERS',null,{sizes:[15,10,8.75]}), m('SHELVES',null,{n:5})]},
+                  {w:24,s:[m('DRAWERS',null,{sizes:[15,10,8.75]}), m('SHELVES',null,{n:5})]} ] } },
 };
 
 /* ---- LAYOUT PRESETS ------------------------------------------------------
@@ -864,8 +1054,12 @@ function hang(G, cx, rodY, len, w, d){
   for(let i=0;i<n;i++){
     const j = ((i*37)%11)/11;
     const L = len * (0.84 + j*0.16);
-    G.push({k:'cloth', p:[cx - usable/2 + step*(i+0.5), rodY-2.2-L/2, 0],
-            s:[step*0.8, L, Math.min(d-8, 12+j*3)], m:'cloth'});
+    /* `garment` tells the renderer to use the tapered shape rather than a
+       panel. A rail of these used to be a row of rounded bricks. `yaw` turns
+       each one a little so the rail is not a line of identical objects. */
+    G.push({k:'cloth', shape:'garment', yaw:(j - 0.5) * 0.5,
+            p:[cx - usable/2 + step*(i+0.5), rodY-2.2-L/2, 0],
+            s:[step*0.92, L, Math.min(d-8, 11+j*3)], m:'cloth'});
   }
 }
 
@@ -905,7 +1099,15 @@ function resolveHeights(stack, total){
   const mods = stack.map(s=>({...s, def:MODULES[s.m]}));
   let used = 0; const fillers = [];
   for(const s of mods){
-    if(s.h != null){ s.H = clamp(s.h, s.def.minH, s.def.maxH); used += s.H; }
+    /* A drawer bank is as tall as the boxes in it. Its height is not a number
+       anyone types, it is the sum of the SKUs the customer picked, so it is
+       read off those rather than off whatever `h` was stored years ago. */
+    if(s.def.sizes){
+      const sz = (Array.isArray(s.o?.sizes) && s.o.sizes.length)
+        ? s.o.sizes : defaultDrawerSizes(s.o?.n);
+      s.H = drawerBankHeight(sz); used += s.H;
+    }
+    else if(s.h != null){ s.H = clamp(s.h, s.def.minH, s.def.maxH); used += s.H; }
     else if(s.def.fill){ fillers.push(s); }
     else { s.H = s.def.defH; used += s.H; }
   }
@@ -1245,7 +1447,14 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
       c = Math.max(base, def.min) * (1 + def.pct) + def.hw;
       c *= (p.qty && p.sqft ? 1 : (p.qty || 1));
     }
-    cost += c; lines.push({label, cost:+c.toFixed(2), grp:p.grp, code:p.code});
+    /* A real part that costs nothing is a hole in the price list, not a
+       freebie. A hang rod has no square footage and no hardware figure on the
+       sheet, so every rod, every socket and every screw in every closet was
+       being quoted at zero and nobody could see it. Mark it so the
+       itemisation and the order sheet can say so out loud. */
+    const free = c < 0.005 && p.code !== 'PULL';
+    cost += c;
+    lines.push({label, cost:+c.toFixed(2), grp:p.grp, code:p.code, ...(free ? {noPrice:true} : {})});
   }
   const markup = cat.meta.markup;
   return { cost:+cost.toFixed(2), price:+(cost*markup).toFixed(2), markup, lines };
@@ -1328,11 +1537,16 @@ export function quoteSummary(price, bays, runs){
 }
 
 /* ---------- the order list that goes to the back end ---------- */
+/* Rows on his sheet that carry no price of their own: the board and the edge
+   band are costed, the thing itself is not. Until those numbers come from him
+   they are shown as missing rather than quietly summed as nothing. */
+export const NO_PRICE_IN_SHEET = new Set(['HANGROD', 'DOOR', 'GLASS']);
+
 function orderList(parts, cat, F, DF, pull, pullFin){
   const group = new Map();
   for(const p of parts){
     const def = cat.parts[p.code];
-    const name = p.code==='DRAWER' ? `Drawer box + glides (${p.h?.toFixed(1)}"H × ${p.w?.toFixed(1)}"W)`
+    const name = p.code==='DRAWER' ? `Drawer box + glides (${p.boxW ?? p.w}"W × ${p.h}"H × ${p.boxD ?? p.d}"D)`
       : p.code==='PULL' ? `${pull.name}, ${pullFin.name}`
       : p.code==='BASKET' ? 'Pull-out wire basket'
       : p.code==='HAMPER_BASKET' ? 'Tilt-out hamper basket'
@@ -1343,7 +1557,7 @@ function orderList(parts, cat, F, DF, pull, pullFin){
       : (p.code==='PULL'||p.code==='BASKET'||p.code==='HAMPER_BASKET'||p.code==='HAMPER'||
          p.code==='HANGROD'||p.code==='GLASS_LITE') ? '—' : F.n;
     const key = name+'|'+finish;
-    const g = group.get(key) || { item:name, finish, qty:0, sqft:0, edge_ft:0, notes:new Set() };
+    const g = group.get(key) || { item:name, finish, code:p.code, qty:0, sqft:0, edge_ft:0, notes:new Set() };
     g.qty += p.qty || 1;
     g.sqft += p.sqft || 0;
     g.edge_ft += p.edge || 0;
@@ -1353,7 +1567,8 @@ function orderList(parts, cat, F, DF, pull, pullFin){
   return [...group.values()].map(g=>({
     item:g.item, finish:g.finish, qty:Math.round(g.qty),
     sq_ft:+g.sqft.toFixed(2), edgeband_ft:+g.edge_ft.toFixed(2),
-    detail:[...g.notes].slice(0,3).join('; ')
+    detail:[...g.notes].slice(0,3).join('; '),
+    ...(NO_PRICE_IN_SHEET.has(g.code) ? { noPrice:true } : {})
   })).sort((a,b)=>a.item.localeCompare(b.item));
 }
 

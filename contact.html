@@ -57,7 +57,7 @@
   <div class="phero-media"><img src="img/cards/reachin-premium@1200.jpg"
     srcset="img/cards/reachin-premium@1200.jpg 1200w, img/cards/reachin-premium@2400.jpg 2400w"
     sizes="100vw" alt="A finished reach-in closet by JS Closets"
-    loading="eager" fetchpriority="high" decoding="async" width="2400" height="1800"></div>
+    loading="eager" fetchpriority="high" decoding="async" width="1200" height="900"></div>
   <div class="phero-in">
   <div class="crumb"><a href="index.html">Home</a><span>/</span><span>Contact</span></div>
   <h1>Book a free measure</h1>
@@ -81,10 +81,9 @@
         <small>Your confirmation goes here, with everything you have told us on it.</small></div>
       </fieldset>
       <fieldset class="fgrp"><legend><i>2</i>Where is the room?</legend>
-      <div class="grid2">
         <!-- Which region the job is in decides whose crew and whose schedule
              it lands on, so it is asked here rather than worked out later
-             from a ZIP. -->
+             from a ZIP. Full width: every option is a sentence. -->
         <div class="fld"><label for="r">Which area are you in?</label>
           <select id="r" name="region" required>
             <option value="">Pick the nearest</option>
@@ -95,12 +94,31 @@
             <option>Pennsylvania &mdash; Bucks, Montgomery, Philadelphia, Lehigh Valley</option>
             <option>Somewhere else &mdash; ask anyway</option>
           </select></div>
-        <div class="fld"><label for="z">Town or ZIP</label><input id="z" name="location" required autocomplete="postal-code"></div>
-      </div>
+      <!-- One box asking for "Town or ZIP" and another the full width of the
+           form for the street is not an address. These are the four things on
+           an envelope, each in a box the size of what goes in it. -->
       <div class="fld"><label for="a">Street address</label>
-        <input id="a" name="address" required autocomplete="street-address"
-               placeholder="Number and street — the crew has to drive to it">
-        <small>Needed to book the measure. It is only used to get to you.</small></div>
+        <input id="a" name="address" required autocomplete="address-line1"
+               placeholder="Number and street"></div>
+      <div class="fld"><label for="a2">Apartment, unit or floor <span class="opt">optional</span></label>
+        <input id="a2" name="address2" autocomplete="address-line2" placeholder="Apt 4B"></div>
+      <div class="addrrow">
+        <div class="fld"><label for="z">Town or city</label>
+          <input id="z" name="location" required autocomplete="address-level2" placeholder="Boca Raton"></div>
+        <div class="fld"><label for="st">State</label>
+          <select id="st" name="state" required autocomplete="address-level1">
+            <option value="">—</option>
+            <option>FL</option><option>NY</option><option>NJ</option>
+            <option>CT</option><option>PA</option>
+            <option value="other">Other</option>
+          </select></div>
+        <div class="fld"><label for="zip">ZIP</label>
+          <input id="zip" name="zip" required autocomplete="postal-code"
+                 inputmode="numeric" pattern="[0-9]{5}(-[0-9]{4})?" maxlength="10"
+                 placeholder="33428"></div>
+      </div>
+      <p class="fnote">The address books the measure and nothing else. The ZIP
+        is what puts the job on the right crew's week.</p>
       </fieldset>
       <fieldset class="fgrp"><legend><i>3</i>What are we building?</legend>
       <div class="grid2">

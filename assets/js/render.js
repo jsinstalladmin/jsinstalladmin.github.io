@@ -138,6 +138,27 @@ export function loadSharedMaps(){
 
 /* ---------- bevelled panel geometry, cached by quantised size ---------- */
 const geoCache = new Map();
+/* ── a garment on a rod ──
+   Hanging clothes were drawn as rounded boxes, so a rail of shirts read as a
+   row of bricks. A real garment hangs narrow at the shoulder, falls, and
+   softens at the hem. A seven-sided tapered tube at an oval cross-section
+   costs 28 triangles — fewer than the rounded box it replaces — and reads as
+   cloth from every angle the camera can get to. */
+const garmentCache = new Map();
+export function garmentGeo(w, h, d){
+  const q = v => Math.max(0.1, Math.round(v * 8) / 8);
+  const W = q(w), H = q(h), D = q(d);
+  const k = `g${W}|${H}|${D}`;
+  let g = garmentCache.get(k);
+  if(!g){
+    /* radius 1 at the hem, 0.52 at the shoulder: the taper is the whole
+       point. The caller scales it to the real width and depth. */
+    g = new THREE.CylinderGeometry(0.52, 1, 1, 7, 1, false);
+    garmentCache.set(k, g);
+  }
+  return g;
+}
+
 export function panelGeo(w,h,d){
   const q = v => Math.max(0.1, Math.round(v*16)/16);      // 1/16"
   const W=q(w), H=q(h), D=q(d);

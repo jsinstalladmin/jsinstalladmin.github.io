@@ -627,47 +627,67 @@ body{font-variation-settings:'wdth' 100;letter-spacing:-.003em}
   border-top:1px solid var(--line-2);font-size:.76rem;line-height:1.55;color:var(--muted)}
 @media(max-width:480px){ .sband ul{grid-template-columns:repeat(2,1fr)} }
 
-/* ════════ reviews wall ════════
-   Two rows travelling opposite ways. Each track holds four copies of its
-   cards and translates by exactly 25%, so the loop has no visible seam.
-   Hover anywhere and both rows stop, because a moving wall you cannot read
-   is decoration rather than proof. */
-.revwrap{background:var(--ink);color:var(--paper);padding:clamp(54px,7vw,96px) 0;overflow:hidden}
-.rhead{width:var(--shell);margin:0 auto clamp(30px,4vw,48px);display:grid;gap:clamp(22px,3vw,48px);
-  grid-template-columns:1fr auto;align-items:end}
-.rhead .label{color:rgba(248,245,240,.52)}
-.rhead h2{color:var(--paper);margin-top:.25em}
+/* ════════ reviews ════════
+   This was a black band with the cards sliding across it on a loop, clipped
+   to seven lines and ending on an ellipsis. A review you cannot read is
+   decoration, not proof, and the longest and best one was the one you saw
+   least of. It is paper now, like everything above and below it, nothing
+   moves, and every review is whole. */
+.revwrap{background:var(--paper-2);padding:clamp(54px,7vw,96px) 0}
+.rhead{width:var(--shell);margin:0 auto clamp(26px,3.4vw,40px);display:grid;
+  gap:clamp(20px,3vw,46px);grid-template-columns:1fr auto;align-items:end}
+.rscore .label{display:block;margin-bottom:.7em}
+.rbig{display:inline-block;font-family:'Archivo',sans-serif;font-weight:600;
+  font-size:clamp(2.6rem,5.4vw,3.8rem);line-height:.92;letter-spacing:-.035em;
+  color:var(--ink);vertical-align:middle}
+.rbig em{font-style:normal;font-size:.42em;color:var(--muted);margin-left:.06em}
+.rscore .rstars{display:inline-flex;vertical-align:middle;margin-left:.6em;
+  gap:3px;font-size:1.05rem;line-height:1}
+.rstars i{font-style:normal;color:var(--line-2)}
+.rstars i.on{color:#C08A3E}
+.rsub{display:block;margin-top:.6em;font-size:.92rem;color:var(--muted)}
 .rmeta{display:flex;gap:clamp(18px,2.4vw,38px);flex-wrap:wrap}
-.rmeta div b{display:block;font-family:'Archivo',sans-serif;font-weight:600;font-size:1.5rem;
-  color:var(--paper);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.rmeta div b{display:block;font-family:'Archivo',sans-serif;font-weight:600;
+  font-size:1.5rem;color:var(--ink);font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em}
 .rmeta div span{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;
-  color:rgba(248,245,240,.5);display:block;margin-top:.3em;max-width:16ch;line-height:1.4}
+  color:var(--muted);display:block;margin-top:.3em;max-width:16ch;line-height:1.4}
 @media(max-width:860px){ .rhead{grid-template-columns:1fr} }
 
-.rrow{overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
-.rrow + .rrow{margin-top:14px}
-.rtrack{display:flex;gap:14px;width:max-content;will-change:transform}
-.rrow.left  .rtrack{animation:rmarq 68s linear infinite}
-.rrow.right .rtrack{animation:rmarq 78s linear infinite reverse}
-@keyframes rmarq{from{transform:translate3d(0,0,0)}to{transform:translate3d(-25%,0,0)}}
-.revwrap:hover .rtrack{animation-play-state:paused}
-@media(prefers-reduced-motion:reduce){ .rtrack{animation:none} .rrow{overflow-x:auto} }
+/* six cells: five reviews and the door to the profile. Three across gives
+   two full rows rather than four and two gaps. */
+.rgrid{width:var(--shell);margin:0 auto;display:grid;gap:14px;
+  grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:980px){ .rgrid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media(max-width:620px){ .rgrid{grid-template-columns:1fr} }
+.rcard{background:var(--paper);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:1.35em 1.45em;display:flex;
+  flex-direction:column;gap:.85em;text-decoration:none;
+  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),
+    border-color .4s var(--ease-out)}
+.rcard:hover{transform:translateY(-3px);border-color:var(--accent,#A8824C);
+  box-shadow:0 16px 40px rgba(23,18,14,.07)}
+.rcard .rstars{display:flex;gap:2px;font-size:.84rem;line-height:1}
+.rcard blockquote{margin:0;font-size:.92rem;line-height:1.65;color:var(--ink);
+  quotes:none}
+.rcard footer{margin-top:auto;padding-top:.75em;border-top:1px solid var(--line)}
+.rcard footer b{display:block;font-size:.88rem;font-weight:500;color:var(--ink)}
+.rcard footer span{display:block;font-size:.76rem;color:var(--muted);margin-top:.12em}
+.rcard footer em{display:block;font-style:normal;font-size:.7rem;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  opacity:.75;margin-top:.3em}
 
-.rcard{flex:0 0 clamp(290px,27vw,380px);background:rgba(248,245,240,.05);
-  border:1px solid rgba(248,245,240,.14);border-radius:var(--r-md);padding:1.3em 1.4em;
-  display:flex;flex-direction:column;gap:.75em}
-.rstars{display:flex;gap:2px;font-size:.8rem;line-height:1}
-.rstars i{font-style:normal;color:rgba(248,245,240,.22)}
-.rstars i.on{color:#E0B263}
-.rcard p{margin:0;font-size:.88rem;line-height:1.6;color:rgba(248,245,240,.84);
-  display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden}
-.rcard footer{margin-top:auto;padding-top:.6em;border-top:1px solid rgba(248,245,240,.12)}
-.rcard footer b{display:block;font-size:.84rem;font-weight:500;color:var(--paper)}
-.rcard footer span{font-size:.68rem;color:rgba(248,245,240,.5)}
-.rsrc{width:var(--shell);margin:clamp(26px,3vw,40px) auto 0;font-size:.74rem;
-  color:rgba(248,245,240,.52);text-align:center}
-.rsrc a{color:rgba(248,245,240,.8);text-underline-offset:3px}
+/* the last cell is the door to the profile the reviews came from */
+.rall{background:var(--ink);border-color:var(--ink);justify-content:center;
+  gap:.6em;color:rgba(248,245,240,.72)}
+.rall:hover{background:var(--ink);border-color:var(--accent,#A8824C)}
+.rallq{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;
+  background:rgba(248,245,240,.08)}
+.rallq svg{width:20px;height:20px;fill:none;stroke:#D7B37A;stroke-width:1.5;
+  stroke-linejoin:round}
+.rall b{font-size:1rem;font-weight:500;color:var(--paper);line-height:1.3}
+.rall span{font-size:.8rem;line-height:1.6;color:rgba(248,245,240,.62)}
+@media(prefers-reduced-motion:reduce){ .rcard:hover{transform:none} }
 
 /* ════════ work gallery ════════ */
 .ggrid{display:grid;gap:clamp(8px,1vw,14px);
@@ -1256,3 +1276,51 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
   .fcard .fcin{transform:none}
   .fcard i{opacity:1}
 }
+
+
+/* ── the address, in the shape an address is ──
+   It was two boxes: "Town or ZIP" in one half of a row, and the street across
+   the whole form. Nobody writes an address that way and the ZIP — the one
+   field that decides which crew gets the job — was sharing a box with the
+   town. Four fields now, each the width of what goes in it. */
+.addrrow{display:grid;grid-template-columns:minmax(0,1fr) 92px 120px;gap:12px}
+.addrrow .fld{margin-bottom:1.02em}
+.fld label .opt{text-transform:none;letter-spacing:0;font-size:.78em;
+  color:var(--muted);opacity:.8;margin-left:.5em}
+.fnote{margin:-.3em 0 0;font-size:.8rem;line-height:1.6;color:var(--muted)}
+@media(max-width:560px){
+  .addrrow{grid-template-columns:minmax(0,1fr) 88px;gap:10px}
+  .addrrow .fld:first-child{grid-column:1/-1}
+}
+
+
+/* ── the hero on a phone ──
+   One screen with the film playing behind it, so the caption sits where a
+   phone wants it rather than where a 700vh scrub left it. */
+@media(max-width:860px){
+  .hero-cap{bottom:clamp(76px,11vh,110px)}
+  .hero-cap .box{max-width:none}
+  .hero-toggle{top:calc(env(safe-area-inset-top,0px) + 72px)}
+  body[data-hero-mode="play"] .hero-scroll{opacity:.5}
+}
+
+/* ── filtering the layouts by which half they belong to ── */
+.layfilter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin:0 0 clamp(18px,2.2vw,26px)}
+.layfilter button{font:inherit;font-size:.82rem;padding:.5em 1.05em;
+  border-radius:var(--r-pill);border:1px solid var(--line);background:var(--paper);
+  color:var(--ink);cursor:pointer;transition:.18s var(--ease)}
+.layfilter button:hover{border-color:var(--ink-3)}
+.layfilter button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);
+  color:var(--paper)}
+.laycount{flex:1 1 100%;font-size:.8rem;line-height:1.5;color:var(--muted);
+  margin-top:.1em}
+@media(min-width:900px){ .laycount{flex:1 1 auto;margin-left:.4em;margin-top:0} }
+.pwhere{margin:.6em 0 0;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent-ink);}
+.laygrid .dcard.piece{cursor:default}
+.laygrid .dcard.piece:hover{transform:none}
+
+/* display:grid beats the hidden attribute, so without this the layout grid
+   stays on screen underneath the piece grid and the chips look broken. */
+.laygrid[hidden],.designs[hidden],.dcard[hidden]{display:none !important}

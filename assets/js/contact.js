@@ -59,8 +59,16 @@ const PROJECT_FROM_CARD = {
 /* ── build the whole package ─────────────────────────────────────────── */
 function gather(){
   const v = n => (f.elements[n]?.value || '').trim();
+  /* The address is four fields now, so it is assembled here once, the way it
+     would be written on an envelope, and the ZIP also travels on its own
+     because it is what decides whose week the job lands in. */
+  const street = [v('address'), v('address2')].filter(Boolean).join(', ');
+  const town   = [v('location'), v('state')].filter(x => x && x !== 'other').join(', ');
   const contact = { name:v('name'), phone:v('phone'), email:v('email'),
-                    region:v('region'), location:v('location'), address:v('address'),
+                    region:v('region'),
+                    address: street, address2: v('address2'),
+                    city: v('location'), state: v('state'), zip: v('zip'),
+                    location: [town, v('zip')].filter(Boolean).join(' '),
                     project:v('project'), message:v('message') };
   return {
     v: 1,

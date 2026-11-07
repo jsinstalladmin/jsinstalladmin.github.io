@@ -68,8 +68,12 @@ const WORDS = {
   ct:['connecticut','fairfield','new haven','hartford','stamford','greenwich','norwalk'],
   pa:['pennsylvania','philadelphia','bucks','montgomery','chester','delaware county','lehigh','newtown'],
 };
-export function regionFor({ region='', location='', address='' } = {}){
-  const zip = String(location+' '+address).match(/\b(\d{5})\b/);
+export function regionFor({ region='', location='', address='', zip:zipField='' } = {}){
+  /* The form asks for the ZIP in a box of its own now, so use it rather than
+     hunting for five digits in a sentence. The hunt stays as the fallback for
+     enquiries pasted in from an email. */
+  const zip = String(zipField).match(/\b(\d{5})\b/)
+           || String(location+' '+address).match(/\b(\d{5})\b/);
   if(zip){
     const n = +zip[1];
     for(const [id, lo, hi] of ZIP_BANDS) if(n >= lo && n <= hi) return id;

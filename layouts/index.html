@@ -58,7 +58,7 @@
   <div class="phero-media"><img src="../img/work/work-11@1600.jpg"
     srcset="../img/work/work-11@800.jpg 800w, ../img/work/work-11@1600.jpg 1600w"
     sizes="100vw" alt="Large light oak walk-in closet with a cushioned bench, a chandelier and hanging down both walls" loading="eager" fetchpriority="high" decoding="async"
-    width="1920" height="1280"></div>
+    width="1600" height="1067"></div>
   <div class="phero-in">
     <div class="crumb"><a href="../index.html">Home</a><span>/</span><span>Closet layouts</span></div>
     <h1>Every layout we build</h1>
@@ -79,11 +79,22 @@
 </div></div></section>
 
 <section class="sec-tight"><div class="shell">
+  <!-- A section is a top and a bottom, and the builder will not let you put a
+       drawer bank at the top. These chips say the same thing here: what can
+       cap a section, what can sit underneath one, and which of these are a
+       whole section on their own. -->
+  <div class="layfilter" role="group" aria-label="Filter the layouts">
+    <button type="button" data-lay="all" aria-pressed="true">The 11 layouts</button>
+    <button type="button" data-lay="top" aria-pressed="false">What goes on top</button>
+    <button type="button" data-lay="bottom" aria-pressed="false">What goes underneath</button>
+    <button type="button" data-lay="whole" aria-pressed="false">Fills a section on its own</button>
+    <span class="laycount"></span>
+  </div>
   <div class="designs laygrid">
-      <a class="dcard" href="double-hanging.html" style="--accent:#A8824C">
+      <a class="dcard" href="double-hanging.html" style="--accent:#A8824C" data-top="DOUBLE_HANG" data-bottom="" data-kind="whole">
         <figure>
           <img src="../img/parts/double-hang.jpg" alt="Double Hanging closet section"
-            loading="lazy" decoding="async" width="420" height="315">
+            loading="lazy" decoding="async" width="840" height="630">
           <span class="chip">Double Hanging</span>
           <span class="scrim"><span>See this layout <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/>
   <g class="arw"><path d="M13 18h10M19 14l4 4-4 4"/></g></svg></span></span>
@@ -93,10 +104,10 @@
           <p style="margin:0;font-size:.95rem">Two rods stacked in one section, at 80 inches and 40 inches. Shirts and jackets up top, folded trousers below.</p>
         </div></a>
       
-      <a class="dcard" href="long-hanging.html" style="--accent:#A8824C">
+      <a class="dcard" href="long-hanging.html" style="--accent:#A8824C" data-top="LONG_HANG" data-bottom="" data-kind="whole">
         <figure>
           <img src="../img/parts/long-hang.jpg" alt="Long Hanging closet section"
-            loading="lazy" decoding="async" width="420" height="315">
+            loading="lazy" decoding="async" width="840" height="630">
           <span class="chip">Long Hanging</span>
           <span class="scrim"><span>See this layout <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/>
   <g class="arw"><path d="M13 18h10M19 14l4 4-4 4"/></g></svg></span></span>
@@ -105,7 +116,7 @@
           <h3>Long Hanging</h3>
           <p style="margin:0;font-size:.95rem">One rod at 66 inches with clear floor under it. Dresses, coats, robes, anything long.</p>
         </div></a>
-      <a class="dcard" href="hanging-and-shelves.html" style="--accent:#A8824C">
+      <a class="dcard" href="hanging-and-shelves.html" style="--accent:#A8824C" data-top="SHELVES" data-bottom="LONG_HANG" data-kind="pair">
         <figure>
           <img src="../img/parts/hang-shelf.jpg" alt="Hanging + Shelves closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -117,10 +128,10 @@
           <h3>Hanging + Shelves</h3>
           <p style="margin:0;font-size:.95rem">A rod below for what hangs, two adjustable shelves above for what folds.</p>
         </div></a>
-      <a class="dcard" href="adjustable-shelves.html" style="--accent:#A8824C">
+      <a class="dcard" href="adjustable-shelves.html" style="--accent:#A8824C" data-top="SHELVES" data-bottom="" data-kind="whole">
         <figure>
           <img src="../img/parts/shelves.jpg" alt="Adjustable Shelves closet section"
-            loading="lazy" decoding="async" width="420" height="315">
+            loading="lazy" decoding="async" width="840" height="630">
           <span class="chip">Adjustable Shelves</span>
           <span class="scrim"><span>See this layout <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/>
   <g class="arw"><path d="M13 18h10M19 14l4 4-4 4"/></g></svg></span></span>
@@ -129,7 +140,7 @@
           <h3>Adjustable Shelves</h3>
           <p style="margin:0;font-size:.95rem">Up to ten shelves in a section, on 32mm pin centres, so the spacing you choose now is not the spacing you are stuck with.</p>
         </div></a>
-      <a class="dcard" href="drawer-tower.html" style="--accent:#A8824C">
+      <a class="dcard" href="drawer-tower.html" style="--accent:#A8824C" data-top="SHELVES" data-bottom="DRAWERS" data-kind="pair">
         <figure>
           <img src="../img/parts/drawer-tower.jpg" alt="Drawer Tower closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -141,7 +152,7 @@
           <h3>Drawer Tower</h3>
           <p style="margin:0;font-size:.95rem">A bank of soft-close drawers with open shelving over it. The piece that stops a closet being only rails.</p>
         </div></a>
-      <a class="dcard" href="hanging-and-drawers.html" style="--accent:#A8824C">
+      <a class="dcard" href="hanging-and-drawers.html" style="--accent:#A8824C" data-top="SHORT_HANG" data-bottom="DRAWERS" data-kind="pair">
         <figure>
           <img src="../img/parts/hang-drawers.jpg" alt="Hanging + Drawers closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -153,7 +164,7 @@
           <h3>Hanging + Drawers</h3>
           <p style="margin:0;font-size:.95rem">Four drawers at the bottom, a rod above them. The section most bedroom closets want two of.</p>
         </div></a>
-      <a class="dcard" href="pull-out-baskets.html" style="--accent:#A8824C">
+      <a class="dcard" href="pull-out-baskets.html" style="--accent:#A8824C" data-top="SHELVES" data-bottom="BASKETS" data-kind="pair">
         <figure>
           <img src="../img/parts/basket-shelf.jpg" alt="Pull-Out Baskets closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -165,10 +176,10 @@
           <h3>Pull-Out Baskets</h3>
           <p style="margin:0;font-size:.95rem">Chrome wire on full-extension glides, so you can see the back of the basket without unloading the front.</p>
         </div></a>
-      <a class="dcard" href="shoe-wall.html" style="--accent:#A8824C">
+      <a class="dcard" href="shoe-wall.html" style="--accent:#A8824C" data-top="SHOE_SLANT" data-bottom="" data-kind="whole">
         <figure>
           <img src="../img/parts/shoe-slant.jpg" alt="Shoe Wall closet section"
-            loading="lazy" decoding="async" width="420" height="315">
+            loading="lazy" decoding="async" width="840" height="630">
           <span class="chip">Shoe Wall</span>
           <span class="scrim"><span>See this layout <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/>
   <g class="arw"><path d="M13 18h10M19 14l4 4-4 4"/></g></svg></span></span>
@@ -177,7 +188,7 @@
           <h3>Shoe Wall</h3>
           <p style="margin:0;font-size:.95rem">Angled shelves with a front fence, the full height of the section. You see the shoe, not the toe.</p>
         </div></a>
-      <a class="dcard" href="hamper-and-hanging.html" style="--accent:#A8824C">
+      <a class="dcard" href="hamper-and-hanging.html" style="--accent:#A8824C" data-top="SHORT_HANG" data-bottom="HAMPER" data-kind="pair">
         <figure>
           <img src="../img/parts/hamper-hang.jpg" alt="Hamper + Hanging closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -189,7 +200,7 @@
           <h3>Hamper + Hanging</h3>
           <p style="margin:0;font-size:.95rem">A tilt-down basket at the bottom, a rod above it. The pile on the floor gets somewhere to go.</p>
         </div></a>
-      <a class="dcard" href="hamper-and-shelves.html" style="--accent:#A8824C">
+      <a class="dcard" href="hamper-and-shelves.html" style="--accent:#A8824C" data-top="SHELVES" data-bottom="HAMPER" data-kind="pair">
         <figure>
           <img src="../img/parts/hamper-shelf.jpg" alt="Hamper + Shelves closet section"
             loading="lazy" decoding="async" width="900" height="1200">
@@ -201,10 +212,10 @@
           <h3>Hamper + Shelves</h3>
           <p style="margin:0;font-size:.95rem">The same tilt-down basket, with folded storage over it instead of hanging.</p>
         </div></a>
-      <a class="dcard" href="cubbies.html" style="--accent:#A8824C">
+      <a class="dcard" href="cubbies.html" style="--accent:#A8824C" data-top="CUBBIES" data-bottom="" data-kind="whole">
         <figure>
           <img src="../img/parts/cubbies.jpg" alt="Cubbies closet section"
-            loading="lazy" decoding="async" width="420" height="315">
+            loading="lazy" decoding="async" width="840" height="630">
           <span class="chip">Cubbies</span>
           <span class="scrim"><span>See this layout <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15"/>
   <g class="arw"><path d="M13 18h10M19 14l4 4-4 4"/></g></svg></span></span>
@@ -214,7 +225,152 @@
           <p style="margin:0;font-size:.95rem">A grid of open compartments. Nothing to open, everything visible.</p>
         </div></a>
   </div>
-</div></section>
+</div>
+  <div class="designs laygrid piecegrid" hidden>
+      <article class="dcard piece" data-top="1" data-bottom="1">
+        <figure>
+          <img src="../img/parts/long-hang.jpg" alt="Long hang closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">Rod at 66"</span>
+        </figure>
+        <div class="body">
+          <h3>Long hang</h3>
+          <p style="margin:0;font-size:.95rem">A rod with full clearance under it. Coats and dresses.</p>
+          <p class="pwhere">Top or bottom</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="0">
+        <figure>
+          <img src="../img/parts/double-hang.jpg" alt="Double hang closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">Rods at 80" and 40"</span>
+        </figure>
+        <div class="body">
+          <h3>Double hang</h3>
+          <p style="margin:0;font-size:.95rem">Two rods, one over the other. Twice the capacity per foot.</p>
+          <p class="pwhere">Top of a section</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="0">
+        <figure>
+          <img src="../img/parts/short-hang.jpg" alt="Short hang closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">38"–54" of drop</span>
+        </figure>
+        <div class="body">
+          <h3>Short hang</h3>
+          <p style="margin:0;font-size:.95rem">A shelf with a rod under it, over drawers or a hamper.</p>
+          <p class="pwhere">Top of a section</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="1">
+        <figure>
+          <img src="../img/parts/shelves.jpg" alt="Adjustable shelves closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">1 to 10 shelves</span>
+        </figure>
+        <div class="body">
+          <h3>Adjustable shelves</h3>
+          <p style="margin:0;font-size:.95rem">Folded knits, bags, boxes. Moves on 32mm centres.</p>
+          <p class="pwhere">Top or bottom</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="1">
+        <figure>
+          <img src="../img/parts/cubbies.jpg" alt="Cubbies closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">12"–60" tall</span>
+        </figure>
+        <div class="body">
+          <h3>Cubbies</h3>
+          <p style="margin:0;font-size:.95rem">A grid of open compartments. Bags, hats, folded knits.</p>
+          <p class="pwhere">Top or bottom</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="1">
+        <figure>
+          <img src="../img/parts/shoes.jpg" alt="Shoe shelving closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">16"–84" tall</span>
+        </figure>
+        <div class="body">
+          <h3>Shoe shelving</h3>
+          <p style="margin:0;font-size:.95rem">Flat shelves at 8" spacing.</p>
+          <p class="pwhere">Top or bottom</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="1">
+        <figure>
+          <img src="../img/parts/shoe-slant.jpg" alt="Slanted shoe closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">16"–84" tall</span>
+        </figure>
+        <div class="body">
+          <h3>Slanted shoe</h3>
+          <p style="margin:0;font-size:.95rem">Angled shelves with a front rail. Shows the whole shoe.</p>
+          <p class="pwhere">Top or bottom</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="1">
+        <figure>
+          <img src="../img/parts/open.jpg" alt="Leave it open closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">Any height</span>
+        </figure>
+        <div class="body">
+          <h3>Leave it open</h3>
+          <p style="margin:0;font-size:.95rem">Empty. Long coats, a laundry basket, the washing machine.</p>
+          <p class="pwhere">Top or bottom</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="0">
+        <figure>
+          <img src="../img/parts/door.jpg" alt="Closed door closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">Any height</span>
+        </figure>
+        <div class="body">
+          <h3>Closed door</h3>
+          <p style="margin:0;font-size:.95rem">A slab front over the section.</p>
+          <p class="pwhere">Top of a section</p>
+        </div></article>
+      <article class="dcard piece" data-top="1" data-bottom="0">
+        <figure>
+          <img src="../img/parts/glass-door.jpg" alt="Glass door closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">Any height</span>
+        </figure>
+        <div class="body">
+          <h3>Glass door</h3>
+          <p style="margin:0;font-size:.95rem">A framed glass front. Glass sourced locally.</p>
+          <p class="pwhere">Top of a section</p>
+        </div></article>
+      <article class="dcard piece" data-top="0" data-bottom="1">
+        <figure>
+          <img src="../img/parts/drawers.jpg" alt="Drawers closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">Bottom only</span>
+        </figure>
+        <div class="body">
+          <h3>Drawers</h3>
+          <p style="margin:0;font-size:.95rem">Soft-close undermount glides. Six box heights, 7½" to 25".</p>
+          <p class="pwhere">Bottom of a section</p>
+        </div></article>
+      <article class="dcard piece" data-top="0" data-bottom="1">
+        <figure>
+          <img src="../img/parts/baskets.jpg" alt="Pull-out baskets closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">Bottom only</span>
+        </figure>
+        <div class="body">
+          <h3>Pull-out baskets</h3>
+          <p style="margin:0;font-size:.95rem">Chrome wire on full extension. See the back without unloading the front.</p>
+          <p class="pwhere">Bottom of a section</p>
+        </div></article>
+      <article class="dcard piece" data-top="0" data-bottom="1">
+        <figure>
+          <img src="../img/parts/hamper.jpg" alt="Tilt-out hamper closet piece"
+            loading="lazy" decoding="async" width="840" height="630">
+          <span class="chip">Bottom only</span>
+        </figure>
+        <div class="body">
+          <h3>Tilt-out hamper</h3>
+          <p style="margin:0;font-size:.95rem">A chrome basket on a flap stay. Laundry off the floor.</p>
+          <p class="pwhere">Bottom of a section</p>
+        </div></article>
+  </div></section>
 
 <section class="sec-tight" style="padding-bottom:clamp(60px,8vw,120px)"><div class="shell">
   <div class="cta-band">
@@ -223,7 +379,42 @@
     <a class="btn btn-accent" href="../design/">Open the 3D builder</a>
   </div>
 </div></section>
-</main><footer class="ftr"><div class="shell">
+</main>
+<script type="module">
+/* Two grids: the eleven layouts people ask for by name, and the pieces they
+   are made of. The chips switch between them, because "what can go on top"
+   is a question about pieces and "double hanging" is a layout. */
+const bar    = document.querySelector('.layfilter');
+const lay    = document.querySelector('.laygrid:not(.piecegrid)');
+const pieces = document.querySelector('.piecegrid');
+const count  = document.querySelector('.laycount');
+const layCards   = [...lay.querySelectorAll('.dcard')];
+const pieceCards = [...pieces.querySelectorAll('.dcard')];
+const NOTE = {
+  all:    'Eleven sections people ask for by name. Each one is a top, a bottom, or both together.',
+  top:    'What can cap a section. A drawer bank is not on this list: a drawer you cannot see into is not a drawer.',
+  bottom: 'What can sit under something else. Drawers, hampers and baskets only ever go here, because they open towards you.',
+  whole:  'One piece, floor to top shelf, with nothing under it.'
+};
+function apply(f){
+  const showPieces = f === 'top' || f === 'bottom';
+  lay.hidden = showPieces; pieces.hidden = !showPieces;
+  let n = 0;
+  if(showPieces){
+    pieceCards.forEach(c => { const ok = c.dataset[f] === '1'; c.hidden = !ok; if(ok) n++; });
+  } else {
+    layCards.forEach(c => { const ok = f === 'all' || c.dataset.kind === 'whole';
+      c.hidden = !ok; if(ok) n++; });
+  }
+  count.textContent = n + (showPieces ? ' pieces' : ' layouts') + ' · ' + NOTE[f];
+  bar.querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.lay === f ? 'true' : 'false'));
+}
+bar.addEventListener('click', e => {
+  const b = e.target.closest('[data-lay]'); if(b) apply(b.dataset.lay);
+});
+apply('all');
+</script><footer class="ftr"><div class="shell">
   <div class="ftr-grid">
     <div>
       <a class="lk" href="../index.html" aria-label="JS Installations &amp; Closets, home">

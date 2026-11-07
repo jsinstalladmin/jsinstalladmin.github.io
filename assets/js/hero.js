@@ -123,8 +123,44 @@ if (video && cap && hero) {
     }
   }, 500);
 
+  /* ══════════════════════════════════════════════════════════════════
+     ON A PHONE, THE VIDEO JUST PLAYS
+
+     Scrubbing a video with the scroll position is a desktop idea. On a
+     phone it fights the browser: the address bar collapses and the viewport
+     height changes under the sticky element, momentum scrolling overshoots
+     the seek, and iOS will not seek a video that has not been touched. Seven
+     screen-heights of a hero that stutters is worse than no effect at all,
+     and it put the whole page seven scrolls away from the first section.
+
+     So on a phone the hero is one screen tall and the film plays behind it
+     on a loop, which is what it was shot for.
+     ══════════════════════════════════════════════════════════════════ */
+  const PHONE = matchMedia('(max-width:860px)').matches
+             || matchMedia('(pointer:coarse)').matches;
+
+  if (PHONE) {
+    clearInterval(probe);
+    fellBack = true;                       // nothing below should wire scroll
+    hero.style.height = '100svh';
+    document.body.dataset.heroMode = 'play';
+    video.muted = true; video.loop = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('muted', '');
+    video.setAttribute('loop', '');
+    video.autoplay = true;
+    render(0);
+    const go = () => video.play().catch(() => {});
+    video.addEventListener('canplay', go, { once:true });
+    go();
+    /* a phone that refuses to autoplay still gets the poster, which is a
+       frame of the same film */
+    document.addEventListener('touchstart', go, { once:true, passive:true });
+  }
+
   /* ---- the engine ---- */
   const start = () => {
+    if (PHONE) return;
     if (!window.gsap || !window.ScrollTrigger) return setTimeout(start, 60);
     gsap.registerPlugin(ScrollTrigger);
 
@@ -173,5 +209,6 @@ if (video && cap && hero) {
     video.load();                 // prime() re-fires on the new loadedmetadata
     cap.dataset.i = -1;
     render(0);
+    if (PHONE) video.play().catch(() => {});
   });
 }

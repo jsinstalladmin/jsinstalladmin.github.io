@@ -4,9 +4,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS,
          presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit, wallGap,
          ROOM_PLANS, cornerBlocked,
+         slots, setSlot, clearSlot, setCounter, canSit,
+         DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, makeComposer } from './render.js';
+         panelGeo, garmentGeo, makeComposer } from './render.js';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
          clothMaterials, clearCaches } from './materials.js';
 
@@ -120,9 +122,9 @@ const S = {
      the side run clear of it; 'stop' holds both runs back so the corner stays
      a bare square. Both get built; they are different closets. */
   corner:'into',
-  /* When you ask to change ONE part of a section, this is which one. Null
-     means the picker is showing everything, the way it always did. */
-  swap:null,
+  /* Which half of the selected section is being changed: 'top', 'bottom' or
+     null for neither. */
+  pick:null,
   /* [{k, wall, at}] where at is inches along that wall from its left end */
   fittings:[]
 };
@@ -211,6 +213,33 @@ function sortRun(wall){
   L.forEach(s => { s.bay.at = s.at; });
   r.bays = L.map(s => s.bay);
 }
+/* ── the numbers printed along a wall ─────────────────────────────────────
+   Every gap and every section was rounded on its own, so a 20.4" gap, a 24"
+   section, a 36" section and a 15.6" gap printed as 20 + 24 + 36 + 17 = 97
+   under a ruler that said 96. Round them together instead: round each one,
+   then give the whole rounding error to the item that was furthest from a
+   whole inch. Every number is within half an inch of the truth and the row
+   adds up to the wall it is drawn on, which is the thing anyone checks. */
+function wholeTape(items, total){
+  const T = Math.round(total);
+  const out = items.map(it => ({ ...it, n: Math.round(it.w) }));
+  let diff = T - out.reduce((a, x) => a + x.n, 0);
+  while(diff !== 0 && out.length){
+    const step = diff > 0 ? 1 : -1;
+    /* hand the inch to whichever number lost the most in rounding, and never
+       take one off something that is already at zero */
+    let best = -1, bestErr = -Infinity;
+    out.forEach((x, i) => {
+      if(step < 0 && x.n <= 0) return;
+      const err = step * (x.w - x.n);
+      if(err > bestErr){ bestErr = err; best = i; }
+    });
+    if(best < 0) break;
+    out[best].n += step; diff -= step;
+  }
+  return out;
+}
+
 /* the stretches of bare wall, in order, including the two ends */
 function gapsOn(wall){
   const len = wallLength(wall), L = layout(wall), out = [];
@@ -240,7 +269,10 @@ function travelRange(wall, index){
 function moveSection(wall, index, at){
   const { lo, hi } = travelRange(wall, index);
   const b = S.runs[wall].bays[index]; if(!b) return null;
-  b.at = Math.max(lo, Math.min(hi, Math.round(at * 2) / 2));   // nearest ½"
+  /* whole inches. Half an inch of position along a wall is not a thing anyone
+     measures or asks for, and it was the only reason the numbers printed under
+     the strip did not add up to the wall. */
+  b.at = Math.max(lo, Math.min(hi, Math.round(at)));
   sortRun(wall);
   return b.at;
 }
@@ -435,7 +467,35 @@ new IntersectionObserver(es=>{ for(const e of es) visible = e.isIntersecting; },
    its damping. Idle cost is one requestAnimationFrame callback that returns
    immediately. preserveDrawingBuffer (set in makeRenderer) is what lets the
    last frame persist between draws. */
-ctl.addEventListener('change', () => { needsFrame = true; });
+/* ══════════════════════════════════════════════════════════════════════
+   MOVING AND STILL
+
+   The ambient occlusion pass is a 16-sample GTAO over the whole canvas. It
+   is what makes the drawing look like cabinetry rather than flat boxes and
+   it is worth every millisecond — WHEN THE PICTURE IS STILL. While the
+   camera is moving it was running on every single frame, at a cost nobody
+   could see, because the thing it is shading is sliding across the screen.
+   That is the orbit lag: not the closet, the shading of it.
+
+   So: plain render while anything is moving, one composed frame the moment
+   it stops. The last frame of a drag is the one you look at. */
+/* ?perf=1 exposes the renderer, the scene and a frame counter so the two
+   render paths can be timed against each other rather than guessed at. */
+const PERF = new URLSearchParams(location.search).has('perf')
+  ? (window.__perf = { frames:0, get calls(){ return renderer.info.render.calls; },
+      get tris(){ return renderer.info.render.triangles; },
+      plain(){ renderer.render(scene, cam); },
+      composed(){ composer ? composer.render() : renderer.render(scene, cam); } })
+  : null;
+let MOVING = 0, shadowDirty = true;
+/* Up here with the others, not beside the drag code 750 lines down: the
+   render loop below reads it on its very first frame, and a `let` further
+   down the file is in its temporal dead zone at that moment. */
+let DRAGGING = false;
+const stir = () => { MOVING = performance.now(); needsFrame = true; };
+ctl.addEventListener('change', stir);
+canvas.addEventListener('pointerdown', stir);
+addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:true });
 
 (function loop(){
   requestAnimationFrame(loop);
@@ -449,9 +509,20 @@ ctl.addEventListener('change', () => { needsFrame = true; });
     if(ctl.update()) needsFrame = true;
   }
 
+  /* 130ms after the last nudge the picture is settled, and that is the
+     frame that gets the full pass. */
+  const moving = (MOVING && (performance.now() - MOVING < 130)) || DRAGGING;
+  if(!moving && MOVING){ MOVING = 0; needsFrame = true; }
+  /* the one frame where the expensive passes are worth paying for */
+  if(!moving && shadowDirty){
+    shadowDirty = false; renderer.shadowMap.needsUpdate = true; needsFrame = true;
+  }
+
   if(!needsFrame) return;
   needsFrame = false;
-  if(composer) composer.render(); else renderer.render(scene, cam);
+  if(composer && !moving) composer.render(); else renderer.render(scene, cam);
+  /* a hook for measuring, off unless ?perf=1 is on the URL */
+  if(PERF) PERF.frames++;
 
   /* First frame with the closet actually in it. Everything that makes the
      picture nicer rather than present waits for this moment and then goes in
@@ -790,8 +861,12 @@ function drawCloset(res){
     else if(g.m==='cloth') mat=CLOTH[(Math.abs(Math.round(g.p[0]+g.p[2]))|0)%CLOTH.length];
     else { const face=Math.max(sx,sy), other=Math.max(Math.min(sx,sy),sz);
       mat=scaledMaterial(g.m==='front'?baseF:baseC, face, other, shared, i); }
-    const m=new THREE.Mesh(panelGeo(sx,sy,sz),mat);
+    const m = g.shape === 'garment'
+      ? new THREE.Mesh(garmentGeo(sx,sy,sz), mat)
+      : new THREE.Mesh(panelGeo(sx,sy,sz), mat);
+    if(g.shape === 'garment') m.scale.set(sx, sy, sz);   // the shape is a unit tube
     m.position.set(...g.p);
+    if(g.yaw) m.rotation.y = g.yaw;
     if(g.tilt) m.rotation.x=g.tilt;
     m.castShadow=m.receiveShadow=true;
     root.add(m);
@@ -837,14 +912,19 @@ function drawCloset(res){
       outline.scale.set(1.006, 1.002, 1.006);
       root.add(outline);
 
-      /* a very faint wash so the chosen section separates from its neighbours */
-      const wash = new THREE.Mesh(hit.geometry.clone(),
-        new THREE.MeshBasicMaterial({ color:0xCDA96E, transparent:true, opacity:.07, depthWrite:false }));
-      wash.position.copy(hit.position); wash.scale.set(1.004,1.0,1.004);
-      root.add(wash);
+      /* There used to be a translucent gold box over the whole section as
+         well. On a section with cabinetry in it you barely saw it; on an EMPTY
+         one there was nothing behind it, so the three faces you see at once
+         stacked up into a solid yellow block sitting in the room. The outline
+         says which section is selected on its own. */
     }
   }
-  fitShadowCamera(key,root); renderer.shadowMap.needsUpdate=true;
+  /* The shadow map is 2560 square and every rebuild asked for a fresh one.
+     Dragging a section along a wall rebuilds the geometry on every frame, so
+     that was six and a half million shadow texels per frame, for a shadow
+     nobody can study while the thing casting it is sliding. It is marked
+     dirty here and redrawn once the picture settles, with the AO. */
+  fitShadowCamera(key, root); shadowDirty = true;
   if(ao?.setSceneClipBox){ const bb=new THREE.Box3().setFromObject(root); if(!bb.isEmpty()) ao.setSceneClipBox(bb); }
 }
 const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
@@ -1161,7 +1241,6 @@ let cur=null;
    cabinetry and the two things that actually change — the strip and the
    price — are redrawn. Everything else catches up once the pointer is let
    go, which is also when the price is worth reading. */
-let DRAGGING = false;
 
 function rebuild(reframe){
   cur=buildDesign(cfg(),cat);
@@ -1523,31 +1602,41 @@ function paintBays(){
        shown while you move it. The bare wall between sections is drawn as a
        gap you can click to drop a section straight into. */
     const pc = v => ((v / Math.max(1, len)) * 100).toFixed(3) + '%';
+    /* Gaps and sections are measured along the same wall, so they are rounded
+       together: left to right, every number whole, and the row adds up to the
+       wall underneath it. */
+    const tape = wholeTape(
+      [...gapsOn(wall).map(g => ({ kind:'gap', w:g.w, at:g.at })),
+       ...layout(wall).map(sb => ({ kind:'bay', w:sb.w, at:sb.at, sb }))]
+        .sort((a,b) => a.at - b.at),
+      len);
     const strip = r.bays.length
       ? `<div class="baytrack" data-track="${wall}">
-          ${gapsOn(wall).filter(g => g.w > 1.5).map(g => {
+          ${tape.filter(t => t.kind === 'gap' && t.w > 1.5).map(g => {
             const fits = g.w >= SPEC.bayMin - 0.01;
             return `<button class="gapslot ${fits ? 'can' : ''}"
               style="left:${pc(g.at)};width:${pc(g.w)}"
               data-bay="${fits ? 'addgap' : 'nofit'}" data-wall="${wall}"
               data-at="${g.at.toFixed(1)}" data-gw="${g.w.toFixed(1)}"
               title="${fits
-                ? `${g.w.toFixed(0)}&quot; of bare wall at ${g.at.toFixed(0)}&quot; from the corner. Click to put a section here.`
-                : `${g.w.toFixed(0)}&quot; of wall, under the ${SPEC.bayMin}&quot; minimum for a section.`}">
-              <span class="gapn">${g.w.toFixed(0)}"</span>
+                ? `${g.n}&quot; of bare wall, ${Math.round(g.at)}&quot; from the corner. Click to put a section here.`
+                : `${g.n}&quot; of wall, under the ${SPEC.bayMin}&quot; minimum for a section.`}">
+              <span class="gapn">${g.n}"</span>
               ${fits ? '<span class="gapadd">+</span>' : ''}</button>`;
           }).join('')}
-          ${layout(wall).map(sb => `<button class="bay ${S.sel?.wall===wall&&S.sel?.i===sb.i?'on':''}"
+          ${tape.filter(t => t.kind === 'bay').map(t => { const sb = t.sb;
+            return `<button class="bay ${S.sel?.wall===wall&&S.sel?.i===sb.i?'on':''}"
             style="left:${pc(sb.at)};width:${pc(sb.w)}"
             data-wall="${wall}" data-i="${sb.i}" data-drag="1"
-            title="${sb.bay.stack.length ? sb.bay.stack.length+' item'+(sb.bay.stack.length===1?'':'s') : 'empty'} &middot; ${sb.at.toFixed(0)}&quot; from the corner. Drag it anywhere along the wall.">
+            title="${sb.bay.stack.length ? sb.bay.stack.length+' item'+(sb.bay.stack.length===1?'':'s') : 'empty'} &middot; ${Math.round(sb.at)}&quot; from the corner. Drag it anywhere along the wall.">
             <span class="bstack">${miniStack(sb.bay)}</span>
-            <span class="bw">${sb.w.toFixed(0)}"</span>
-            <span class="bat">${(sb.at+baseGap()).toFixed(0)}"</span></button>`).join('')}
+            <span class="bw">${t.n}"</span>
+            <span class="bat">${Math.round(sb.at + baseGap())}"</span></button>`;
+          }).join('')}
         </div>
-        <div class="bruler"><span>${(+baseGap().toFixed(2))}"</span>
+        <div class="bruler"><span>${Math.round(baseGap())}"</span>
           ${baseGap() ? `<em>measured from the wall corner, the run starts ${baseGap()}" out at the baseboard</em>` : ''}
-          <span>${(+(len+baseGap()).toFixed(2))}"</span></div>`
+          <span>${Math.round(len + baseGap())}"</span></div>`
       : `<p class="note emptyrun">Nothing on this wall yet. Pick a width below and it lands in the left corner, where you can drag it anywhere along the wall.</p>`;
 
     /* The width buttons used to be five bare numbers with a little bar, which
@@ -1593,7 +1682,7 @@ function paintBays(){
           <b>${wall[0].toUpperCase()+wall.slice(1)} wall</b></span>
         <span class="runmeta ${left < -0.5 ? 'over' : ''}">
           <span class="runbar"><span style="width:${pct.toFixed(1)}%"></span></span>
-          <i>${r.bays.length} section${r.bays.length===1?'':'s'} &middot; ${used.toFixed(0)}" of ${len.toFixed(0)}"${left>0.5?` &middot; ${left.toFixed(0)}" free`:''}</i>
+          <i>${r.bays.length} section${r.bays.length===1?'':'s'} &middot; ${Math.round(used)}" of ${Math.round(len)}"${left>0.5?` &middot; ${Math.round(left)}" free`:''}</i>
         </span></button>
       <div class="runbody">
         ${strip}
@@ -1635,26 +1724,16 @@ function dockStack(){
 const ART_GONE = new Set();
 window.__artGone = n => ART_GONE.add(n);
 
-/* Nobody thinks "index 0". They think "the bottom one". The stack is stored
-   bottom-up, so index 0 is the floor end. */
-function slotName(i, n){
-  if(n <= 1) return 'this part';
-  if(i === 0) return 'the bottom part';
-  if(i === n - 1) return 'the top part';
-  if(n === 3) return 'the middle part';
-  return `part ${i + 1} from the bottom`;
-}
-
-/* Which section the one-slot picker was opened for. Selecting a different
+/* Which section the half-picker was opened for. Selecting a different
    section anywhere — the strip, the 3D, the arrows — must close it, and
    there are five places that move the selection, so the check lives here
    rather than being repeated in all of them. */
-let SWAP_FOR = null;
+let PICK_FOR = null;
 
 function paintStack(){
   const box = $('#stack');
-  if(S.swap != null && SWAP_FOR !== (S.sel ? S.sel.wall + '|' + S.sel.i : null)){
-    S.swap = null; SWAP_FOR = null;
+  if(S.pick && PICK_FOR !== (S.sel ? S.sel.wall + '|' + S.sel.i : null)){
+    S.pick = null; PICK_FOR = null;
   }
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
@@ -1753,46 +1832,108 @@ function paintStack(){
         : fit.corner ? '<u class="full">Not in a corner</u>' : '<u class="full">Too tall</u>'}</button>`;
   }).join('');
 
-  const partCards = MODULE_IDS.map(id => {
+
+  /* ══════════════════════════════════════════════════════════════════
+     A SECTION IS A TOP AND A BOTTOM
+
+     It used to be an open-ended stack: add anything, in any order, and the
+     drawing would build it. So you could put a drawer bank above a rod at
+     eye height, or three things in a section that only has room for two, and
+     the only thing stopping you was a warning after the fact.
+
+     A section is two halves. Each half shows only what can actually go
+     there, which is a build rule and not a preference: a drawer you cannot
+     see into is not a drawer, a tilt-out hamper swings down to the floor,
+     and a short hang only exists as the thing above something else.
+     ══════════════════════════════════════════════════════════════════ */
+  const sl = slots(bay.stack);
+  const pick = S.pick;                                  // 'top' | 'bottom' | null
+
+  /* a small elevation of this section, with one half lit up */
+  const dia = lit => {
+    const bH = sl.bottom ? (sl.bottom.m === 'DRAWERS'
+        ? drawerBankHeight(sl.bottom.o?.sizes || defaultDrawerSizes(sl.bottom.o?.n))
+        : (sl.bottom.h ?? MODULES[sl.bottom.m].defH)) : 0;
+    const tH = Math.max(8, usable - bH);
+    return `<span class="swapdia" aria-hidden="true">
+      ${sl.bottom ? `<span class="${lit==='bottom'?'on':''}" style="flex:${bH.toFixed(1)} 1 0"></span>` : ''}
+      ${sl.top || lit==='top' ? `<span class="${lit==='top'?'on':''}" style="flex:${tH.toFixed(1)} 1 0"></span>` : ''}
+      <span class="cap"></span></span>`;
+  };
+
+  /* what the drawer bank is, drawer by drawer, in sizes he actually stocks */
+  const drawerRows = st => {
+    const sizes = (st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n));
+    const bank  = drawerBankHeight(sizes);
+    return `<div class="dsizes">
+      <span class="dlbl">Each drawer, bottom to top &middot; ${(+bank.toFixed(2))}" of bank</span>
+      <ol class="dlist">
+        ${sizes.map((h, i) => `<li>
+          <b>${i + 1}${i === 0 ? ' · bottom' : i === sizes.length - 1 ? ' · top' : ''}</b>
+          <select data-dsize="${i}" aria-label="Box height for drawer ${i + 1}">
+            ${DRAWER_SIZES.map(z => `<option value="${z.h}" ${+h === z.h ? 'selected' : ''}>${z.label} box</option>`).join('')}
+          </select>
+          <i>${(DRAWER_SIZES.find(z => z.h === +h) || {}).use || ''}</i>
+        </li>`).join('')}
+      </ol>
+      <div class="dacts">
+        <button type="button" data-dadd="1" ${sizes.length >= 8 ? 'disabled' : ''}>Add a drawer</button>
+        <button type="button" data-drm="1" ${sizes.length <= 1 ? 'disabled' : ''}>Remove the top one</button>
+      </div>
+      <p class="dnote">These are the box sizes he stocks. The front is an inch
+        taller than the box, so the bank is exactly what the drawers add up to.</p>
+    </div>`;
+  };
+
+  /* one half of the section */
+  const half = (slot, st) => {
+    const open = pick === slot;
+    if(!st) return `<button class="slotcard empty ${open?'on':''}" type="button" data-pickslot="${slot}">
+      <span class="sico"><svg viewBox="0 0 24 32"><path d="M2 7h20M4 7v3M20 7v3"/></svg></span>
+      <span class="sname"><b>${slot === 'top' ? 'Nothing at the top yet' : 'Nothing underneath yet'}</b>
+        <i>${slot === 'top'
+            ? 'Pick what fills the section'
+            : 'Optional. Drawers, a hamper, baskets, shoes or shelving'}</i></span>
+      <span class="slotgo">${slot === 'top' ? 'Choose' : 'Add'}</span></button>`;
+    const d = MODULES[st.m];
+    const isDrawers = !!d.sizes;
+    const hText = isDrawers
+      ? `${(st.o?.sizes?.length || defaultDrawerSizes(st.o?.n).length)} drawers`
+      : (st.h == null ? 'fills the space' : `${st.h}" tall`);
+    return `<div class="slotcard ${open?'on':''}">
+      <div class="slothd">
+        <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
+        <span class="sname"><b>${d.label}</b><i>${hText}</i></span>
+        <span class="slotrhs">
+          ${d.opt ? `<span class="sopt"><button data-opt="-1" data-slot="${slot}" title="Fewer">−</button><i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-slot="${slot}" title="More">+</button></span>` : ''}
+          <button class="sswap ${open?'on':''}" type="button" data-pickslot="${slot}">Change</button>
+          ${slot === 'bottom' ? '<button class="slotx" type="button" data-clearslot="bottom" title="Take it out">×</button>' : ''}
+        </span>
+      </div>
+      ${isDrawers ? drawerRows(st) : ''}
+      ${slot === 'bottom' ? `<label class="ctop"><input type="checkbox" data-counter="1" ${sl.counter?'checked':''}>
+        <span><b>A worktop over it</b> — a folding bench or a packing surface, 2" thick.</span></label>` : ''}
+    </div>`;
+  };
+
+  /* only what can go in the half being changed */
+  const slotCards = slot => MODULE_IDS.filter(id => canSit(id, slot)).map(id => {
     const d = MODULES[id], img = id.toLowerCase().replace(/_/g,'-');
-    const chk = canAdd(bay.stack, id, usable, inCorner);
+    const here = slot === 'top' ? sl.top : sl.bottom;
+    const on   = here?.m === id;
+    const other = slot === 'top' ? sl.bottom : sl.top;
+    const chk = on ? { ok:true } : canAdd(other ? [other] : [], id, usable, inCorner, slot);
     const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
-    return `<button class="pcard" data-add="${id}" ${chk.ok?'':'disabled'} title="${tip}">
+    return `<button class="pcard" data-setslot="${slot}" data-m="${id}" aria-pressed="${on}"
+                    ${chk.ok?'':'disabled'} title="${tip}">
       <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
            width="420" height="315">
       <i>${d.label}</i>
       <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
         <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
+      ${on ? '<span class="pbadge">Current</span>' : ''}
       ${chk.ok ? '' : `<u class="full">${/corner/.test(chk.why) ? 'Not in a corner' : 'No room'}</u>`}</button>`;
   }).join('');
-
-  /* ── Changing one part of a section ────────────────────────────────────
-     A double hang is a rod over a rod. Wanting a drawer bank under the top
-     rod meant finding "Drawers" in a flat list of twenty-odd things, adding
-     it, then deleting the one you meant to replace and hoping the order came
-     out right. Pressing Change on a row asks the question the other way
-     round: here is that one slot, here is everything that fits in it. */
-  const swapOpen = S.swap != null && bay.stack[S.swap] != null;
-  let swapCards = '';
-  if(swapOpen){
-    const without = bay.stack.filter((_, k) => k !== S.swap);
-    const cur_ = bay.stack[S.swap];
-    swapCards = MODULE_IDS.map(id => {
-      const d = MODULES[id], img = id.toLowerCase().replace(/_/g,'-');
-      const chk = id === cur_.m ? { ok:true } : canAdd(without, id, usable, inCorner);
-      const on  = id === cur_.m;
-      const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
-      return `<button class="pcard" data-swapto="${id}" aria-pressed="${on}"
-                      ${chk.ok?'':'disabled'} title="${tip}">
-        <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
-             width="420" height="315">
-        <i>${d.label}</i>
-        <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
-          <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
-        ${on ? '<span class="pbadge">Current</span>' : ''}
-        ${chk.ok ? '' : '<u class="full">Will not fit here</u>'}</button>`;
-    }).join('');
-  }
 
   box.innerHTML = `
     <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · section ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
@@ -1805,73 +1946,27 @@ function paintStack(){
         <button class="rmsec" data-rmsec="1" title="Remove this section">Remove section</button>
       </span></div>
 
-    ${/* Every render on the site shows a shelf capping the section, and every
-          section is built with one, so it is on. But a double hang run to the
-          ceiling does not want one, and neither does a section under a sloped
-          ceiling, so it is a choice — made here, at the top of the list, which
-          is where the shelf is. */''}
-    <div class="toprow ${bay.top === false ? 'off' : ''}">
-      <span class="sico"><svg viewBox="0 0 24 32"><path d="M2 7h20M4 7v3M20 7v3"/></svg></span>
-      <span class="sname"><b>Shelf over the top</b>
-        <i>${bay.top === false
-            ? 'Left off, so what is below runs to full height.'
-            : 'Standard, and what the drawings show.'}</i></span>
-      <span class="segrow mini">
-        <button type="button" data-top="1" class="${bay.top === false ? '' : 'on'}">Shelf</button>
-        <button type="button" data-top="0" class="${bay.top === false ? 'on' : ''}">Open</button>
-      </span>
+    <div class="halves">
+      <span class="halflbl">The top</span>
+      ${half('top', sl.top)}
+      <span class="halflbl">The bottom</span>
+      ${half('bottom', sl.bottom)}
     </div>
 
-    ${bay.stack.length ? `<div class="stacklist">${bay.stack.slice().reverse().map((st,ri)=>{
-      const i=bay.stack.length-1-ri, d=MODULES[st.m];
-      /* The name and the controls are on separate lines. Seven controls and a
-         part name never fitted across a 460px panel: the name was squeezed to
-         "D..." and the buttons ran into each other. */
-      return `<div class="srow ${st.h==null?'flex':''}">
-        <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
-        <span class="sname"><b>${d.label}</b><i>${st.h==null?'fills the space':(st.h+'" tall')}</i></span>
-        <span class="srhs">
-          ${d.opt?`<span class="sopt"><button data-opt="-1" data-i="${i}" title="Fewer">−</button><i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-i="${i}" title="More">+</button></span>`:''}
-          <button class="sswap ${S.swap===i?'on':''}" data-swap="${i}"
-            title="Show only what can go in this part of the section">Change</button>
-          <span class="sacts">
-            <button data-mv="1"  data-i="${i}" title="Move up"    ${i===bay.stack.length-1?'disabled':''}>↑</button>
-            <button data-mv="-1" data-i="${i}" title="Move down"  ${i===0?'disabled':''}>↓</button>
-            <button data-hh="-4" data-i="${i}" title="Shorter">▾</button>
-            <button data-hh="4"  data-i="${i}" title="Taller">▴</button>
-            <button data-rm="${i}" title="Remove this part">×</button>
-          </span>
-        </span></div>`;
-    }).join('')}</div>` : `<p class="note emptybay">This section is empty. Pick anything below to put in it.</p>`}
-
-    ${swapOpen ? `
-    <h4 class="subh">Change ${slotName(S.swap, bay.stack.length)}</h4>
-    ${/* A drawing of this section, bottom to top, with the part being changed
-          lit up. "The bottom part" is a phrase you have to decode against a
-          section with four things in it; this is the section. */''}
+    ${pick ? `
     <div class="swaphd">
-      <span class="swapdia" aria-hidden="true">
-        ${bay.stack.map((st,i) => {
-          const h = st.h ?? MODULES[st.m].defH;
-          return `<span class="${i===S.swap?'on':''}" style="flex:${h.toFixed(1)} 1 0"></span>`;
-        }).join('')}
-        ${bay.top === false ? '' : '<span class="cap"></span>'}
-      </span>
+      ${dia(pick)}
       <span class="swaptx">
-        <b>${slotName(S.swap, bay.stack.length)[0].toUpperCase()
-             + slotName(S.swap, bay.stack.length).slice(1)} is
-           ${MODULES[bay.stack[S.swap].m].label.toLowerCase()}</b>
-        <span>Everything below fits in its place. The rest of the section does not move.
-          <button class="swapback" data-swapback="1" type="button">Show everything instead</button></span>
+        <b>${pick === 'top' ? 'The top of this section' : 'Underneath it'}</b>
+        <span>Everything below can go there. Anything that cannot is not shown.
+          <button class="swapback" data-pickclose="1" type="button">Close</button></span>
       </span>
     </div>
-    <div class="pgrid">${swapCards}</div>`
-    : `
-    <h4 class="subh">${bay.stack.length ? 'Change this section to' : 'What goes in this section'}</h4>
-    <p class="note" style="margin:-2px 0 10px">${bay.stack.length
-      ? `Currently ${matched ? `<b>${matched.name}</b>` : 'a custom stack'}. Pick another layout to swap the lot, or press <b>Change</b> on any part above to swap just that one.`
-      : 'Ready-made layouts first, then single parts. Everything can be changed after.'}</p>
-    <div class="pgrid">${presetCards}${partCards}</div>`}`;
+    <div class="pgrid">${slotCards(pick)}</div>` : `
+    <details class="readymade"${bay.stack.length ? '' : ' open'}>
+      <summary><b>Ready-made layouts</b><span>${matched ? matched.name : 'Eleven sections people ask for, already put together'}</span></summary>
+      <div class="pgrid">${presetCards}</div>
+    </details>`}`;
   dockStack();
 }
 
@@ -1962,9 +2057,28 @@ function paintPulls(){
 function paintPrice(){
   $('#price').textContent=money(cur.price.price);
   const nb=cur.bays.length;
-  $('#priceSub').textContent=`${nb} bay${nb>1?'s':''} · ${cur.parts.length} parts · ${cur.finish.lead} week lead`;
-  $('#warn').hidden=!cur.warnings.length;
-  $('#warn').innerHTML=cur.warnings.map(w=>`<span>${w}</span>`).join('');
+  /* "0 bay · 0 parts" — one is the plural of none. And they are sections
+     everywhere else on the page, so they are sections here too. */
+  $('#priceSub').textContent =
+    `${nb} section${nb===1?'':'s'} · ${cur.parts.length} part${cur.parts.length===1?'':'s'} · ${cur.finish.lead} week lead`;
+  /* The flags are behind the button at the top of the card, not stacked over
+     the price. The button counts them so you can see there is something to
+     read without the card growing a paragraph every time. */
+  const w = cur.warnings;
+  const box = $('#warn');
+  box.hidden = !w.length;
+  box.innerHTML = w.length
+    ? `<b class="warnhd">${w.length} thing${w.length===1?'':'s'} worth knowing</b>`
+      + w.map(x=>`<span>${x}</span>`).join('')
+    : '';
+  const btn = $('#pinfo'), n = $('#pinfoN');
+  if(btn){
+    btn.classList.toggle('haswarn', !!w.length);
+    btn.setAttribute('aria-label', w.length
+      ? `${w.length} thing${w.length===1?'':'s'} worth knowing about this design, and what the price covers`
+      : 'What this price covers');
+  }
+  if(n) n.textContent = w.length ? w.length : '';
 }
 /* The review step shows the same number three ways: the base system, the
    extras, the total. Supplier cost never appears here: that is Joseph's
@@ -2266,7 +2380,7 @@ $('#bays').onclick=e=>{
     }
     rebuild(true); return; }
   const b=e.target.closest('.bay');
-  if(b){ S.sel={wall:b.dataset.wall,i:+b.dataset.i}; S.swap=null; rebuild(false); }
+  if(b){ S.sel={wall:b.dataset.wall,i:+b.dataset.i}; S.pick=null; rebuild(false); }
 };
 /* ---- reorder sections along the wall -------------------------------------
    A run is an ordered list, so moving a section is a splice. Dropping onto a
@@ -2322,6 +2436,21 @@ const endTrackDrag = () => {
 $('#bays').addEventListener('pointerup', endTrackDrag);
 $('#bays').addEventListener('pointercancel', endTrackDrag);
 
+/* The drawer size pickers are <select>s and the worktop is a checkbox, so
+   they report through change, not click. */
+$('#stack').addEventListener('change', e => {
+  const t = e.target.closest('[data-dsize],[data-counter]'); if(!t) return;
+  const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
+  const sl = slots(bay.stack);
+  if(t.dataset.counter !== undefined){ setCounter(bay, t.checked); rebuild(false); return; }
+  const st = sl.bottom || sl.top;
+  if(!st || !MODULES[st.m].sizes) return;
+  const sz = (st.o?.sizes?.length ? [...st.o.sizes] : defaultDrawerSizes(st.o?.n));
+  sz[+t.dataset.dsize] = +t.value;
+  st.o = { ...st.o, sizes: sz };
+  rebuild(false);
+});
+
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;
@@ -2338,10 +2467,6 @@ $('#stack').onclick=e=>{
     if(pre){ bay.stack = structuredClone(pre.stack); rebuild(true); }   // their top-shelf choice stands
     return;
   }
-  /* The top shelf is a choice per section. It is on everywhere by default,
-     because that is how these are built and how every render on the site
-     shows them, but a section run to the ceiling has no shelf over it. */
-  if(t.dataset.top != null){ bay.top = t.dataset.top === '1'; rebuild(true); return; }
   if(t.dataset.move){
     /* Slide it along the wall. Held against a neighbour it swaps with it, so
        the arrows still reorder when there is no room to simply move. */
@@ -2393,58 +2518,54 @@ $('#stack').onclick=e=>{
     }
     sortRun(wall); S.sel.i = S.runs[wall].bays.findIndex(b => b === bay);
   }
-  else if(t.dataset.add){ const d=MODULES[t.dataset.add];
-    bay.stack.unshift({m:t.dataset.add, h:d.fill?null:d.defH, o:d.opt?{[d.opt.key]:d.opt.def}:{}});
-    /* Dropping a drawer bank into an empty section used to leave 46" of
-       nothing above it — not a closet, just a chest with air over it. If what
-       was added has a fixed height and nothing is filling the space left, the
-       section is completed with whatever still fits, so every section you can
-       build is a section we could install. */
-    if(!bay.stack.some(st => MODULES[st.m].fill)){
-      const floorY = baseHeight(S.mounting, placedFittings());
-      const room = (cur?.bays?.find(x=>x.wall===S.sel.wall&&x.bay===S.sel.i)?.h
-                    ?? (Math.min(SPEC.topShelf, S.room.h-6) - floorY))
-                   - bay.stack.reduce((a,st)=>a+(st.h ?? MODULES[st.m].defH),0);
-      const top = ['SHORT_HANG','SHELVES','OPEN'].find(id =>
-        MODULES[id].minH <= room + 0.5 && canAdd(bay.stack, id, room + bay.stack.reduce((a,st)=>a+(st.h??MODULES[st.m].defH),0)).ok);
-      if(top) bay.stack.push({ m:top, h:null, o:MODULES[top].opt?{[MODULES[top].opt.key]:MODULES[top].opt.def}:{} });
-    }
-  }
-  /* An empty section is a perfectly good state — it is what you get the moment
-     you add one — so the last part can be deleted like any other. Refusing to
-     delete it meant the only way out of a wrong choice was deleting the whole
-     section and starting again. */
-  /* open the one-slot picker for this row */
-  else if(t.dataset.swap!==undefined){
-    const i = +t.dataset.swap;
-    S.swap = (S.swap === i) ? null : i;
-    SWAP_FOR = S.sel ? S.sel.wall + '|' + S.sel.i : null;
+  /* ── the two halves ──────────────────────────────────────────────────
+     Open one, and the grid under it shows only what can go there. */
+  else if(t.dataset.pickslot !== undefined){
+    const slot = t.dataset.pickslot;
+    S.pick = (S.pick === slot) ? null : slot;
+    PICK_FOR = S.sel ? S.sel.wall + '|' + S.sel.i : null;
     paintStack(); return;
   }
-  else if(t.dataset.swapback!==undefined){ S.swap = null; paintStack(); return; }
-  /* put a different part in that slot, keeping its height and its options
-     where the new part has the same option to keep */
-  else if(t.dataset.swapto!==undefined){
-    const i = S.swap, old = bay.stack[i];
-    if(old == null){ S.swap = null; paintStack(); return; }
-    const id = t.dataset.swapto, d = MODULES[id];
-    if(id === old.m){ S.swap = null; paintStack(); return; }
-    const keepOpt = d.opt && old.o && old.o[d.opt.key] != null
-      && old.o[d.opt.key] >= d.opt.min && old.o[d.opt.key] <= d.opt.max;
-    bay.stack[i] = {
-      m:id,
-      h: d.fill ? null : Math.min(d.maxH, Math.max(d.minH, old.h ?? d.defH)),
-      o: d.opt ? { [d.opt.key]: keepOpt ? old.o[d.opt.key] : d.opt.def } : {}
-    };
-    S.swap = null;
+  else if(t.dataset.pickclose !== undefined){ S.pick = null; paintStack(); return; }
+  else if(t.dataset.setslot !== undefined){
+    setSlot(bay, t.dataset.setslot, t.dataset.m);
+    S.pick = null;
   }
-  else if(t.dataset.rm!==undefined){ bay.stack.splice(+t.dataset.rm,1); S.swap = null; }
-  else if(t.dataset.mv){ const i=+t.dataset.i, j=i+ +t.dataset.mv;
-    if(j>=0&&j<bay.stack.length){ const [x]=bay.stack.splice(i,1); bay.stack.splice(j,0,x); } }
-  else if(t.dataset.hh){ const s=bay.stack[+t.dataset.i], d=MODULES[s.m];
-    s.h=Math.max(d.minH,Math.min(d.maxH,(s.h ?? d.defH)+ +t.dataset.hh)); }
-  else if(t.dataset.opt){ const s=bay.stack[+t.dataset.i], d=MODULES[s.m]; if(!d.opt) return;
-    s.o=s.o||{}; s.o[d.opt.key]=Math.max(d.opt.min,Math.min(d.opt.max,(s.o[d.opt.key]??d.opt.def)+ +t.dataset.opt)); }
+  else if(t.dataset.clearslot !== undefined){
+    clearSlot(bay, t.dataset.clearslot);
+    S.pick = null;
+  }
+  else if(t.dataset.counter !== undefined){
+    setCounter(bay, t.checked);
+  }
+  /* ── the drawer bank, box by box ─────────────────────────────────────
+     A bank is the boxes it is made of, so adding one makes the section
+     taller rather than squeezing the fronts down to a size nothing fits. */
+  else if(t.dataset.dsize !== undefined){
+    const st = slots(bay.stack).bottom || slots(bay.stack).top;
+    if(!st || !MODULES[st.m].sizes) return;
+    const sz = (st.o.sizes?.length ? [...st.o.sizes] : defaultDrawerSizes(st.o.n));
+    sz[+t.dataset.dsize] = +t.value;
+    st.o = { ...st.o, sizes: sz };
+  }
+  else if(t.dataset.dadd !== undefined || t.dataset.drm !== undefined){
+    const st = slots(bay.stack).bottom || slots(bay.stack).top;
+    if(!st || !MODULES[st.m].sizes) return;
+    const sz = (st.o.sizes?.length ? [...st.o.sizes] : defaultDrawerSizes(st.o.n));
+    if(t.dataset.dadd !== undefined){ if(sz.length < 8) sz.push(sz[sz.length-1] ?? 7.5); }
+    else if(sz.length > 1) sz.pop();
+    st.o = { ...st.o, sizes: sz };
+  }
+  else if(t.dataset.opt){
+    const slot = t.dataset.slot;
+    const sl = slots(bay.stack);
+    const st = slot === 'bottom' ? sl.bottom : sl.top;
+    if(!st) return;
+    const d = MODULES[st.m]; if(!d.opt) return;
+    st.o = st.o || {};
+    st.o[d.opt.key] = Math.max(d.opt.min, Math.min(d.opt.max,
+      (st.o[d.opt.key] ?? d.opt.def) + +t.dataset.opt));
+  }
   else return;
   rebuild(false);
 };

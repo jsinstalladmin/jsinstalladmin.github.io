@@ -52,11 +52,53 @@ const esc = (v: unknown) =>
 const clip = (v: unknown, n = 200) => esc(String(v ?? '').slice(0, n));
 const money = (n: unknown) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 
-const shell = (inner: string) => `
+/* The site, for the logo and the links. One constant, so the day the DNS
+   moves to jsinstallationsclosets.com this is the only line that changes. */
+const SITE = Deno.env.get('SITE_URL') ?? 'https://jsinstalladmin.github.io';
+
+/* ── the letterhead ──
+   This was a white card with text in it and nothing to say whose it was.
+   An enquiry is the first thing a customer sees from the business after
+   the website, and the first thing Joseph sees of a job, so it opens the
+   way his own paperwork does: his mark, his name, his phone number.
+
+   Email clients being what they are, this is tables and inline styles, no
+   flexbox, no background images, and the logo degrades to the business name
+   if images are off — which is the default in most inboxes. */
+const shell = (inner: string, kicker = '') => `
 <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-            background:${PAPER};padding:24px 14px;color:${INK}">
-  <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid ${LINE};
-              border-radius:14px;padding:28px 26px">${inner}</div>
+            background:${PAPER};padding:26px 14px;color:${INK}">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+         style="max-width:620px;width:100%;margin:0 auto;border-collapse:separate">
+    <tr><td style="background:${INK};border-radius:14px 14px 0 0;padding:20px 26px">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%">
+        <tr>
+          <td style="width:46px;vertical-align:middle">
+            <img src="${SITE}/img/icon-192.png" width="46" height="46" alt=""
+                 style="display:block;width:46px;height:46px;border-radius:11px;border:0">
+          </td>
+          <td style="padding-left:13px;vertical-align:middle">
+            <div style="font-size:1.02rem;color:#F8F5F0;letter-spacing:.01em;line-height:1.2">
+              JS Closets</div>
+            <div style="font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;
+                        color:rgba(248,245,240,.56);margin-top:3px">Installations</div>
+          </td>
+          <td align="right" style="vertical-align:middle;font-size:.78rem;
+                     color:rgba(248,245,240,.72);white-space:nowrap">${PHONE}</td>
+        </tr>
+      </table>
+    </td></tr>
+    ${kicker ? `<tr><td style="background:${ACC};padding:9px 26px;font-size:.68rem;
+      letter-spacing:.16em;text-transform:uppercase;color:#fff">${kicker}</td></tr>` : ''}
+    <tr><td style="background:#fff;border:1px solid ${LINE};border-top:0;
+                   border-radius:0 0 14px 14px;padding:28px 26px">${inner}</td></tr>
+    <tr><td style="padding:16px 26px 0;font-size:.72rem;line-height:1.6;color:${MUT};
+                   text-align:center">
+      ${BUSINESS} &middot; ${PHONE} &middot;
+      <a href="${SITE}/" style="color:${MUT}">${SITE.replace(/^https?:\/\//, '')}</a><br>
+      Measured, built and fitted by one company.
+    </td></tr>
+  </table>
 </div>`;
 
 const h2 = (t: string) => `<h2 style="font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;
@@ -95,9 +137,20 @@ function customerMail(c: Record<string, any>, d: Record<string, any> | null) {
     <p style="margin:1.5em 0 1em;line-height:1.65">If anything above is wrong, or you would
        rather just talk it through, call us on
        <a href="tel:+16466679572" style="color:${ACC}">${PHONE}</a>.</p>
-    <p style="margin:1.6em 0 0;font-size:.85rem;color:${MUT}">${BUSINESS}<br>${PHONE}</p>
-    <p style="margin:.9em 0 0;font-size:.74rem;color:#A49A8E">You are getting this because you
-       asked for a free measure on our website. It is a one-off confirmation, not a list.</p>`);
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+           style="width:100%;margin:1.8em 0 0;border-top:1px solid ${LINE}">
+      <tr><td style="padding-top:16px">
+        <a href="${SITE}/design/" style="display:inline-block;background:${INK};color:#F8F5F0;
+           text-decoration:none;font-size:.86rem;padding:.78em 1.4em;border-radius:999px">
+          Draw it yourself in 3D while you wait</a>
+        <span style="display:block;margin-top:.7em;font-size:.8rem;color:${MUT};line-height:1.6">
+          Put your room's real dimensions in and lay out the inside section by
+          section. Whatever you draw comes to us with the enquiry.</span>
+      </td></tr>
+    </table>
+    <p style="margin:1.4em 0 0;font-size:.74rem;color:#A49A8E;line-height:1.6">You are getting this
+       because you asked for a free measure on our website. It is a one-off confirmation,
+       not a list.</p>`, 'Your free measure');
 }
 
 /* ── the office's copy ───────────────────────────────────────────────── */
@@ -159,8 +212,7 @@ function officeMail(c: Record<string, any>, d: Record<string, any> | null) {
   const parts = (d?.order || []).reduce((a: number, o: any) => a + (Number(o.qty) || 0), 0);
 
   return shell(`
-    <p style="font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:${MUT};margin:0">New enquiry</p>
-    <h1 style="font-size:1.5rem;margin:.2em 0 0;line-height:1.2">${clip(c.name, 80) || 'Website enquiry'}</h1>
+    <h1 style="font-size:1.5rem;margin:0;line-height:1.2">${clip(c.name, 80) || 'Website enquiry'}</h1>
     ${d?.price ? `<p style="margin:.35em 0 0;font-size:1.1rem;color:${ACC}"><b>${money(d.price)}</b>
        <span style="color:${MUT};font-size:.86rem">estimated for the cabinetry${parts ? ` &middot; ${parts} parts` : ''}</span></p>` : ''}
 
@@ -180,7 +232,7 @@ function officeMail(c: Record<string, any>, d: Record<string, any> | null) {
 
     <p style="margin:26px 0 0;font-size:.84rem;color:${MUT}">
       Reply to this email and it goes straight to ${clip(c.name, 60) || 'them'}.<br>
-      It is already in the office system under Pipeline &rarr; New lead.</p>`);
+      It is already in the office system under Pipeline &rarr; New lead.</p>`, 'New enquiry');
 }
 
 async function send(key: string, from: string, to: string, subject: string,
