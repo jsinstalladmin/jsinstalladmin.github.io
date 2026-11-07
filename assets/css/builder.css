@@ -354,10 +354,36 @@
 .bpanel{display:flex;flex-direction:column}
 .pscroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 
+/* ── THE STEP RAIL ON A NARROW SCREEN ──
+   It used to hide the word and leave an icon with a 9px numeral under it in
+   the body face, which is the plainest thing on the page: five grey glyphs
+   that tell you nothing about what each step is and look like a browser
+   default rather than a decision.
+
+   The word comes back, because five words of five letters fit across a 390px
+   phone at 74px a column, and the number becomes the house display serif at
+   a size you can actually read. Those two together are what make the rail
+   look drawn rather than defaulted. */
 @media(max-width:1180px){
-  .steptabs button span{display:none}
-  .steptabs button{padding:10px 4px;gap:0}
-  .steptabs button b{position:static;margin-top:4px;background:transparent;font-size:.58rem}
+  .steptabs{gap:4px;padding:8px}
+  .steptabs button{padding:9px 3px 7px;gap:3px;border-radius:12px}
+  .steptabs button svg{width:17px;height:17px}
+  /* the base rule makes this a 13px filled disc in the corner; at this size
+     it is a numeral, so the disc has to be undone explicitly */
+  .steptabs button b{position:static;margin:0;background:transparent;
+    width:auto;height:auto;border-radius:0;display:block;
+    font-family:'Instrument Serif',Georgia,serif;font-weight:400;
+    font-size:.95rem;line-height:1;letter-spacing:0;color:inherit;opacity:.72}
+  .steptabs button span{display:block;font-size:.56rem;letter-spacing:.02em;
+    line-height:1.15;white-space:normal;overflow:visible;text-overflow:clip;
+    hyphens:none}
+  .steptabs button[aria-selected="true"] b{background:transparent;color:var(--accent);opacity:1}
+  .steptabs button[data-done="1"] b{background:transparent;color:var(--accent)}
+}
+@media(max-width:420px){
+  /* two short words will not fit side by side at this width, so the label
+     drops to one line and the number carries the ordering */
+  .steptabs button span{font-size:.52rem}
 }
 
 /* Safari will not start a drag on a <button> from draggable="true" alone —

@@ -18,8 +18,9 @@
 import { sb } from './supa.js';
 
 export const REGIONS = [
-  { id:'fl', name:'South Florida', short:'FL', base:'Boca Raton, FL',
-    areas:['Boca Raton','Delray Beach','Boynton Beach','Fort Lauderdale','West Palm Beach','Parkland'] },
+  { id:'fl', name:'Florida', short:'FL', base:'Boca Raton, FL',
+    /* the whole peninsula, Orlando and Tampa down through the Keys */
+    areas:['Boca Raton','Delray Beach','Boynton Beach','Fort Lauderdale','West Palm Beach','Miami','Naples','Fort Myers','Sarasota','Tampa','Orlando','Melbourne','Port St. Lucie','Key Largo','Key West'] },
   { id:'nj', name:'New Jersey',    short:'NJ', base:'Paramus, NJ',
     areas:['Bergen County','Essex County','Morris County','Hudson County','Monmouth County'] },
   { id:'ny', name:'New York',      short:'NY', base:'Westchester, NY',

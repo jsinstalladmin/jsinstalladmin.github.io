@@ -198,6 +198,47 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .drawer .x{position:absolute;top:22px;right:22px;background:transparent;border:1px solid var(--line-dk);
   color:inherit;border-radius:var(--r-pill);padding:.5em 1em;font:inherit;cursor:pointer}
 
+/* ══════════════ THE MEASURING PAGE ══════════════
+   Six steps, each a drawing beside its explanation. The drawings are SVG and
+   they alternate side so the page does not read as a list of identical rows. */
+.mintro{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.6fr);
+  gap:clamp(24px,4vw,56px);align-items:start}
+.mintro h2{margin:.25em 0 0;font-size:clamp(1.5rem,2.6vw,2.1rem)}
+.mkit{list-style:none;margin:0;padding:0;display:grid;gap:14px;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.mkit li{border:1px solid var(--line);border-radius:var(--r-md);padding:16px 18px;
+  background:var(--paper)}
+.mkit b{display:block;font-weight:500;color:var(--ink);margin-bottom:.25em}
+.mkit span{font-size:.88rem;color:var(--muted);line-height:1.55}
+@media(max-width:860px){ .mintro{grid-template-columns:1fr} }
+
+.mstep{padding-block:clamp(30px,4vw,54px)}
+.msgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
+  gap:clamp(24px,4vw,56px);align-items:center}
+.mstep:nth-of-type(even) .msgrid{direction:rtl}
+.mstep:nth-of-type(even) .msgrid > *{direction:ltr}
+.mnum{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;
+  border:1px solid var(--accent,#A8824C);color:var(--accent,#A8824C);
+  font-family:'Instrument Serif',Georgia,serif;font-size:1.25rem;line-height:1;
+  margin-bottom:.7em}
+.mstx h2{margin:0 0 .25em;font-size:clamp(1.4rem,2.4vw,2rem)}
+.msub{margin:0 0 1em;color:var(--accent,#A8824C);font-size:1rem}
+.mstx p{margin:0 0 .9em;color:var(--body)}
+.mtip{margin:1.1em 0 0;padding:12px 15px;border-left:2px solid var(--accent,#A8824C);
+  background:var(--paper-2);font-size:.9rem;color:var(--muted);line-height:1.55}
+.mtip b{display:block;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent,#A8824C);margin-bottom:.25em;font-weight:500}
+/* the drawing is the point, so it is never cropped */
+.msfig{margin:0;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;
+  background:#F2F0EC}
+.msfig img{display:block;width:100%;height:auto}
+@media(max-width:860px){
+  .msgrid{grid-template-columns:1fr;gap:20px}
+  /* the drawing comes first on a phone: you look at it, then read why */
+  .msgrid .msfig{order:-1}
+  .mstep:nth-of-type(even) .msgrid{direction:ltr}
+}
+
 /* ── the colour search box ──
    It was styled inline with `border:1px solid var(--rule)`, and --rule is not
    a variable this stylesheet has ever defined. An undefined custom property
@@ -620,8 +661,18 @@ body[data-hero="dark"]  .hero-veil{background:
   border-radius:var(--r-md);overflow:hidden;border:1px solid transparent;
   transition:border-color .4s var(--ease),transform .4s var(--ease)}
 .gcard:hover{border-color:var(--line);transform:translateY(-3px)}
-.gcard figure{margin:0;aspect-ratio:16/10;overflow:hidden;background:var(--paper-3)}
-.gcard figure img{width:100%;height:100%;object-fit:cover}
+/* ── the guide cards ──
+   They were 16:10 photographs, which at three across a laptop made each card
+   270px of picture before a word of it, and the six pictures were six white
+   closets that read as the same room repeated. The pictures are drawings now,
+   one per guide, each saying what that guide is about: a cost breakdown, a
+   checklist, two floor plans, a dimensioned elevation, three cut sections, a
+   bowed shelf. A drawing wants to be read, not cropped, so the frame is wider
+   and shallower and the art is CONTAINED rather than covered. */
+.gcard figure{margin:0;aspect-ratio:20/9;overflow:hidden;background:#F2F0EC;
+  border-bottom:1px solid var(--line-2)}
+.gcard figure img{width:100%;height:100%;object-fit:contain;display:block}
+.gcard:hover figure img{transform:none}
 .gcard-b{padding:clamp(18px,2.1vw,26px);display:grid;gap:.5em}
 .gmeta{font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
 .gcard h3{font-size:clamp(1.08rem,1.5vw,1.3rem);line-height:1.25;color:var(--ink)}
