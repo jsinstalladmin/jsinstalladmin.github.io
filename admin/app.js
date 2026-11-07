@@ -749,6 +749,9 @@ function openClient(id){
   const c = id ? DB.client(id) : null;
   const load = c ? DB.clientLoad(c.id) : {jobs:0,quotes:0};
   const jobs = c ? DB.jobs('all').filter(j=>j.client===c.id).sort((a,b)=>b.date.localeCompare(a.date)) : [];
+  /* What this client has actually been worth. Only the installed ones count,
+     because a lead with a number against it is a hope, not revenue. */
+  const doneTotal = jobs.filter(j=>j.stage==='done').reduce((a,j)=>a+(+j.value||0),0);
   dlg.innerHTML = `<h2>${c?esc(c.name):'New client'}</h2>
    ${c?`<p class="sub dlgsub">${load.jobs} job${load.jobs===1?'':'s'} · ${load.quotes} quote${load.quotes===1?'':'s'} · in ${esc(DB.regionMeta(c.region).name)}</p>`:''}
    <div class="f"><label>Name</label><input id="m-n" value="${esc(c?.name||'')}" placeholder="Who the invoice goes to"></div>
@@ -773,9 +776,17 @@ function openClient(id){
          data-source-pick="${x}" class="${(c?.source||'Website')===x?'on':''}">${x}</button>`).join('')}
      </div></div>
    <div class="f"><label>Notes</label><textarea id="m-no" rows="2">${esc(c?.notes||'')}</textarea></div>
-   ${jobs.length?`<div class="dlglist"><label>Their jobs</label>${jobs.slice(0,6).map(j=>
+   ${jobs.length?`<div class="dlglist"><label>Their jobs, and what each install is worth</label>${jobs.slice(0,8).map(j=>
       `<div class="dlrow"><span class="mono">${fmtD(j.date)}</span><b>${esc(j.title)}</b>
-        <span class="pill p-${j.stage}">${STAGE_LABEL[j.stage]}</span><span class="mono">${j.value?money(j.value):'—'}</span></div>`).join('')}</div>`:''}
+        <span class="pill p-${j.stage}">${STAGE_LABEL[j.stage]}</span>
+        <input class="jval mono" type="number" min="0" step="1" data-jval="${j.id}"
+               value="${+j.value||0}" aria-label="What this install is worth"></div>`).join('')}
+      <div class="dlrow dltot"><span class="mono"></span><b>Installed and counted</b>
+        <span></span><span class="mono" id="m-donetot">${money(doneTotal)}</span></div>
+      </div>
+      <p class="note">Type a figure in and it stays typed in. Nothing recalculates it
+        later from a quote, and only the jobs marked <b>Installed</b> are added into the
+        month&rsquo;s total on Today.</p>`:''}
    <div class="dlgacts">${c?'<button class="btn danger" id="m-del">Delete</button>':''}
      <button class="btn" value="cancel">Cancel</button>
      <button class="btn btn-p" id="m-ok">${c?'Save changes':'Add client'}</button></div>`;
@@ -790,6 +801,21 @@ function openClient(id){
       row.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
     });
   });
+  /* The price is the one number in here somebody types from a piece of paper,
+     so it saves the moment they leave the field and the total under it moves
+     with it. Redrawing the whole modal would take the cursor with it. */
+  dlg.querySelectorAll('[data-jval]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const v = Math.max(0, +inp.value || 0);
+      inp.value = v;
+      DB.updateJob(inp.dataset.jval, { value: v });
+      const fresh = DB.jobs('all').filter(j => j.client === c.id && j.stage === 'done')
+                      .reduce((a,j) => a + (+j.value||0), 0);
+      const tot = $('#m-donetot'); if(tot) tot.textContent = money(fresh);
+      render();
+    });
+  });
+
   $('#m-del')?.addEventListener('click',()=>{
     const msg = load.jobs||load.quotes
       ? `Delete ${c.name}? This also deletes ${load.jobs} job${load.jobs===1?'':'s'} and ${load.quotes} quote${load.quotes===1?'':'s'}. It cannot be undone.`
@@ -1116,6 +1142,7 @@ function buildWeek(empId, offset){
 function openWeekLink(empId){
   WEEK_OFFSET = 0;
   let openDay = null;                       // which day's "add" form is showing
+  let pickDay = today();                    // which day's panel is open
 
   const paint = () => {
     const e  = DB.employee(empId);
@@ -1123,44 +1150,75 @@ function openWeekLink(empId){
     const total = wk.days.reduce((a,d)=>a+d.items.length,0);
     const url = location.origin + location.pathname.replace(/admin\/.*$/,'') + 'crew/#' + packWeek(wk);
     const label = `${fmtD(wk.start)} to ${fmtD(addDays(wk.start,6))}`;
-    const clients = DB.clients('all').sort((a,b)=>a.name.localeCompare(b.name));
 
-    const dayBlock = (d, i) => {
-      const iso  = d.date;
-      const jobs = DB.jobs('all').filter(j =>
-        j.date === iso && (j.crewIds||[]).includes(empId) && j.stage !== 'lost');
-      const isToday = iso === today();
-      const adding = openDay === iso;
-      return `<section class="wkday${isToday?' now':''}${jobs.length?' has':''}">
+    /* Two lists, not one. "Which client?" used to be every client ever, in
+       one alphabetical run, so somebody who came off the website this morning
+       sat between two jobs finished last year. The ones with no visit booked
+       yet are the ones you are usually putting on a day, so they come first
+       and they are labelled. */
+    const all    = DB.clients('all').sort((a,b)=>a.name.localeCompare(b.name));
+    const booked = new Set(DB.jobs('all').map(j=>j.client));
+    const fresh  = all.filter(c=>!booked.has(c.id));
+    const older  = all.filter(c=> booked.has(c.id));
+    const opt = c => `<option value="${c.id}">${esc(c.name)}${c.addr?' — '+esc(c.addr.split(',')[0]):''}</option>`;
+    const clientOpts = !all.length ? '<option value="">No clients yet</option>'
+      : (fresh.length ? `<optgroup label="New — nothing booked yet">${fresh.map(opt).join('')}</optgroup>` : '')
+      + (older.length ? `<optgroup label="Everyone else">${older.map(opt).join('')}</optgroup>` : '');
+
+    /* keep the open day inside the week being looked at */
+    if(!wk.days.some(d=>d.date===pickDay)) pickDay = wk.days[0].date;
+
+    const jobsOn = iso => DB.jobs('all').filter(j =>
+      j.date === iso && (j.crewIds||[]).includes(empId) && j.stage !== 'lost');
+
+    /* THE WEEK, as a week. It was seven stacked boxes you scrolled through,
+       which is a list wearing a calendar's name. Seven columns you can take
+       in at once, each showing whether anything is on, and clicking one opens
+       that day underneath. */
+    const strip = wk.days.map(d => {
+      const n = jobsOn(d.date).length;
+      const dt = new Date(d.date+'T12:00');
+      return `<button type="button" class="wkc${d.date===pickDay?' on':''}${d.date===today()?' now':''}"
+          data-wkpick="${d.date}" aria-pressed="${d.date===pickDay}">
+        <i>${dt.toLocaleDateString('en-US',{weekday:'short'})}</i>
+        <b>${dt.getDate()}</b>
+        <span class="wkdots">${n ? '<em></em>'.repeat(Math.min(n,3)) : '&nbsp;'}</span>
+      </button>`;
+    }).join('');
+
+    const iso  = pickDay;
+    const jobs = jobsOn(iso);
+    const adding = openDay === iso;
+    const panel = `<section class="wkday${iso===today()?' now':''}${jobs.length?' has':''}">
         <header>
-          <b>${fmtFull(iso)}${isToday?' · today':''}</b>
+          <b>${fmtFull(iso)}${iso===today()?' · today':''}</b>
           <span>${jobs.length ? `${jobs.length} visit${jobs.length===1?'':'s'}` : 'Nothing booked'}</span>
         </header>
 
-        ${jobs.map(j => `<div class="wkvisit">
+        ${jobs.map(j => {
+          const c = DB.client(j.client) || {};
+          return `<div class="wkvisit">
             <span class="kdot k-${j.kind}"></span>
             <span class="wkv">
-              <b>${esc(DB.clientName(j.client))}</b>
+              <b>${esc(c.name || DB.clientName(j.client))}</b>
               <i>${esc(j.kind)}${j.title && j.title!=='Untitled' ? ' · '+esc(j.title) : ''}</i>
+              ${c.addr||c.phone ? `<i class="wkwho">${esc([c.addr, c.phone].filter(Boolean).join(' · '))}</i>` : ''}
             </span>
             <button class="lnkbtn" data-wkedit="${j.id}" title="Open this visit">Open</button>
             <button class="lnkbtn danger" data-wkoff="${j.id}" title="Take ${esc(e?.name||'them')} off this visit">Remove</button>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
 
         ${adding ? `<div class="wkadd">
             <label>Which client?</label>
-            <select data-wkclient>
-              ${clients.length
-                ? clients.map(c=>`<option value="${c.id}">${esc(c.name)}${c.addr?' — '+esc(c.addr.split(',')[0]):''}</option>`).join('')
-                : '<option value="">No clients yet</option>'}
-            </select>
+            <select data-wkclient>${clientOpts}</select>
             <label>What is the visit?</label>
             <div class="pickrow" data-wkkind data-pick="measure">
               ${KINDS.map(k=>`<button type="button" data-kindpick="${k}" class="${k==='measure'?'on':''}">
                 <span class="kdot k-${k}"></span>${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}
             </div>
             <div class="btnrow">
-              <button class="btn btn-sm btn-p" data-wkbook="${iso}" ${clients.length?'':'disabled'}>Book it</button>
+              <button class="btn btn-sm btn-p" data-wkbook="${iso}" ${all.length?'':'disabled'}>Book it</button>
               <button class="btn btn-sm" data-wkcancel="1">Cancel</button>
               <button class="btn btn-sm" data-wknewclient="1">The client is not on the system yet</button>
             </div>
@@ -1173,7 +1231,8 @@ function openWeekLink(empId){
             placeholder="Gate code, who has the key, park on the street…">${esc(DB.crewNote(empId, iso))}</textarea>
         </label>
       </section>`;
-    };
+
+    const msg = `${e?.name || 'Your'} week, ${label}. ${total} visit${total===1?'':'s'}: ${url}`;
 
     dlg.innerHTML = `<h2>${esc(wk.crew)}&rsquo;s week</h2>
       <p class="sub dlgsub">${esc(label)} · ${total} visit${total===1?'':'s'} booked</p>
@@ -1182,16 +1241,20 @@ function openWeekLink(empId){
         <button class="btn btn-sm" id="wk-now">This week</button>
         <button class="btn btn-sm" id="wk-next">Week after &rarr;</button></div>
 
-      <div class="wkgrid">${wk.days.map(dayBlock).join('')}</div>
+      <div class="wkcal">${strip}</div>
+      ${panel}
 
       <details class="wklink">
-        <summary>The link to pin in their WhatsApp</summary>
-        <div class="f"><textarea id="wk-url" rows="3" readonly>${esc(url)}</textarea></div>
-        <p class="note">Send a fresh one whenever the week changes, because the week travels
-          inside the link. Nothing on that page can be edited and it shows only this person&rsquo;s work.</p>
-        <div class="btnrow">
+        <summary>Send this week to ${esc((e?.name||'them').split(' ')[0])}</summary>
+        <p class="note">The week travels inside the link, so send a fresh one whenever it
+          changes. Nothing on that page can be edited and it shows only this person&rsquo;s work.</p>
+        <div class="btnrow wkshare">
+          <a class="btn btn-sm" id="wk-wa" target="_blank" rel="noopener">WhatsApp</a>
+          <a class="btn btn-sm" id="wk-sms">Text it</a>
+          <a class="btn btn-sm" id="wk-mail">Email it</a>
           <button class="btn btn-sm" id="wk-open">Open it myself</button>
           <button class="btn btn-sm btn-p" id="wk-copy">Copy the link</button></div>
+        <div class="f"><textarea id="wk-url" rows="2" readonly>${esc(url)}</textarea></div>
       </details>
 
       <div class="dlgacts"><button class="btn btn-p" value="cancel">Done</button></div>`;
@@ -1200,8 +1263,18 @@ function openWeekLink(empId){
     wireCancel();
     $('#wk-prev').onclick = () => { WEEK_OFFSET--; openDay=null; paint(); };
     $('#wk-next').onclick = () => { WEEK_OFFSET++; openDay=null; paint(); };
-    $('#wk-now').onclick  = () => { WEEK_OFFSET=0;  openDay=null; paint(); };
+    $('#wk-now').onclick  = () => { WEEK_OFFSET=0;  openDay=null; pickDay=today(); paint(); };
     $('#wk-open').onclick = () => window.open(url,'_blank','noopener');
+
+    /* one link, four ways out of the office: whichever one that person
+       actually reads. The phone number we hold for them is prefilled where
+       the app accepts one. */
+    const ph = (e?.phone || '').replace(/[^0-9+]/g,'');
+    $('#wk-wa').href   = `https://wa.me/${ph.replace(/^\+/,'')}?text=${encodeURIComponent(msg)}`;
+    $('#wk-sms').href  = `sms:${ph}${/iPhone|iPad|Mac/.test(navigator.platform)?'&':'?'}body=${encodeURIComponent(msg)}`;
+    $('#wk-mail').href = `mailto:${encodeURIComponent(e?.email||'')}`
+      + `?subject=${encodeURIComponent(`Your week, ${label}`)}&body=${encodeURIComponent(msg)}`;
+
     $('#wk-copy').onclick = async () => {
       const b = $('#wk-copy');
       try{ await navigator.clipboard.writeText(url); b.textContent='Copied'; }
@@ -1228,6 +1301,7 @@ function openWeekLink(empId){
     dlg.onclick = ev => {
       const t = ev.target.closest('button'); if(!t) return;
 
+      if(t.dataset.wkpick !== undefined){ pickDay = t.dataset.wkpick; openDay = null; paint(); return; }
       if(t.dataset.wkopen !== undefined){ openDay = t.dataset.wkopen; paint(); return; }
       if(t.dataset.wkcancel !== undefined){ openDay = null; paint(); return; }
 

@@ -617,6 +617,34 @@ button.backlink:hover{opacity:1}
   color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent)}
 
 /* ═══════════ Building a crew member's week ═══════════ */
+/* THE WEEK STRIP. Seven columns you take in at once, each one saying
+   whether anything is on that day, and clicking one opens that day's panel
+   underneath. The old version was seven stacked boxes you scrolled, which is
+   a list calling itself a calendar. */
+/* the price field inside a client's job list */
+.jval{width:92px;flex:0 0 auto;text-align:right;background:var(--surf2);
+  border:1px solid var(--line);border-radius:7px;color:var(--fg);
+  padding:.25em .45em;font-size:.8rem}
+.jval:focus{outline:0;border-color:var(--brass2)}
+.dltot{border-top:1px solid var(--line);margin-top:.3em;padding-top:.5em;font-weight:500}
+.dltot .mono{color:var(--brass2)}
+
+.wkcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:4px 0 10px}
+.wkc{display:flex;flex-direction:column;align-items:center;gap:1px;padding:.5em .2em .4em;
+  border:1px solid var(--line);border-radius:10px;background:var(--surf2);
+  color:var(--muted);font:inherit;cursor:pointer;transition:.18s;min-width:0}
+.wkc:hover{border-color:var(--muted);color:var(--fg)}
+.wkc i{font-style:normal;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase}
+.wkc b{font-size:1.02rem;line-height:1.1;color:var(--fg);font-variant-numeric:tabular-nums}
+.wkc.now b{color:#7FB488}
+.wkc.on{border-color:var(--brass2);background:color-mix(in srgb,var(--brass2) 14%,var(--surf2));color:var(--fg)}
+.wkdots{display:flex;gap:2px;height:6px;align-items:center}
+.wkdots em{width:4px;height:4px;border-radius:50%;background:var(--brass2);display:block}
+.wkwho{font-size:.7rem;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wkshare{flex-wrap:wrap;margin-bottom:.6em}
+.wkshare .btn{text-decoration:none}
+@media(max-width:520px){ .wkc b{font-size:.92rem} .wkc i{font-size:.56rem} }
+
 .wkgrid{display:flex;flex-direction:column;gap:9px;margin:4px 0 14px}
 .wkday{border:1px solid var(--line);border-radius:11px;padding:11px 12px;
   background:var(--panel-2,rgba(255,255,255,.02))}
@@ -648,9 +676,16 @@ button.backlink:hover{opacity:1}
 .wkadd select{width:100%}
 .wkadd .btnrow{margin-top:.7em;flex-wrap:wrap}
 .wknote{display:block;margin-top:.6em}
+/* this box was inheriting the public site's light field styling, so a white
+   panel sat in the middle of a dark modal */
+.wknote textarea{width:100%;background:var(--surf2);border:1px solid var(--line);
+  border-radius:9px;color:var(--fg);padding:.55em .7em;font-size:.82rem;
+  line-height:1.45;resize:vertical}
+.wknote textarea:focus{outline:0;border-color:var(--brass2)}
+.wknote em{display:block;font-style:normal;font-size:.68rem;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:.3em}
 .wknote em{display:block;font-style:normal;font-size:.72rem;letter-spacing:.06em;
   text-transform:uppercase;color:var(--muted);margin-bottom:.3em}
-.wknote textarea{width:100%}
 .wklink{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;padding:0 12px}
 .wklink > summary{cursor:pointer;padding:.7em 0;font-size:.82rem;list-style:none}
 .wklink > summary::-webkit-details-marker{display:none}
