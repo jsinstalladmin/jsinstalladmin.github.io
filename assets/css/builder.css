@@ -671,8 +671,21 @@ body[data-step="6"] .pacts{margin-top:0}
    The measurements live on the drawing, because that is how anyone who has
    measured a closet thinks about it: width across the back, depth down the
    side, height up. The inputs here and the steppers above are one state. */
+/* NO touch-action HERE. It used to say `touch-action:none`, which tells the
+   browser "this element handles every touch gesture itself, do not scroll".
+   The plan handles click and change and nothing else -- it has never dragged,
+   the handler below it says so in as many words -- so the declaration bought
+   nothing and cost everything: any swipe that started on the floor plan was
+   refused, and because the Width / Depth / Ceiling fields sit INSIDE this
+   box, they were dead to a finger too. Measured with a real touch gesture:
+   a 260px swipe from the middle of this box moved the page 0px, while the
+   same swipe one box lower moved it 514px.
+
+   If this ever does need to drag, the value is `pan-y`, the way .baytrack
+   does it: the browser keeps vertical scrolling, the element gets horizontal
+   gestures. Never `none`. */
 .planwrap{position:relative;border:1px solid var(--line);border-radius:var(--r-md);
-  background:var(--paper);overflow:hidden;margin-bottom:.4em;touch-action:none}
+  background:var(--paper);overflow:hidden;margin-bottom:.4em}
 .plansvg{display:block;width:100%;height:auto}
 .proom{fill:var(--paper-2);stroke:var(--ink);stroke-width:2.5}
 .prun{fill:rgba(168,130,76,.5);stroke:rgba(168,130,76,.9);stroke-width:1}
@@ -1445,6 +1458,8 @@ body[data-step="6"] .pacts{margin-top:0}
      laptop. On a phone that is a scroller inside a scroller, and when the
      design is still empty it has nothing to scroll and becomes another dead
      patch under the thumb. It runs full height here and the page carries it. */
+  /* the page is the scroller, so nothing in here may claim the gesture */
+  .planwrap,.plansvg,.basebox,.pfields{touch-action:auto}
   .pscroll,.warnbox,.ptip,.bpanel,.runbody,.pgrid,.addgrid,.ordertab{
     max-height:none;overflow:visible;overscroll-behavior:auto}
   .pscroll{min-height:0;flex:none}

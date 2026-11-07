@@ -2040,7 +2040,7 @@ const FAMS=[
   {lv:2,n:'Everyday',       why:'Woodgrains and solid colours. Two to three weeks.'},
   {lv:3,n:'Textured',       why:'Grain you can feel, synchronised to the print.'},
   {lv:4,n:'Specialty',      why:'Imported decors. Three to four weeks.'},
-  {lv:5,n:'High gloss',     why:'Mirror finish and heavy texture. Longest lead.'}];
+  {lv:5,n:'High gloss',     why:'Mirror gloss and heavy texture. Longest lead.'}];
 /* Which of the two is open. Carcass by default, but if the design has fronts
    in it and the customer has not chosen a front finish yet, that is the one
    worth putting in front of them. */
@@ -2065,7 +2065,7 @@ function paintFinTabs(){
       ${sw(S.finish)}<i>Carcass<em>${S.finish}</em></i></button>
     <button class="ftab ${FINTAB==='fronts'?'on':''}" data-fintab="fronts"
       aria-pressed="${FINTAB==='fronts'}" ${fronts?'':'disabled'}
-      title="${fronts?'The finish on your drawer and door fronts':'Add a drawer, a door or a hamper and this turns on'}">
+      title="${fronts?'The color on your drawer and door fronts':'Add a drawer, a door or a hamper and this turns on'}">
       ${sw(frontNow)}<i>Drawer &amp; door fronts<em>${
         !fronts ? 'Nothing with a front yet'
         : (S.frontFinish ? S.frontFinish : 'Same as the carcass')}</em></i></button>`;
@@ -2076,7 +2076,7 @@ function paintFinTabs(){
     ? (FINTAB === 'fronts'
         ? 'Only the drawer and door fronts change. The shelves and partitions keep the carcass finish.'
         : 'This changes the shelves, partitions and top shelf. Your drawer and door fronts are set on the other tab.')
-    : 'Nothing in this design has a front on it yet, so one finish covers the whole closet.';
+    : 'Nothing in this design has a front on it yet, so one color covers the whole closet.';
   host.insertAdjacentHTML('beforeend', `<p class="ftnote">${note}</p>`);
 }
 
@@ -2200,7 +2200,7 @@ function designRef(){
   return `${t}${cur.bays.length}-${h.toString(36).toUpperCase().slice(0,5).padStart(5,'0')}`;
 }
 function paintOrder(){
-  $('#order').innerHTML=`<table><thead><tr><th>Item</th><th>Qty</th><th>Sq ft</th><th>Finish</th></tr></thead><tbody>`+
+  $('#order').innerHTML=`<table><thead><tr><th>Item</th><th>Qty</th><th>Sq ft</th><th>Color</th></tr></thead><tbody>`+
     cur.order.map(o=>`<tr><td>${o.item}</td><td class="num">${o.qty}</td><td class="num">${o.sq_ft||'&ndash;'}</td><td class="fin">${o.finish}</td></tr>`).join('')+
     `</tbody></table>`;
   $('#orderCount').textContent=`${cur.order.length} line items`;
@@ -2706,7 +2706,7 @@ $('#send').onclick=()=>{
       line('The room', `${q.room.w}" wide · ${q.room.d}" deep · ${q.room.h}" high`)
     + line('The drawing', `${q.bays.length} section${q.bays.length===1?'':'s'}, wall by wall`)
     + line('Every part', `${parts} panels, shelves, rods, boxes, glides and pulls`)
-    + line('Finish', q.finish === q.frontFinish ? q.finish : `${q.finish} carcass · ${q.frontFinish} fronts`)
+    + line('Color', q.finish === q.frontFinish ? q.finish : `${q.finish} carcass · ${q.frontFinish} fronts`)
     + line('Hardware', `${q.pull} in ${q.pullFinish}`)
     + line('Doors', q.door)
     + line('Backs', q.backs)
@@ -2729,7 +2729,7 @@ $('#sendGo')?.addEventListener('click', ()=>{
   location.href=(window.BASE||'')+'contact.html';
 });
 $('#dlOrder').onclick=()=>{
-  const rows=[['Item','Qty','Sq ft','Edgeband ft','Finish','Detail'],
+  const rows=[['Item','Qty','Sq ft','Edgeband ft','Color','Detail'],
     ...cur.order.map(o=>[o.item,o.qty,o.sq_ft,o.edgeband_ft,o.finish,o.detail])];
   const csv=rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const u=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));

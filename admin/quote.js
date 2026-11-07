@@ -164,8 +164,8 @@ export function quoteDoc(quote, client, settings, opts = {}){
   ${d ? `<h2>The design</h2>
   <div class="specs">
     <div class="spec"><span>Room</span><b>${d.room.w}" &times; ${d.room.d}" &times; ${d.room.h}"</b></div>
-    <div class="spec"><span>Carcass finish</span><b>${esc(d.finish||'')}</b></div>
-    ${d.frontFinish && d.frontFinish!==d.finish?`<div class="spec"><span>Front finish</span><b>${esc(d.frontFinish)}</b></div>`:''}
+    <div class="spec"><span>Carcass color</span><b>${esc(d.finish||'')}</b></div>
+    ${d.frontFinish && d.frontFinish!==d.finish?`<div class="spec"><span>Front color</span><b>${esc(d.frontFinish)}</b></div>`:''}
     <div class="spec"><span>Hardware</span><b>${esc(d.pull||'')}${d.pullFinish?', '+esc(d.pullFinish):''}</b></div>
     <div class="spec"><span>Doors</span><b>${esc(d.door||'None')}</b></div>
     <div class="spec"><span>Linear feet</span><b>${n.ft}</b></div>

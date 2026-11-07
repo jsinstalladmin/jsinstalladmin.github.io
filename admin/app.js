@@ -437,7 +437,7 @@ V.quotes = () => {
         <div class="f"><label>Depth (in)</label><input id="pd" type="number" value="24"></div>
         <div class="f"><label>What&rsquo;s in it</label><select id="pl">${MODULE_IDS.map(k=>`<option value="${k}">${MODULES[k].label}</option>`).join('')}</select></div>
       </div>
-      <div class="f"><label>Finish</label><select id="pf">${cat.finishes.map(f=>`<option value="${esc(f.n)}">${esc(f.n)} · Level ${f.lv} · $${f.sq.toFixed(2)}/sq ft</option>`).join('')}</select></div>
+      <div class="f"><label>Color</label><select id="pf">${cat.finishes.map(f=>`<option value="${esc(f.n)}">${esc(f.n)} · Level ${f.lv} · $${f.sq.toFixed(2)}/sq ft</option>`).join('')}</select></div>
       <div class="btnrow"><button class="btn btn-p" id="pgo">Calculate</button></div>
       <div id="pout"></div></div>`);
 };
@@ -993,7 +993,7 @@ function openJob(id, presetDate){
        `<label class="ck"><input type="checkbox" data-crew="${e.id}"${picked.has(e.id)?' checked':''}>
           <span>${esc(e.name)} <i>${esc(DB.regionMeta(e.region).short)}</i></span></label>`).join('')
        :'<span class="sub">Nobody on the books yet. Add the crew under Crew.</span>'}</div></div>
-   <div class="f"><label>Finish</label><input id="m-fi" value="${esc(j?.finish||'')}" placeholder="Decor name, or n/a"></div>
+   <div class="f"><label>Color</label><input id="m-fi" value="${esc(j?.finish||'')}" placeholder="Decor name, or n/a"></div>
    <div class="f"><label>Notes for the crew</label><textarea id="m-no" rows="3" placeholder="Access, parking, what to bring, what is in the way">${esc(j?.notes||'')}</textarea></div>
    <div class="dlgacts">${j?'<button class="btn danger" id="m-del">Delete</button>':''}
      <button class="btn" value="cancel">Cancel</button>
@@ -1083,7 +1083,7 @@ function openQuote(id){
     <div class="f"><label>Title</label><input id="m-t" value="${esc(q?.title||'')}" placeholder="e.g. Primary walk-in, Level 2"></div>
     <div class="f2"><div class="f"><label>Total ($)</label><input id="m-v" type="number" value="${q?.total||0}"></div>
       <div class="f"><label>Status</label><select id="m-st">${['draft','sent','accepted','declined'].map(x=>`<option${q?.status===x?' selected':''}>${x}</option>`).join('')}</select></div></div>
-    <div class="f"><label>Summary</label><input id="m-su" value="${esc(q?.summary||'')}" placeholder="Shape, room size, sections, finish"></div>
+    <div class="f"><label>Summary</label><input id="m-su" value="${esc(q?.summary||'')}" placeholder="Shape, room size, sections, color"></div>
     ${d?`
     <div class="dlglist"><label>What was drawn</label>
       <table class="kv"><tbody>
@@ -1218,7 +1218,7 @@ function openQuote(id){
   };
   const csv = dlg.querySelector('#q-csv');
   if(csv) csv.onclick = () => {
-    const rows = [['Item','Qty','Sq ft','Edgeband ft','Finish','Detail'],
+    const rows = [['Item','Qty','Sq ft','Edgeband ft','Color','Detail'],
       ...(d.order||[]).map(o=>[o.item,o.qty,o.sq_ft,o.edgeband_ft,o.finish,o.detail])];
     const text = rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
     const u = URL.createObjectURL(new Blob([text],{type:'text/csv'}));
@@ -1251,7 +1251,7 @@ function openDay(iso){
       ${c.addr ? `<p class="djaddr"><a href="#" data-map="${esc(c.addr)}" data-stop="1">${esc(c.addr)}</a></p>` : ''}
       <div class="djmeta">
         <span><em>Crew</em>${crew.length ? esc(crew.join(' + ')) : 'Unassigned'}</span>
-        ${j.finish && j.finish !== 'n/a' ? `<span><em>Finish</em>${esc(j.finish)}</span>` : ''}
+        ${j.finish && j.finish !== 'n/a' ? `<span><em>Color</em>${esc(j.finish)}</span>` : ''}
         ${DB.region()==='all' ? `<span><em>Region</em>${DB.regionMeta(j.region).short}</span>` : ''}
       </div>
       ${j.notes ? `<p class="djnote">${esc(j.notes)}</p>` : ''}

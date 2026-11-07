@@ -22,7 +22,7 @@ function draw(){
     <span class="nm">${f.n}</span><span class="lv">Level ${f.lv} · ${f.lead} wks</span></button>`).join('');
   const photo=list.filter(f=>f.x>=0).length;
   const noPhoto=list.length-photo;
-  count.textContent=`Showing ${list.length} of ${cat.finishes.length} finishes${lv!=='all'?` — Level ${lv} is ${LEVEL_NOTE[lv]||''}`:''}.`
+  count.textContent=`Showing ${list.length} of ${cat.finishes.length} colors${lv!=='all'?` — Level ${lv} is ${LEVEL_NOTE[lv]||''}`:''}.`
     + (noPhoto ? ` ${photo} have a photographed swatch; we bring the other ${noPhoto} as a physical sample to the measure.` : ' All of these have a photographed swatch.');
 }
 document.querySelectorAll('[data-lv]').forEach(b=>b.addEventListener('click',()=>{

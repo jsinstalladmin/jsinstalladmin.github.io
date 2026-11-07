@@ -129,7 +129,7 @@ export function fullText(e){
   row('Backs', d.backs);
   row('The corner', d.corner);
   row('Doors', d.door);
-  row('Finish', d.finish === d.frontFinish ? d.finish
+  row('Color', d.finish === d.frontFinish ? d.finish
       : `${d.finish} carcass · ${d.frontFinish} fronts`);
   row('Hardware', `${d.pull} in ${d.pullFinish}`);
 

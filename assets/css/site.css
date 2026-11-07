@@ -198,6 +198,24 @@ body.over-dark .hdr:not(.solid) .btn-ghost{border-color:rgba(248,245,240,.4);col
 .drawer .x{position:absolute;top:22px;right:22px;background:transparent;border:1px solid var(--line-dk);
   color:inherit;border-radius:var(--r-pill);padding:.5em 1em;font:inherit;cursor:pointer}
 
+/* ── the colour search box ──
+   It was styled inline with `border:1px solid var(--rule)`, and --rule is not
+   a variable this stylesheet has ever defined. An undefined custom property
+   with no fallback makes the whole declaration invalid at computed-value
+   time, so the border was dropped and the field sat on the page with no edge
+   at all. The site's line colour is --line. */
+.colsearch{display:flex;align-items:center;gap:.5em;margin-left:auto;
+  padding:.5em .9em;border:1px solid var(--line);border-radius:var(--r-pill);
+  background:var(--paper);min-width:min(230px,100%);
+  transition:border-color .2s var(--ease-out),box-shadow .2s var(--ease-out)}
+.colsearch:focus-within{border-color:var(--ink);box-shadow:0 0 0 3px rgba(26,18,10,.07)}
+.colsearch svg{width:15px;height:15px;flex:0 0 auto;fill:none;stroke:var(--muted);
+  stroke-width:1.7;stroke-linecap:round}
+.colsearch input{flex:1;min-width:0;border:0;background:transparent;font:inherit;
+  font-size:.86rem;color:var(--ink);outline:0}
+.colsearch input::-webkit-search-cancel-button{cursor:pointer}
+@media(max-width:700px){ .colsearch{margin-left:0;width:100%} }
+
 /* ── the drawer's groups (built by foldDrawer in site.js) ──
    Five group names fit on one screen; opening one drops its links in under
    it and closes whichever was open before, so the menu is never longer than

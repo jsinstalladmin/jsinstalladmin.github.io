@@ -14,7 +14,7 @@ const KEY = 'js_tour_v1';
 const STEPS = [
   { sel: '.steptabs',
     title: 'Five steps, start to finish',
-    text:  'Your space, the layout, the finish, the handles, then your order with the price. Move with the button at the bottom of each step, or jump straight to any of them up here.' },
+    text:  'Your space, the layout, the color, the handles, then your order with the price. Move with the button at the bottom of each step, or jump straight to any of them up here.' },
   { sel: '#plan', tab: '1',
     title: 'Start with the real room',
     text:  'Width, depth, ceiling, and what the baseboard is doing. Everything after this is cut from these numbers, so it is worth getting them off the wall rather than guessing.' },
