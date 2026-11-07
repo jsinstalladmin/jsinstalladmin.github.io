@@ -331,22 +331,60 @@ V.jobs = () => {
 };
 
 /* ───────── quotes ───────── */
+/* A quote is not one number. It is cabinetry, plus installation worked out
+   from the linear feet, plus tax, and a deposit that books the job. All of
+   that already existed inside quoteNumbers and none of it was on this page:
+   the list showed a single "Total" column, so you could not see what a quote
+   was actually made of without opening it one at a time.
+
+   It also could not tell you the one thing most likely to be wrong, which is
+   that with no install rate set EVERY quote on the page is cabinetry only. */
 V.quotes = () => {
-  const q = [...DB.quotes()].sort((a,b)=>b.created.localeCompare(a.created));
+  const s = DB.settings();
+  const all = [...DB.quotes()].sort((a,b)=>b.created.localeCompare(a.created));
+  const N = q => quoteNumbers(q, s);
+  const sum = list => list.reduce((a,q)=>a+N(q).total, 0);
+
+  const out  = all.filter(q=>q.status==='sent');
+  const draft= all.filter(q=>q.status==='draft');
+  const won  = all.filter(q=>q.status==='accepted');
+  const lost = all.filter(q=>q.status==='declined');
+  const noRate = !(+s.installPerFt);
+
+  const row = q => { const n = N(q); return `<tr data-quote="${q.id}">
+      <td class="mono">${fmtD(q.created)}</td>
+      <td>${esc(DB.clientName(q.client))}</td>
+      <td><b>${esc(q.title)}</b>${q.summary?`<br><span class="sub">${esc(q.summary)}</span>`:''}
+          ${q.design?'<span class="tagdot">from the 3D builder</span>':''}</td>
+      ${regionCell(q)}
+      <td class="mono">${money(n.cabinetry)}</td>
+      <td class="mono">${n.install==null?'<span class="sub">not set</span>':money(n.install)}</td>
+      <td class="mono">${n.tax?money(n.tax):'<span class="sub">—</span>'}</td>
+      <td class="mono"><b>${money(n.total)}</b></td>
+      <td class="mono sub">${money(n.deposit)}</td></tr>`; };
+
+  const tbl = list => scroll(`<table><thead><tr>
+      <th>Date</th><th>Client</th><th>Quote</th>${DB.region()==='all'?'<th>Region</th>':''}
+      <th class="mono">Cabinetry</th><th class="mono">Install</th><th class="mono">Tax</th>
+      <th class="mono">Total</th><th class="mono">Deposit</th></tr></thead>
+      <tbody>${list.map(row).join('')}</tbody></table>`);
+
   return head('Quotes',
-      `${q.length} on file · ${money(q.filter(x=>x.status==='sent').reduce((a,x)=>a+x.total,0))} awaiting a reply · click any row to open it`,
+      `${all.length} on file · ${money(sum(out))} out awaiting a reply · ${money(sum(won))} accepted`,
       `<button class="btn btn-p" data-act="newquote">+ New quote</button>`)
-  + panel('', '', q.length
-    ? scroll(`<table><thead><tr><th>Date</th><th>Client</th><th>Quote</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Status</th><th class="mono">Total</th></tr></thead><tbody>
-      ${q.map(x=>`<tr data-quote="${x.id}"><td class="mono">${fmtD(x.created)}</td>
-        <td>${esc(DB.clientName(x.client))}</td>
-        <td><b>${esc(x.title)}</b>${x.summary?`<br><span class="sub">${esc(x.summary)}</span>`:''}
-            ${x.design?'<span class="tagdot">from the 3D builder</span>':''}</td>
-        ${regionCell(x)}
-        <td><span class="pill ${x.status==='accepted'?'p-won':x.status==='sent'?'p-quoted':'p-lead'} cap">${esc(x.status)}</span></td>
-        <td class="mono">${money(x.total)}</td></tr>`).join('')}
-    </tbody></table>`)
-    : empty('No quotes in this region yet.'))
+
+  + (noRate ? panel('', '', `<div class="note warn"><b>No installation rate is set,
+      so every quote here is cabinetry only.</b> Put the rate per linear foot and the
+      minimum charge into <button class="lnkbtn" data-v="settings">Settings</button>
+      and all of these recalculate. Tax and the deposit percentage are there too.</div>`) : '')
+
+  + panel('Out, waiting on a reply', out.length ? money(sum(out)) : '',
+      out.length ? tbl(out) : empty('Nothing is out with a customer.'), out.length?'accent':'')
+  + panel('Drafts', draft.length ? `${draft.length} not sent yet` : '',
+      draft.length ? tbl(draft) : empty('No drafts.'))
+  + panel('Accepted', won.length ? money(sum(won)) : '',
+      won.length ? tbl(won) : empty('None accepted yet.'))
+  + (lost.length ? panel('Declined', `${lost.length}`, tbl(lost)) : '')
 
   + panel('Price a closet', 'Same engine as the website builder', `<div class="bd">
       <div class="f3">
@@ -407,6 +445,24 @@ V.crew = () => {
    in the right region with the whole parts list attached. */
 let INBOX_DRAFT = null;
 
+/* How long has this been sitting? The list was newest first, which buries the
+   one that has been waiting longest under the one that came in an hour ago,
+   and the old one is always the problem. Oldest first now, with the wait
+   spelled out, and anything past two days says so in red. */
+function leadAge(l){
+  const t = Date.parse(l.created || l.at || '');
+  if(!t) return null;
+  return Math.max(0, Math.floor((Date.now() - t) / 864e5));
+}
+function ageTag(l){
+  const d = leadAge(l);
+  if(d == null) return '<span class="sub">—</span>';
+  const txt = d === 0 ? 'today' : d === 1 ? '1 day' : `${d} days`;
+  return d >= 2 ? `<span class="pill p-lost">${txt}</span>`
+       : d === 1 ? `<span class="pill p-quoted">${txt}</span>`
+                 : `<span class="sub">${txt}</span>`;
+}
+
 V.inbox = () => {
   const asEnq = l => ({ ...l, regionId: l.region_id });
   const fresh = DB.newLeads().map(asEnq)
@@ -420,9 +476,10 @@ V.inbox = () => {
       `<button class="btn btn-sm" data-act="inbox-sync">Check for new ones</button>`)
 
   + panel('Waiting on you', fresh.length ? `${fresh.length} new` : '', fresh.length
-      ? scroll(`<table><thead><tr><th>Came in</th><th>Customer</th><th>What they drew</th><th class="mono">Estimate</th><th></th></tr></thead><tbody>
-        ${fresh.map(l=>`<tr>
+      ? scroll(`<table><thead><tr><th>Came in</th><th>Waiting</th><th>Customer</th><th>What they drew</th><th class="mono">Estimate</th><th></th></tr></thead><tbody>
+        ${[...fresh].sort((a,b)=>(a.created||'').localeCompare(b.created||'')).map(l=>`<tr>
           <td class="mono">${when(l)}</td>
+          <td>${ageTag(l)}</td>
           <td><b>${esc(l.contact?.name||'Unknown')}</b><br><span class="sub">${esc(l.contact?.phone||'')} ${esc(l.contact?.email||'')}</span></td>
           <td class="sub">${esc(describe(l))}<br><span class="sub">${esc([l.contact?.address,l.contact?.location].filter(Boolean).join(', '))}</span></td>
           <td class="mono">${money(l.design?.price||0)}</td>
@@ -475,22 +532,31 @@ function inboxPreview(e){
       ${e.contact.message?`<tr><th>They said</th><td>${esc(e.contact.message)}</td></tr>`:''}
     </tbody></table>
     ${existing?`<div class="note warn">There is already a client called <b>${esc(existing.name)}</b> in ${esc(DB.regionMeta(existing.region).name)}. Filing this adds the job to them rather than making a second record.</div>`:''}
-    <div class="f"><label>File it in</label><select id="inbox-region">
-      ${REGIONS.map(r=>`<option value="${r.id}"${r.id===(e.regionId||DB.region())?' selected':''}>${esc(r.name)}</option>`).join('')}
-    </select></div>
-    <div class="btnrow"><button class="btn btn-p" data-act="inbox-file">File it: client, measure visit and a draft quote</button></div>`;
+    <div class="f2">
+      <div class="f"><label>Which region</label><select id="inbox-region">
+        ${REGIONS.map(r=>`<option value="${r.id}"${r.id===(e.regionId||DB.region())?' selected':''}>${esc(r.name)}</option>`).join('')}
+      </select></div>
+      <div class="f"><label>Onto the board at</label><select id="inbox-stage">
+        ${PIPE.filter(x=>x.id!=='lost').map(x=>`<option value="${x.id}"${x.id==='new'?' selected':''}>${esc(x.label)}</option>`).join('')}
+      </select></div>
+    </div>
+    <p class="note">Filing makes the client, books a measure visit and starts a draft quote
+      with the whole parts list on it. Pick the column it should land in: somebody you have
+      already spoken to does not belong back in <b>New lead</b>.</p>
+    <div class="btnrow"><button class="btn btn-p" data-act="inbox-file">File it onto the board</button></div>`;
 }
 
 function inboxFile(){
   const e = INBOX_DRAFT; if(!e) return;
   const region = $('#inbox-region')?.value || DB.region();
+  const stage  = $('#inbox-stage')?.value || 'new';
   const d = e.design;
   let client = DB.findClient(e.contact.name);
   if(!client){
     client = DB.addClient({ region, name:e.contact.name || 'Website enquiry',
       phone:e.contact.phone||'', email:e.contact.email||'',
       addr:[e.contact.address, e.contact.location].filter(Boolean).join(', '),
-      source: e.source || 'Website', notes: e.contact.message || '' });
+      source: e.source || 'Website', notes: e.contact.message || '', stage });
   } else {
     DB.updateClient(client.id, {
       phone: client.phone || e.contact.phone || '',
@@ -1008,7 +1074,35 @@ function openQuote(id){
     const p = { client:$('#m-c').value, region: cl?cl.region:DB.region(),
       title:$('#m-t').value.trim()||'Untitled quote', total:+$('#m-v').value,
       status:$('#m-st').value, summary:$('#m-su').value };
-    q ? DB.updateQuote(q.id,p) : DB.addQuote(p);
+    const was = q?.status;
+    const saved = q ? DB.updateQuote(q.id,p) : DB.addQuote(p);
+
+    /* ACCEPTING A QUOTE USED TO DO NOTHING.
+
+       You changed the dropdown to "accepted", the row went green, and that was
+       the end of it: no job existed, nothing was on the schedule, and the
+       money never reached the installed total because no job carried it. The
+       workflow stopped at the one step that matters. Accepting now books the
+       install for real, with the full quoted figure on it, and moves the
+       client to Booked in. */
+    if(p.status === 'accepted' && was !== 'accepted'){
+      const n = quoteNumbers(saved, DB.settings());
+      const c = DB.client(p.client);
+      const already = DB.jobs('all').some(j => j.client === p.client && j.kind === 'install'
+                        && j.title === p.title);
+      if(!already){
+        DB.addJob({ region: c?.region || DB.region(), client: p.client, kind:'install',
+                    title: p.title, stage:'won', value: n.total,
+                    date: addDays(today(), 21),
+                    finish: saved.design?.finish || 'n/a',
+                    notes: `From the accepted quote. ${money(n.cabinetry)} cabinetry`
+                         + (n.install ? ` + ${money(n.install)} installation` : '')
+                         + (n.tax ? ` + ${money(n.tax)} tax` : '') + '.' });
+        if(c && c.stage !== 'won') DB.setClientStage(p.client, 'won');
+        toast(`Accepted. The install is booked at ${money(n.total)} and ${c?.name||'the client'} is Booked in.`);
+        close(); render(); return;
+      }
+    }
     close(); render(); toast(q?'Saved.':'Quote added.');
   };
   /* The quote is what the customer signs. The order sheet is the other half:

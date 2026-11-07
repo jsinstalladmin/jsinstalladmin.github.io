@@ -31,15 +31,16 @@ if(design && note){
 }
 
 /* ── what they pressed to get here ──────────────────────────────────────
-   The wall-bed page's three builds are configurations the 3D builder cannot
+   JS CLOSETS DOES NOT BUILD WALL BEDS. There is no wall bed page, no card
+   for them on the homepage, no nav entry and no option on this form. They
+   have been removed more than once and must not be added back.
+
+   Some pages' builds are configurations the 3D builder cannot
    draw, so those cards come here instead of into the designer. The one they
    pressed arrives as ?project=, picks the room out of the list and opens the
    message with the configuration's name, so Joseph is not guessing which of
    the three they meant. */
 const PROJECT_FROM_CARD = {
-  'queen vertical'  : ['Wall Beds', 'a queen vertical wall bed, with a tower each side'],
-  'queen horizontal': ['Wall Beds', 'a queen horizontal wall bed, for a wall with a window above it'],
-  'bed and office'  : ['Wall Beds', 'a queen wall bed with a desk that stays up when the bed comes down'],
 };
 (function carryProject(){
   const want = new URLSearchParams(location.search).get('project');
