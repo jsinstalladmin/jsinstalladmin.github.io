@@ -1005,9 +1005,6 @@ export const PRESETS = [
     desc:'Tilt-out laundry hamper with a hanging rod over it. The rod is a short hang, because a hamper takes the bottom 28".',
     stack:[{m:'HAMPER',h:28,o:{}},{m:'SHORT_HANG',h:null,o:{}}] },
 
-  { id:'hamper-shelf', name:'Hamper + Shelves',  img:'hamper', art:'hamper-shelf',
-    desc:'The same tilt-out hamper with folded storage above it instead of hanging.',
-    stack:[{m:'HAMPER',h:28,o:{}},{m:'SHELVES',h:null,o:{n:4}}] },
 
   { id:'cubbies',     name:'Cubbies',           img:'cubbies',
     desc:'A grid of open compartments for bags, hats and folded knits.',
