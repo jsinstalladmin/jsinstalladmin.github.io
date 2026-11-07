@@ -31,6 +31,27 @@
 .scene button[aria-pressed="true"]{background:var(--paper);color:var(--ink)}
 @media(max-width:620px){.scene button span{display:none}.scene button{padding:.55em}}
 
+/* ── THE DRAWING KEEPS ITS MIDDLE ON A PHONE ──
+   Four things float over the canvas: the h1, the instruction, the scene
+   controls and the drag hint. On a laptop there is room for all four in the
+   corners. On a 390px phone the stage is about 360px tall and 370 wide, and
+   they were stacked two deep at the top and two abreast at the bottom --
+   measured, the control pill and the hint together wanted 426px of a 370px
+   row, so they overlapped, and between them they covered the top shelf and
+   the toe kick, which are the two things a visitor looks at.
+
+   So on a phone they go to opposite corners and the hint takes the full
+   width underneath on its own line. The h1 stays in the DOM and stays
+   visible: it is the page's only h1. */
+@media(max-width:720px){
+  .stage-top{top:12px;left:12px;right:152px;gap:.25em}
+  .stage-h1{font-size:.88rem}
+  .stage-ttl{font-size:.58rem;letter-spacing:.1em;padding:.45em .7em}
+  .scene{left:auto;right:12px;top:12px;bottom:auto;padding:3px;gap:1px}
+  .bhint{left:12px;right:12px;bottom:12px;text-align:center;font-size:.64rem;
+    padding:.4em .6em}
+}
+
 /* ---------- rail ---------- */
 .bpanel{display:flex;flex-direction:column;border-left:1px solid var(--line);background:var(--paper);
   max-height:calc(100svh - 68px)}
@@ -131,21 +152,32 @@
 .runhd b{font-size:.86rem;color:var(--ink);font-weight:500}
 .runhd span{font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .runhd span.over{color:#B4553F}
-.baystrip{display:flex;gap:3px;height:132px;padding:4px;border:1px solid var(--line);
-  border-radius:var(--r-sm);background:var(--paper-2)}
-.bay{position:relative;min-width:26px;border:1px solid var(--line);border-radius:6px;background:var(--paper);
-  cursor:pointer;padding:3px 3px 15px;display:flex;flex-direction:column;transition:.2s var(--ease)}
-.bay:hover{border-color:var(--ink)}
-.bay.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--paper))}
-.bay.bad{border-color:#C2705A;background:rgba(194,112,90,.07)}
-.bstack{flex:1;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+/* THE WALL PLAN IS .baytrack, FURTHER DOWN. It used to be .baystrip: a flex
+   row of equal boxes. The strip is gone from the markup but its CSS was still
+   being served, and two of its declarations were still landing on the new
+   absolutely-positioned track:
+
+     .bw{position:absolute;bottom:2px}   pulled the width label out of the
+                                         bay's flex column and dropped it on
+                                         top of the "24 inches from the
+                                         corner" figure underneath it, so the
+                                         two numbers printed over each other
+     .bstack{flex:1}                     made the mini-drawing greedy, which
+                                         squeezed both labels into the last
+                                         few pixels of the bay
+
+   The replacement rules (.baytrack .bay .bw, .baytrack .bay .bstack) are more
+   specific, so they won on font and colour and looked like they had taken
+   over, but neither of them resets `position` or `flex`, and an unreset
+   declaration from a dead rule is still a live declaration. Deleted rather
+   than overridden.
+
+   .baystrip, .bay.bad and .bay.gap are all dead markup -- builder.js emits
+   none of them -- so they go with it. */
 .mb{display:grid;place-items:center;min-height:9px;border-radius:3px;background:var(--paper-3);overflow:hidden}
 .mb svg{width:70%;height:70%;max-height:26px;fill:none;stroke:var(--muted);stroke-width:1.6;vector-effect:non-scaling-stroke}
 .bay.on .mb{background:color-mix(in srgb,var(--accent) 17%,var(--paper-3))}
 .bay.on .mb svg{stroke:var(--accent-ink)}
-.bw{position:absolute;left:0;right:0;bottom:2px;text-align:center;font-size:.6rem;
-  color:var(--muted);font-variant-numeric:tabular-nums}
-.bayacts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
 .mini{font:inherit;font-size:.74rem;padding:.35em .7em;border:1px solid var(--line);background:transparent;
   border-radius:var(--r-pill);cursor:pointer;color:var(--body);transition:.2s}
 .mini:hover:not(:disabled){border-color:var(--ink);color:var(--ink)}
@@ -249,13 +281,8 @@
    The strip now shows what is actually on the wall plus the space still
    free, so adding a section reads as consuming real wall rather than
    reshuffling a fixed set of boxes. */
-.bay.gap{flex:0 0 auto;display:grid;place-items:center;border:1px dashed var(--line);
-  border-radius:10px;background:repeating-linear-gradient(135deg,
-    transparent 0 6px, rgba(26,18,10,.035) 6px 12px);
-  color:var(--muted);font-size:.66rem;letter-spacing:.06em;min-height:62px}
 .emptyrun{margin:4px 0 10px;padding:14px 16px;border:1px dashed var(--line);
   border-radius:12px;color:var(--muted);font-size:.86rem;background:rgba(26,18,10,.02)}
-.bayacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .bayacts .addw{font-variant-numeric:tabular-nums;font-weight:500}
 
 /* a part that cannot go in the selected bay */
@@ -276,7 +303,6 @@
 .bay:active{cursor:grabbing}
 .bay.dragging{opacity:.4}
 .bay.over{outline:2px solid var(--accent);outline-offset:2px}
-.bay.gap{cursor:default}
 
 /* the real dimensions, on the card — you should not have to add a part to
    find out it needs 70" of a 84" bay */
@@ -462,6 +488,24 @@ body[data-step="6"] .pacts{margin-top:0}
 @media(max-width:1060px){
   .bpanel{border-top:0}
   .bwrap{padding:10px;gap:10px}
+
+  /* ══════════════════════════════════════════════════════════════════
+     THE PANEL IS NOT A SCROLL BOX ON A PHONE.
+
+     On a laptop .pscroll is a fixed-height column that scrolls inside
+     itself, and overscroll-behavior:contain stops a flick inside it from
+     also dragging the page. On a phone it has no fixed height, so it grows
+     to the full height of its content and there is nothing to scroll — but
+     `contain` still applies. A finger landing anywhere in it is therefore
+     caught by a container that cannot move and is refused permission to
+     scroll the page instead. The whole bottom two thirds of the builder,
+     which is every step of it, simply did not respond to a swipe.
+
+     On a phone the page is the scroller. The panel just stacks. */
+  .pscroll{overflow:visible;overscroll-behavior:auto;max-height:none;min-height:0;flex:none}
+  .warnbox{max-height:none;overflow:visible;overscroll-behavior:auto}
+  .ptip{max-height:none;overflow:visible;overscroll-behavior:auto}
+  .bpanel{max-height:none;overflow:visible}
 }
 
 /* ---- the price box: one line of caveat, not a paragraph ----
@@ -500,21 +544,25 @@ body[data-step="6"] .pacts{margin-top:0}
 .addrow{margin-top:.75em}
 .addlbl{display:block;font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;
   color:var(--muted);margin-bottom:.5em}
-.addgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
-.wcard{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;
-  padding:9px 7px 7px;border:1px solid var(--line);border-radius:10px;
-  background:var(--paper);cursor:pointer;font:inherit;transition:.22s var(--ease)}
-.wcard .wbar{display:block;height:5px;border-radius:3px;background:var(--line-2);overflow:hidden}
-.wcard .wbar span{display:block;height:100%;border-radius:3px;background:var(--accent,#A8824C);opacity:.55}
-.wcard b{font-size:.73rem;font-weight:500;color:var(--ink);text-align:center;
-  font-variant-numeric:tabular-nums;white-space:nowrap}
-.wcard:hover{border-color:var(--ink);transform:translateY(-1px)}
-.wcard:hover .wbar span{opacity:1}
-.wcard.fill{grid-column:span 2}
+/* THE SECOND, LIVE DEFINITION OF .addgrid / .wcard IS FURTHER DOWN THIS
+   FILE. The first generation of these rules used to sit here and it was
+   still being served, which broke the section-width picker on a phone:
+
+     old rule   .wcard.fill{grid-column:span 3}   (under @media max-480)
+     new rule   .addgrid{grid-template-columns:1fr} (under @media max-420)
+
+   One explicit column plus an item spanning three means the grid invents
+   two IMPLICIT columns, and implicit columns are sized `auto`, so they take
+   their content width and squeeze the only real track down to nothing.
+   Measured at 390px: tracks came out 25.78px / 116.81px / 116.81px, so the
+   24" and 32" cards were 26px wide and their text ran out underneath the
+   card beside them. That is the "stuff is not aligned" on step 2.
+
+   Only .addutil and .addlbl survive from the old block, because the new
+   one never redefines them. Everything else is deleted, not overridden:
+   an overridden rule is a rule waiting to leak again. */
 .addutil{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
 .addutil .mini{width:100%}
-.addutil .danger:hover{border-color:#B4553F;color:#B4553F}
-@media(max-width:480px){ .addgrid{grid-template-columns:repeat(3,1fr)} .wcard.fill{grid-column:span 3} }
 
 /* One grid for ready-made layouts AND single parts. They were two separate
    pickers doing the same job, which is what made the panel feel twice as
@@ -701,7 +749,15 @@ body[data-step="6"] .pacts{margin-top:0}
    and the 4:3 photo is cropped so hard you cannot tell a drawer bank from a
    shoe shelf, which is the one thing the picture is there to do. */
 .pgrid{grid-template-columns:repeat(2,1fr)}
-@media(max-width:420px){ .pgrid{grid-template-columns:1fr} }
+/* TWO ACROSS ON A PHONE AS WELL. This used to collapse to one column under
+   420px, which sounds right and is not: the panel is only 275px wide there,
+   so one column makes each tile 239px, and the card art is a 3/4 portrait
+   frame with object-fit:contain. At 239px wide that frame is 319px tall and
+   the photo -- which is close to square -- sits in the middle of it with
+   about 80px of flat grey above and below. Every part in the picker became a
+   400px-tall card with two grey bands, and choosing a part meant scrolling
+   past eleven of them. At two across the tile is 115px, which is what the
+   art was cut for. */
 /* The art is a tall closet section sitting in a wide frame. Cropping it to
    4:3 cut the top and bottom off the very thing the picture is for, and
    letterboxing it inside 4:3 shrank it to a thumbnail. A portrait frame fits
@@ -779,19 +835,6 @@ body[data-step="6"] .pacts{margin-top:0}
 /* ── the free stretch of wall is a target, not a label ──
    It sits in the strip exactly where a new section would go, so clicking it
    puts one there, beside what is already built. */
-.bay.gap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2em;
-  border:1px dashed var(--line);border-radius:10px;background:
-  repeating-linear-gradient(135deg,transparent 0 7px,rgba(23,18,14,.035) 7px 14px);
-  color:var(--muted);font-size:.66rem;cursor:default;min-width:0;overflow:hidden}
-.bay.gap .gapn{font-family:Archivo,system-ui,sans-serif;font-variant-numeric:tabular-nums;
-  white-space:nowrap}
-.bay.gap .gapadd{font-size:.6rem;letter-spacing:.06em;color:var(--accent,#A8824C);
-  opacity:0;transition:opacity .2s;white-space:nowrap}
-.bay.gap.can{cursor:pointer}
-.bay.gap.can:hover{border-color:var(--accent,#A8824C);border-style:solid;
-  background:rgba(168,130,76,.07)}
-.bay.gap.can:hover .gapadd{opacity:1}
-.bay.gap.can:hover .gapn{color:var(--ink)}
 
 /* the top shelf is a per-section choice, shown next to the section's width */
 .toptog{display:inline-flex;align-items:center;gap:.35em;border:1px solid var(--line);
@@ -909,8 +952,11 @@ body[data-step="6"] .pacts{margin-top:0}
 .addhd span{display:block;font-size:.66rem;color:var(--muted);margin-top:.15em;
   font-variant-numeric:tabular-nums}
 .addhd.full b{color:#B4553F}
+/* grid-column:1/-1 on the fill card, never `span N`: a span longer than the
+   track list silently creates implicit columns (see the note above). 1/-1
+   means "first line to last line of the EXPLICIT grid", so the row stays
+   two tracks wide whatever the viewport. */
 .addgrid{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}
-@media(max-width:420px){ .addgrid{grid-template-columns:1fr} }
 .wcard{display:flex;flex-direction:column;align-items:flex-start;gap:.3em;text-align:left;
   border:1px solid var(--line);border-radius:11px;padding:.6em .7em;background:var(--card,#fff);
   cursor:pointer;transition:border-color .22s,transform .22s,box-shadow .22s}
@@ -922,7 +968,7 @@ body[data-step="6"] .pacts{margin-top:0}
   overflow:hidden}
 .wcard .wbar > span{display:block;height:100%;background:var(--accent,#A8824C);border-radius:2px}
 .wcard em{font-style:normal;font-size:.63rem;line-height:1.4;color:var(--muted)}
-.wcard.fill{border-style:dashed}
+.wcard.fill{grid-column:1 / -1;border-style:dashed}
 .wcard.fill b{color:var(--accent,#A8824C)}
 .addutil.one{margin-top:8px}
 .addutil .mini{width:100%;border:1px solid var(--line);border-radius:10px;background:transparent;
@@ -957,6 +1003,29 @@ body[data-step="6"] .pacts{margin-top:0}
 .selacts .rmsec:hover{background:#B4553F;color:#fff;border-color:#B4553F}
 .toptog{flex:0 0 auto}
 @media(max-width:430px){ .selacts .rmsec{margin-left:0} }
+
+/* ── A FINGER IS NOT A MOUSE POINTER ──
+   Everything below was sized for a cursor, which lands on one pixel. The
+   smallest of them measured 26x26 and one measured 31x17. Apple asks for
+   44x44 and Google for 48dp; these are inside a dense panel, so they go to
+   40, which is the smallest a thumb hits reliably, and the row keeps its
+   shape. Touch only -- the pointer:coarse query leaves every desktop size
+   exactly where it was. */
+@media(pointer:coarse){
+  .selacts .wadj button,.selacts .movw button{width:40px;height:40px;font-size:1rem}
+  .selacts .wadj i{font-size:.8rem;padding:0 .3em}
+  .selacts .rmsec{min-height:40px;padding:.5em .9em}
+  .btn-mini{min-height:40px;padding:.5em .95em}
+  .pinfo{width:36px;height:36px}
+  /* "Close" was a bare inline word 17px tall sitting against other text */
+  .swapback{display:inline-block;min-height:34px;line-height:34px;padding:0 .5em;
+    margin-left:.15em}
+  .diminput input{min-height:40px}
+  .slotx{width:36px;height:36px}
+  /* the finish search: the pill was tall enough, the input inside it was not,
+     and only the input takes a tap */
+  .srch input{min-height:36px}
+}
 
 /* a part's name truncates rather than pushing the row's buttons off the edge */
 .srow{grid-template-columns:30px minmax(0,1fr) auto auto}
@@ -1093,8 +1162,12 @@ body[data-step="6"] .pacts{margin-top:0}
    inside the frame loses nothing, and the frame is painted the same colour
    as the drawings' own background (#E3E4DE, measured off the files), so
    there is no visible letterbox, just a taller card. */
-.pcard > img{object-fit:contain;background:#E3E4DE}
-.pcard .pstack img{object-fit:contain;background:#E3E4DE}
+/* The background comes from the inline style builder.js writes on each img:
+   the measured edge colour of that photo. #E3E4DE used to be hard-coded here
+   and showed as a cool grey band against warm-paper photography. The value
+   below is only the fallback for an image with no measurement. */
+.pcard > img{object-fit:contain;background:#F1EEEA}
+.pcard .pstack img{object-fit:contain;background:#F1EEEA}
 
 /* ── The selected fitting row ────────────────────────────────────────────
    Marked with a class rather than a re-render, because re-rendering the list
@@ -1241,6 +1314,24 @@ body[data-step="6"] .pacts{margin-top:0}
 .slotx{width:24px;height:24px;border-radius:6px;border:1px solid var(--line);
   background:var(--paper);color:var(--muted);cursor:pointer;line-height:1;font-size:.9rem}
 .slotx:hover{border-color:#C2705A;color:#C2705A}
+
+/* ── the empty slot card on a phone ──
+   Three columns -- icon, text, button -- need about 320px before the middle
+   one starts breaking words. At 390px minus the panel and card padding the
+   middle column gets 150px, so "Nothing at the top yet" wrapped to two lines,
+   "Optional. Drawers, a hamper, baskets, shoes or shelving" to three, and the
+   Choose button floated in the vertical middle of a five-line block with its
+   own line of white space above and below it.
+
+   Two rows instead: the icon and the name together, then the button across
+   the full width where a thumb expects to find it. */
+@media(max-width:720px){
+  .slotcard.empty{grid-template-columns:30px minmax(0,1fr);gap:6px 8px;
+    align-items:start;padding:.75em .8em}
+  .slotcard.empty .sico{padding-top:.15em}
+  .slotcard.empty .slotgo{grid-column:1 / -1;justify-self:stretch;text-align:center;
+    padding:.6em .78em;margin-top:.2em}
+}
 
 /* the worktop is a cap on the bottom piece, not a piece of its own */
 .ctop{display:flex;gap:.55em;align-items:flex-start;padding:.1em .7em .7em;

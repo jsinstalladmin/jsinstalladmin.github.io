@@ -1339,8 +1339,24 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
 @media(max-width:860px){
   .hero-cap{bottom:clamp(76px,11vh,110px)}
   .hero-cap .box{max-width:none}
-  .hero-toggle{top:calc(env(safe-area-inset-top,0px) + 72px)}
   body[data-hero-mode="play"] .hero-scroll{opacity:.5}
+
+  /* NOTHING SCRUBS ON A PHONE, SO NOTHING CHOOSES EITHER.
+     The scroll-scrubbed hero is a desktop idea (see hero.js): on a phone the
+     film simply plays. That makes two controls meaningless and both were in
+     the way of the thumb:
+
+       .hero-toggle  Daylight / Evening -- it reloads a second video over a
+                     cellular connection to change a look the visitor cannot
+                     compare side by side. Desktop keeps it.
+       .abflip       the A-Scroll / B-Video chooser. It is a decision aid for
+                     Joseph, not a visitor control, and on a phone the two
+                     options render the same hero. It also sat fixed at the
+                     bottom centre, directly over the caption. Desktop keeps it.
+
+     Hidden, not deleted: the desktop page still needs both. */
+  .hero-toggle{display:none}
+  .abflip{display:none}
 }
 
 /* ── filtering the layouts by which half they belong to ── */

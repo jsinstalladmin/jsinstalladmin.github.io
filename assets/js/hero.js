@@ -135,7 +135,21 @@ if (video && cap && hero) {
 
      So on a phone the hero is one screen tall and the film plays behind it
      on a loop, which is what it was shot for.
+
+     The Daylight / Evening switch goes with it (hidden in site.css, in the
+     max-860 block), because swapping to a second video over a cellular
+     connection to change a look you cannot compare side by side is not worth
+     a tap. But the light film's first caption is "Daylight version, same
+     build." -- a line that only means anything NEXT TO that switch. With the
+     switch gone it is the first thing a phone visitor reads and it refers to
+     a choice they cannot see. A phone gets its own headline instead.
      ══════════════════════════════════════════════════════════════════ */
+  const PHONE_CAP = [
+    'Closets built to the inch, installed in a day.',
+    'We measure your room, draw it, build it and fit it. Three-quarter-inch ' +
+    'thermally fused laminate, every exposed edge banded, sections never wider ' +
+    'than the 36 inches a shelf can carry without sagging.'
+  ];
   const PHONE = matchMedia('(max-width:860px)').matches
              || matchMedia('(pointer:coarse)').matches;
 
@@ -149,7 +163,8 @@ if (video && cap && hero) {
     video.setAttribute('muted', '');
     video.setAttribute('loop', '');
     video.autoplay = true;
-    render(0);
+    cap.innerHTML = `<h1>${PHONE_CAP[0]}</h1><p>${PHONE_CAP[1]}</p>`;
+    cap.dataset.i = 'phone';
     const go = () => video.play().catch(() => {});
     video.addEventListener('canplay', go, { once:true });
     go();
@@ -207,8 +222,13 @@ if (video && cap && hero) {
     video.poster = h === 'dark' ? (window.BASE||"")+'img/poster.jpg' : (window.BASE||"")+'img/poster-light.jpg';
     video.src    = h === 'dark' ? (window.BASE||"")+'video/hero.mp4' : (window.BASE||"")+'video/hero-light.mp4';
     video.load();                 // prime() re-fires on the new loadedmetadata
-    cap.dataset.i = -1;
-    render(0);
-    if (PHONE) video.play().catch(() => {});
+    if (PHONE) {
+      cap.innerHTML = `<h1>${PHONE_CAP[0]}</h1><p>${PHONE_CAP[1]}</p>`;
+      cap.dataset.i = 'phone';
+      video.play().catch(() => {});
+    } else {
+      cap.dataset.i = -1;
+      render(0);
+    }
   });
 }

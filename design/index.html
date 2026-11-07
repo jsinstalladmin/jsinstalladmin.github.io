@@ -243,8 +243,41 @@
       var panel = document.getElementById('tp' + t.dataset.tab);
       if(panel) panel.hidden = !on;
     });
+    /* PUT THEM AT THE TOP OF THE NEW STEP.
+       On a desktop .pscroll is the scroll box, so resetting scrollTop is the
+       whole job. On a phone it is NOT: the max-width:1060px block in
+       builder.css sets it to overflow:visible so the panel grows to its
+       content and the PAGE scrolls instead. scrollTop there is always 0 and
+       setting it does nothing, which is why changing step used to leave you
+       parked wherever the button you just pressed happened to be -- several
+       screens down into a step you had not seen the top of. Keep both in step
+       with the same breakpoint the CSS uses. */
     var sc = document.querySelector('.pscroll');
     if(sc) sc.scrollTop = 0;
+    if(window.matchMedia('(max-width:1060px)').matches){
+      var pan = document.querySelector('.bpanel');
+      var hdr = document.querySelector('.hdr');
+      if(pan){
+        var top = pan.getBoundingClientRect().top + window.pageYOffset
+                - (hdr ? hdr.offsetHeight : 0) - 8;
+        window.scrollTo(0, Math.max(0, top));
+      }
+    }
+  }
+
+  /* A PHONE HAS NO CURSOR AND NO SCROLL WHEEL.
+     Both hints over the drawing were telling a thumb to do things a thumb
+     cannot do: "scroll to zoom" and "Click any bay". */
+  if(window.matchMedia('(pointer:coarse)').matches){
+    document.body.setAttribute('data-touch','1');
+    var bh = document.querySelector('.bhint');
+    if(bh) bh.textContent = 'Drag to turn it \u00b7 pinch to zoom';
+    /* short on a phone: the instruction shares the top of the stage with the
+       h1 and the control pill, and the long sentence ran to three lines */
+    var st = document.querySelector('.stage-ttl');
+    if(st) st.textContent = window.innerWidth <= 720
+      ? 'Tap a bay to edit it'
+      : 'Tap any bay on the drawing to edit what goes in it';
   }
   nav.addEventListener('click', function(e){
     var t = e.target.closest('[data-tab]');

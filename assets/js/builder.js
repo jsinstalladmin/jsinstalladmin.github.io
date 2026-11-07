@@ -1,5 +1,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* Measured median of each part photo's top and bottom edge rows. See the
+   note where it is used, in the part picker. */
+const PART_TILE = {
+  'basket-shelf':'#DAD5D2', 'baskets':'#F1F0EC', 'counter':'#EEEAE7',
+  'cubbies':'#F3F0EC', 'door':'#F2EEEA', 'double-hang-tall':'#F5F0ED',
+  'double-hang':'#F4F0ED', 'drawer-tower':'#DAD7D2', 'drawers':'#F2F0ED',
+  'glass-door':'#EFECE9', 'hamper-hang':'#D5CFCC', 'hamper':'#F2ECE8',
+  'hang-drawers':'#D2CAC6', 'hang-shelf':'#DDD9D6', 'long-hang-tall':'#F3F1ED',
+  'long-hang':'#F3F2EE', 'open':'#F6F2EE', 'shelves':'#F2F1EE',
+  'shoe-slant':'#F0ECE9', 'shoes':'#F4F1ED', 'short-hang':'#F2ECE8'
+};
+
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS,
          presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit, wallGap,
@@ -1950,6 +1963,13 @@ function paintStack(){
     return canOffer(id, slot, !!other) || here?.m === id;
   }).map(id => {
     const d = MODULES[id], img = d.img || id.toLowerCase().replace(/_/g,'-');
+    /* The part photo is 4:3 and its frame is 3:4, so object-fit:contain
+       letterboxes it top and bottom. The frame used to be a flat #E3E4DE,
+       a cool grey, against twenty-one photos shot on warm paper -- so every
+       card showed two colours and a visible seam where the photo ended.
+       These are the measured median of each photo's own top and bottom edge
+       rows, so the band and the photo are the same colour and the seam goes
+       away. Re-measure if the photos are ever reshot. */
     const here = slot === 'top' ? sl.top : sl.bottom;
     const on   = here?.m === id;
     const other = slot === 'top' ? sl.bottom : sl.top;
@@ -1958,7 +1978,7 @@ function paintStack(){
     return `<button class="pcard" data-setslot="${slot}" data-m="${id}" aria-pressed="${on}"
                     ${chk.ok?'':'disabled'} title="${tip}">
       <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
-           width="420" height="315">
+           width="420" height="315" style="background:${PART_TILE[img] || '#F1EEEA'}">
       <i>${d.label}</i>
       <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
         <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
