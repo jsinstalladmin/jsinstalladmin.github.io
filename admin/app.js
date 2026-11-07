@@ -164,7 +164,15 @@ V.today = () => {
   const td    = jobs.filter(j=>j.date===today());
   const next  = [...live].filter(j=>j.date>=today()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,7);
   const month = jobs.filter(j=>j.stage==='done' && j.date.slice(0,7)===today().slice(0,7));
-  const pipe  = jobs.filter(j=>['quoted','won','ordered','scheduled'].includes(j.stage));
+  /* What is actually in play, which is what the Pipeline board shows: every
+     quote still out with a customer, plus work that is booked but not yet
+     installed. This card used to count JOB values only, and a job has no
+     value until a quote is accepted, so it read $0 while the board beside it
+     showed thousands. Two different answers to the same word on one screen. */
+  const pipe  = jobs.filter(j=>['won','ordered','scheduled'].includes(j.stage));
+  const openQ = DB.quotes().filter(q=>['draft','sent'].includes(q.status));
+  const inPlay = pipe.reduce((a,x)=>a+(+x.value||0),0)
+               + openQ.reduce((a,q)=>a+quoteNumbers(q, DB.settings()).total, 0);
   const leads = jobs.filter(j=>j.stage==='lead');
   const crew  = DB.employees().filter(e=>e.active!==false);
   const where = DB.region()==='all' ? 'across every region' : 'in '+rm.short;
@@ -212,7 +220,7 @@ V.today = () => {
         <tbody>${td.map(j=>jobRow(j,false)).join('')}</tbody></table>`), 'accent') : '')
 
   + `<div class="cards">
-      <div class="card"><span class="k">Pipeline</span><div class="v">${money(pipe.reduce((a,x)=>a+x.value,0))}</div><span class="d">${pipe.length} live jobs</span></div>
+      <div class="card"><span class="k">In play</span><div class="v">${money(inPlay)}</div><span class="d">${openQ.length} quote${openQ.length===1?'':'s'} out · ${pipe.length} booked</span></div>
       <div class="card"><span class="k">Installed this month</span><div class="v">${money(month.reduce((a,x)=>a+x.value,0))}</div><span class="d">${month.length} completed</span></div>
       <div class="card ${unread.length?'hot':''}" data-nav="inbox"><span class="k">Unanswered leads</span><div class="v">${unread.length}</div><span class="d">${unread.length?'Straight off the website':'All answered'}</span></div>
       <div class="card" data-nav="pipeline"><span class="k">Waiting on a quote</span><div class="v">${leads.length}</div><span class="d">${leads.length?'Oldest '+fmtD([...leads].sort((a,b)=>a.date.localeCompare(b.date))[0].date):'All clear'}</span></div>
@@ -320,13 +328,26 @@ V.jobs = () => {
   const upcoming = all.filter(j=>j.date>=today() && !['done','lost'].includes(j.stage))
                       .sort((a,b)=>a.date.localeCompare(b.date));
   const pastIds = new Set(upcoming.map(j=>j.id));
-  const rest = all.filter(j=>!pastIds.has(j.id));
+  /* Completed installs were mixed in with unscheduled leads under "Everything
+     else", so the work this business has actually finished — and what it was
+     worth — was buried in a list sorted by date among jobs worth nothing.
+     It gets its own section with its own total, which is the number anyone
+     looking at this page is actually after. */
+  const done = all.filter(j=>j.stage==='done').sort((a,b)=>b.date.localeCompare(a.date));
+  const doneIds = new Set(done.map(j=>j.id));
+  const doneSum = done.reduce((a,j)=>a+(+j.value||0),0);
+  const thisMonth = done.filter(j=>j.date.slice(0,7)===today().slice(0,7));
+  const rest = all.filter(j=>!pastIds.has(j.id) && !doneIds.has(j.id));
   const tbl = list => scroll(`<table><thead><tr><th>Date</th><th>Client</th><th>Job</th><th>Visit</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Crew</th><th>Stage</th><th class="mono">Value</th></tr></thead>
     <tbody>${list.map(j=>jobRow(j,true)).join('')}</tbody></table>`);
   return head('Jobs',
       `${all.length} on file · ${money(all.filter(x=>x.stage!=='lost').reduce((a,x)=>a+x.value,0))} booked · click any row to edit`,
       `<button class="btn btn-p" data-act="newjob">+ New job</button>`)
   + panel('Coming up', `${upcoming.length} scheduled`, upcoming.length ? tbl(upcoming) : empty('Nothing booked ahead.'), upcoming.length?'accent':'')
+  + panel('Installed', done.length
+      ? `${money(doneSum)} across ${done.length} install${done.length===1?'':'s'}`
+        + (thisMonth.length ? ` · ${money(thisMonth.reduce((a,j)=>a+(+j.value||0),0))} this month` : '')
+      : '', done.length ? tbl(done) : empty('Nothing finished yet.'))
   + panel('Everything else', `${rest.length}`, rest.length ? tbl(rest) : empty('Nothing here yet.'));
 };
 
@@ -585,11 +606,15 @@ function inboxFile(){
 /* ───────── settings ───────── */
 V.settings = () => {
   const s = DB.settings();
-  return head('Settings', 'Keys and business details. Everything here stays in this browser.', '')
+  return head('Settings', 'Your Anthropic key stays in this browser. Everything else saves to the office database and follows you to any machine.', '')
   + panel('Claude assistant', '', `<div class="bd">
       <div class="note warn"><b>Your own Anthropic key goes here.</b> The assistant calls Anthropic directly from this browser and is billed to your account. The key never leaves this machine and never touches anyone's server. Get one at <b>console.anthropic.com → API Keys</b>. There is nothing to set up anywhere else: this site is static hosting, so there are no environment variables to fill in.</div>
       <div class="f"><label>Anthropic API key</label><input id="s-key" type="password" placeholder="sk-ant-..." value="${esc(s.anthropicKey)}"></div>
-      <div class="f"><label>Model</label><select id="s-model">
+      <p class="note">This key is stored in <b>this browser only</b>. It is deliberately
+      kept out of the office database, because anything in there can be read by anyone
+      with database access. The trade-off is that it does not travel: sign in on your
+      phone or another computer and you will need to paste it in there too.</p>
+    <div class="f"><label>Model</label><select id="s-model">
         ${['claude-sonnet-4-6','claude-opus-4-1','claude-haiku-4-5'].map(m=>`<option${m===s.model?' selected':''}>${m}</option>`).join('')}</select></div>
       <div class="btnrow"><button class="btn btn-p" data-act="savekey">Save key</button>
         <span id="keymsg" class="inline-msg"></span></div></div>`)
