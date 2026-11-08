@@ -602,10 +602,30 @@ export const MODULES = {
     icon:'M2 4h20M2 11h20M2 18h20M2 25h20',
     defH:42, minH:12, maxH:84, fill:true, opt:{key:'n',label:'Shelves',min:1,max:10,def:4},
     build(c){
-      const {w,d,y,h,G,parts,o} = c;
+      const {w,d,y,h,G,parts,o,midAt} = c;
       const n = clamp(o.n ?? Math.max(2,Math.round(h/13)), 1, 10);
       parts.push(P('ADJ',n,(w*d)/144*n,(w/12)*n,`${n} adjustable shelves`));
-      for(let i=1;i<=n;i++) G.push({k:'shelf', p:[0, y + (h/(n+1))*i, 0], s:[w, SPEC.panel, d], m:'carcass'});
+
+      /* A tall tower of shelves is one piece to the customer and two boxes to
+         the shop: the carcass puts a fixed shelf across the middle, and the
+         adjustable shelves space themselves inside the two halves rather than
+         straight through it. Spread evenly across the whole height instead,
+         one of them lands within an inch of the fixed shelf and the drawing
+         shows two boards touching. */
+      const spans = (midAt != null && midAt > 2 && midAt < h - 2)
+        ? [[y, midAt], [y + midAt, h - midAt]]
+        : [[y, h]];
+      const total = spans.reduce((a,[,sh]) => a + sh, 0);
+      let left = n;
+      spans.forEach(([sy, sh], si) => {
+        /* the last span takes whatever is still unplaced, so the count the
+           customer picked is the count that gets built and priced */
+        const k = (si === spans.length - 1) ? left
+                : Math.max(1, Math.min(left - (spans.length - 1 - si), Math.round(n * sh / total)));
+        left -= k;
+        for(let i = 1; i <= k; i++)
+          G.push({k:'shelf', p:[0, sy + (sh/(k+1))*i, 0], s:[w, SPEC.panel, d], m:'carcass'});
+      });
     }
   },
   DRAWERS: {
@@ -657,8 +677,12 @@ export const MODULES = {
          straight over it — which is both wrong on screen and wrong in the
          shop: the fixed top carries the upper glides and stops the bank
          racking. It is a real part and it gets priced. */
-      G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
-      parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the drawer bank'));
+      /* the carcass puts a fixed shelf over every piece, so this only builds
+         one when nothing is capping it (an uncapped section run to the ceiling) */
+      if(!c.capped){
+        G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
+        parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the drawer bank'));
+      }
 
       if(pull && pull.id!=='none') parts.push({code:'PULL',qty:n,note:`${n} × ${pull.name}`});
     }
@@ -825,9 +849,12 @@ export const MODULES = {
         for(const sx of [-1,1])
           G.push({k:'glide', p:[sx*(w/2-0.5), cy + 1.6, 0], s:[0.5, 0.9, d-2], m:'metal'});
       }
-      /* same as the drawer bank — the runners mount to a fixed top */
-      G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
-      parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the basket run'));
+      /* same as the drawer bank: the runners mount to a fixed top, and the
+         carcass has already put one there unless nothing caps this section */
+      if(!c.capped){
+        G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
+        parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the basket run'));
+      }
     }
   },
   CUBBIES: {
@@ -844,8 +871,10 @@ export const MODULES = {
       /* The grid had no lid, so the top row of cubbies opened straight into
          whatever was above it and the block read as unfinished. A cubby grid
          is a box: it gets a top. */
-      G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
-      parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the cubby grid'));
+      if(!c.capped){
+        G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
+        parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the cubby grid'));
+      }
     }
   },
   COUNTER: {
@@ -1186,6 +1215,31 @@ export function presetDelta(preset, bayW, usableH, cat, finish){
 
 export const MODULE_IDS = Object.keys(MODULES);
 
+/* ══ WHICH LONE PIECES STILL GET THE MIDDLE SHELF ══════════════════════
+   The middle shelf is a carcass part: its job is to tie the two side panels
+   together so a 70" run of three-quarter board does not bow under load. A
+   section built out of ONE tall piece needs it as much as a stacked one --
+   a 24" wide, 96" tall tower of shelves on pins is the loosest box on the
+   wall -- so it is not something only stacked sections get.
+
+   But not every piece can take a board through its middle:
+
+     LONG_HANG   needs 66" of clear drop. A shelf at 44" is not a stronger
+                 box, it is a hang rail you cannot hang a coat on.
+     SHOE_SLANT  IS a stack of fixed shelves already. The sides are tied
+                 together five times over.
+     DRAWERS
+     BASKETS
+     CUBBIES
+     HAMPER      each one is its own structure: every drawer runner, basket
+                 rail and cubby divider is already a fixed horizontal member
+                 between the two panels.
+     COUNTER     is a fixed slab, which is the same thing.
+
+   What is left is the four that really are a tall empty span with nothing
+   holding the sides apart. Those get the shelf. */
+const MID_WHEN_ALONE = new Set(['SHELVES','OPEN','DOOR','GLASS_DOOR']);
+
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
 /* a rail of individual garments */
@@ -1482,13 +1536,72 @@ export function buildDesign(cfg, cat){
       /* Without a shelf capping it, the section has the shelf's own thickness
          back to divide between its parts. */
       const mods = resolveHeights(bay.stack, wantsTop ? bayH : bayH + SPEC.panel);
+
+      /* ══ THE THIRD FIXED SHELF ══════════════════════════════════════════
+         A melamine section is built with three fixed shelves, not two: one
+         over the top, one on the floor of the box over the toe kick, and one
+         across the middle. The middle one is what ties the two side panels
+         together and stops a 70" span of three-quarter board bowing under
+         load, and it is what divides the section into the half above and the
+         half below.
+
+         It used to arrive by accident. Whichever piece happened to be in the
+         bottom half capped itself -- "Shelf over the rod", "Fixed top over
+         the drawer bank", "Fixed top over the basket run" -- so the shelf was
+         there, but it was named after the piece, priced inside that piece,
+         and completely absent from a section built out of one tall piece.
+
+         It is a carcass part now. One per division, emitted here, named the
+         same whatever is above or below it, and the pieces are told a shelf
+         is over them so none of them adds a second one 3/4" under the first. */
+      const divisions = [];
+      /* where the lone piece's middle shelf landed, in that piece's own
+         coordinates, so the piece can lay itself out around it */
+      let soloMid = null;
+      {
+        let dy = floorY;
+        for(let i = 0; i < mods.length - 1; i++){
+          dy += mods[i].H;
+          divisions.push(dy);
+        }
+        /* AN EMPTY SECTION IS STILL A BUILT BOX.
+           Adding a section used to give you two sides, a top, a deck and
+           nothing in between: a 70" open span, which is not what gets
+           delivered and not what gets charged for. A new section arrives
+           divided, with the mid shelf at the same 44" the lower rod of a
+           double hang would put it, so filling it afterwards does not move
+           anything. */
+        if(!mods.length) divisions.push(floorY + SPEC.dhLower);
+
+        /* ONE TALL PIECE IS STILL A TALL BOX.
+           A lone piece has no division above it, so until now a 96" shelf
+           tower, a closed-door bay and a deliberately open bay were all
+           delivered as two side panels, a top and a deck. Those are the
+           sections that need the middle shelf most. It lands on a pin
+           centre so it lines up with everything else in the run. */
+        if(mods.length === 1 && MID_WHEN_ALONE.has(mods[0].m)){
+          const half = Math.round((mods[0].H / 2) / SPEC.pin) * SPEC.pin;
+          if(half > 6 && half < mods[0].H - 6){
+            divisions.push(floorY + half);
+            soloMid = half;
+          }
+        }
+      }
+      for(const dy of divisions){
+        parts.push(P('FIXED', 1, (inner*depth)/144, (inner+depth*2)/12,
+                     `Fixed mid shelf at ${dy.toFixed(0)}"`));
+        local.push({k:'shelf', p:[cx, dy - SPEC.panel/2, 0],
+                    s:[inner, SPEC.panel, depth], m:'carcass'});
+      }
+
       let y = floorY;
       for(const s of mods){
         const sub = [];
-        /* The last module in the stack is the one the bay's top shelf sits
-           on. A module that wants a shelf of its own has to know that, or a
-           short hang under a capped section gets two shelves 3/4" apart. */
-        const capped = (s === mods[mods.length-1]) && wantsTop;
+        /* EVERY piece now has a fixed shelf over it: the bay's top shelf if it
+           is the last one, the mid shelf above it otherwise. `capped` says so,
+           and a piece that would otherwise build its own shelf reads this and
+           does not. */
+        const capped = (s === mods[mods.length-1]) ? wantsTop : true;
         /* Everything this module pushes gets stamped with the module id, so the
            review panel can say "Drawer bank  $1,240" instead of listing forty
            panels. Parts pushed by the carcass code below carry no stamp and
@@ -1497,6 +1610,7 @@ export function buildDesign(cfg, cat){
           `Section ${bi+1} on the ${run.wall} wall: ${MODULES[s.m].label.toLowerCase()} needs ${MODULES[s.m].minH}" and only ${s.H.toFixed(0)}" is left after everything else in that section. Take something out, make the section taller, or pick a part that fits.`);
         const mark = parts.length;
         MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull, capped,
+                              midAt: (mods.length === 1 ? soloMid : null),
                               boxStyle: cfg.boxStyle || DEFAULT_BOX_STYLE,
                               basketFinish: BASKET_FINISH[cfg.pullFinish] || 'Chrome',
                               warn: m => warnings.push(m) });

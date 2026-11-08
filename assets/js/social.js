@@ -47,6 +47,12 @@ const card = (r, ghost) => `<article class="rcard"${ghost?' aria-hidden="true"':
 export function mountReviews(base=''){
   const host = document.getElementById('reviews');
   if(!host) return;
+  /* With no reviews and no rating the whole band comes out, rather than
+     showing an empty rail under a 0.0. Matters for a brand new site. */
+  if(!REVIEWS.length && !TT_STATS.rating){
+    host.closest('.revwrap')?.remove();
+    return;
+  }
 
   /* ── THE REVIEWS MOVE BY THEMSELVES ──
      They are the proof on this page, so they do not wait to be clicked at.
