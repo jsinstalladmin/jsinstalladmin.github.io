@@ -1534,3 +1534,45 @@ body[data-step="6"] .pacts{margin-top:0}
 .inpick button:hover{border-color:var(--ink-3);color:var(--ink)}
 .inpick button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 @media(max-width:1060px){ .inpick button{padding:.54em .74em;font-size:.78rem} }
+
+/* ── THE THREE ROOM FIELDS FIT, AT EVERY WIDTH ──────────────────────────
+   Width, depth and ceiling sat in `repeat(3,1fr)`. A 1fr track carries an
+   implicit min-width:auto, so it cannot shrink below its own content, and
+   "CEILING" is a longer word than "WIDTH" or "DEPTH". On a desktop the
+   third track grew to 111px against the other two at 103px, the row came
+   out 4px wider than the box it sits in, and .planwrap clips at a rounded
+   corner — so the ceiling field was cut down its right-hand edge.
+
+   minmax(0,1fr) lets the tracks shrink, and the stacked layout the phone
+   already used applies everywhere so the label is never what forces the
+   width. Three digits fit, which matters now that anyone can type a real
+   ceiling height rather than pick from a range. */
+.pfields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pfields .pfield{min-width:0;display:grid;justify-content:center;
+  grid-template-columns:auto auto;
+  grid-template-areas:"lab lab" "val unit";
+  align-items:baseline;gap:2px 4px;padding:.45em .4em;text-align:center}
+.pfields .pfield span{grid-area:lab;white-space:normal;line-height:1.2}
+.pfields .pfield input{grid-area:val;width:auto;max-width:3.1em;text-align:right;
+  font-size:.95rem}
+.pfields .pfield i{grid-area:unit;justify-self:start}
+.basebox .pfields{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* how high the closet itself goes, under the three room measurements */
+.cabtop{margin-top:8px}
+.cabtop .pf-wide{position:static;translate:none;width:100%;
+  grid-template-columns:auto auto;justify-content:center}
+.cabtop .note{margin:.5em 0 0;font-size:.72rem;line-height:1.45}
+
+/* how deep a wall is built, at the top of that wall's block */
+.rundepth{margin:0 0 .8em;padding:.7em .8em;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:var(--paper-2)}
+.rundepth .pf-wide{position:static;translate:none;width:100%;
+  grid-template-columns:auto auto;justify-content:center}
+.rundepth .note{margin:.5em 0 0;font-size:.7rem;line-height:1.45}
+.depthquick{display:flex;flex-wrap:wrap;gap:5px;margin-top:.55em;justify-content:center}
+.depthquick button{font:inherit;font-size:.74rem;line-height:1;padding:.42em .66em;
+  border:1px solid var(--line);border-radius:999px;background:var(--paper);
+  color:var(--ink-2);cursor:pointer}
+.depthquick button:hover{border-color:var(--ink-3);color:var(--ink)}
+.depthquick button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}

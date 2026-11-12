@@ -18,6 +18,12 @@
 export const SPEC = {
   topShelf:84, longHang:66, dhUpper:80, dhLower:40,
   bayMin:24, bayMax:36, hangDepth:24, shelfDepth:14,
+  /* How deep a run may be built. 12" is the shallowest that still takes a
+     folded jumper and a shoe; 24" is a hanging depth and as deep as a closet
+     gets before you cannot see the back of it. Anything in between is
+     buildable, and everything in a section -- shelves, rods, drawer boxes,
+     baskets -- is cut to whatever is chosen, so the price follows it. */
+  runDepthMin:12, runDepthMax:24,
   shoeGap:8, toeKick:3.75, panel:0.75, pin:1.25, counter:36, wallHungBase:6
 };
 
@@ -108,6 +114,23 @@ export function wallLoss(fittings, wall){
   return fitsOn(fittings, wall, 'stealWidth').reduce((a,f) => a + (fitSpec(f).w || 0), 0);
 }
 
+/* HOW TALL THE CABINETRY MAY BE in a room of this height. One function so
+   the drawing, the picker and the price are all working from one number.
+   120" is the practical ceiling on a single panel: melamine comes in 97" and
+   121" sheets, and past that a side panel has to be seamed, which is a
+   different product and a different price. */
+export const CAB_TOP_MIN = 48;
+export const CAB_TOP_MAX = 120;
+export const cabTopRange = roomH => ({
+  min: CAB_TOP_MIN,
+  max: Math.max(CAB_TOP_MIN, Math.min(CAB_TOP_MAX, Math.round((roomH || 96) - 2)))
+});
+export const clampCabTop = (v, roomH) => {
+  const r = cabTopRange(roomH);
+  const n = Math.round(Number(v));
+  return Math.min(r.max, Math.max(r.min, Number.isFinite(n) ? n : SPEC.topShelf));
+};
+
 /* the deepest a run on this wall can be, given the door and any bulkhead */
 export function depthLimit(room, wall, door, fittings){
   const D = DOOR_SPEC[door] || DOOR_SPEC.none;
@@ -117,7 +140,9 @@ export function depthLimit(room, wall, door, fittings){
   /* The door hardware and the clearance a drawer front needs to pass it both
      come off the depth available on the wall facing the door. */
   const doorCost = wall === 'back' ? (D.track || 0) + (D.pullClear || 0) : 0;
-  return Math.max(SPEC.shelfDepth, span - doorCost - pipe);
+  /* never deeper than a closet is built, and never deeper than the wall
+     actually leaves once the door hardware has had its share */
+  return Math.max(SPEC.runDepthMin, Math.min(SPEC.runDepthMax, span - doorCost - pipe));
 }
 
 /* where the bottom of the run has to start, in inches off the floor */
@@ -205,11 +230,32 @@ export const DRAWER_BOX = {
    which is why the parts list can no longer come out saying NO STOCK BOX
    FITS: the customer is choosing a real SKU, not a height we divide into. */
 export const DRAWER_REVEAL = 1.0;
+/* ══ WHAT THE PICKER OFFERS ════════════════════════════════════════════
+   Six box heights are stocked, but a closet drawer bank is not built out of
+   all six. The two tallest are chest-of-drawers sizes: a 25" box in a 30"
+   section is most of the bank in one drawer, and nobody orders one for a
+   closet. Four is the real range, so four is what gets offered.
+
+   This is the OFFERED list, not the stocked list. DRAWER_BOX.h is still
+   every height the supplier sells, so a design saved with an 18¾" or a 25"
+   box still draws, still prices and still orders correctly. It just is not
+   put in front of anyone new.
+
+   A 5" box belongs at the small end of this -- a socks and jewellery drawer
+   is the one closet drawer size missing. It is NOT here because the supplier
+   list in assets/data/catalog.json has no box under 7½", and inventing a
+   price for one would put a SKU on an order sheet that the supplier cannot
+   fill. The moment that price is known, a 5 goes in the array below and a 5
+   goes into DRAWER_BOX.h, and nothing else has to change. */
+export const DRAWER_OFFERED = [7.5, 8.75, 10, 15];
+
 export const DRAWER_SIZES = DRAWER_BOX.h.map(h => ({
   h,                                   // the box, as he stocks it
   front: +(h + DRAWER_REVEAL).toFixed(2),
-  label: ({7.5:'7½"', 8.75:'8¾"', 10:'10"', 15:'15"', 18.75:'18¾"', 25:'25"'})[h] || h + '"',
-  use:   ({ 7.5:'Socks, ties, belts, jewellery trays',
+  label: ({5:'5"', 7.5:'7½"', 8.75:'8¾"', 10:'10"', 15:'15"', 18.75:'18¾"', 25:'25"'})[h] || h + '"',
+  offered: DRAWER_OFFERED.includes(h),
+  use:   ({ 5:'Socks, ties, jewellery trays',
+            7.5:'Belts, scarves, small folded things',
             8.75:'The everyday drawer. Folded tees and underwear',
             10:'Folded knits and gym kit',
             15:'Jeans, sweaters, bulk',
@@ -344,9 +390,24 @@ export function setSlot(bay, slot, id){
   const made = { m:id, h:null, o:{} };
   if(def.sizes) made.o = { sizes: defaultDrawerSizes(4) };
   else if(def.opt) made.o = { [def.opt.key]: def.opt.def };
+  /* THE SAME PIECE IS ALLOWED IN BOTH HALVES.
+
+     This used to throw the other half away whenever it held the same piece
+     as the one being set. The one place that matters most is the one the
+     picker's own wording promises: "put a rod in both halves and you have a
+     double hang". Choosing hanging at the top and then hanging at the
+     bottom deleted the top rod and left a single rod, so the one way to
+     build a double hang could not be built at all.
+
+     There is no case where the guard was earning its keep. Two banks of
+     shelves with different shelf counts is a normal section. Two cubby
+     grids is a normal section. Anything that genuinely cannot share a
+     section with its own kind is stopped by CLASH and by LIMIT, which are
+     about what can be built rather than about what the writer happens to
+     be holding. */
   const next = slot === 'top'
-    ? { bottom: (keep && keep.m !== id) ? keep : (s.bottom && s.bottom.m !== id ? s.bottom : null), top: made }
-    : { bottom: made, top: keep && keep.m !== id ? keep : null };
+    ? { bottom: keep ?? s.bottom ?? null, top: made }
+    : { bottom: made, top: keep ?? null };
   return writeSlots(bay, next.bottom, next.top, s.counter);
 }
 export function clearSlot(bay, slot){
@@ -469,8 +530,13 @@ export function canAdd(stack, id, usableH, inCorner, slot){
   if(GROUP[id] && stack.some(s => GROUP[s.m] === GROUP[id]))
     return { ok:false, why:'This section already has a front on it.' };
 
-  /* one filler per section */
-  if(FILLS(id) && stack.some(st => FILLS(st.m)))
+  /* ONE FILLER PER SECTION, except two rods, which is a double hang.
+     Two fillers normally means neither is the height it is meant to be. Two
+     rods is the exception and always was: they split the opening in half,
+     one lands at about 80" and the other at about 40", and that is the
+     product. The height solver already shares the space between fillers, so
+     nothing else had to change for it. */
+  if(FILLS(id) && stack.some(st => FILLS(st.m)) && !(id === 'HANG' && stack.every(st => st.m === 'HANG' || !FILLS(st.m))))
     return { ok:false, why:`This section already has ${MODULES[stack.find(st=>FILLS(st.m)).m].label.toLowerCase()} filling the space left. Take that out first, or pick a part with a fixed height.` };
 
   /* pairs that cannot physically share a section */
@@ -1471,7 +1537,23 @@ export function buildDesign(cfg, cat){
   const liftedByHeat = floorY > (cfg.mounting==='wall' ? SPEC.wallHungBase : SPEC.toeKick);
   if(liftedByHeat) warnings.push(
     `Baseboard heat on this wall, so the run hangs clear of it: the bottom of the cabinetry starts ${floorY.toFixed(0)}" off the floor and the toe kick is dropped.`);
-  const bayTop = Math.min(SPEC.topShelf, cfg.room.h - 6);
+  /* HOW HIGH THE CABINETRY GOES.
+
+     This used to be min(84", ceiling - 6"), so a 144" ceiling built the same
+     84" closet as a 96" one and the extra five feet was not drawn, not
+     offered and not charged for. The ceiling is now a real measurement
+     anyone can type, and how tall the cabinetry is, is its own answer:
+     `cabTop`, in inches off the floor.
+
+     It defaults to the same 84" it has always been, so nothing drawn before
+     this changes by a thousandth. Raise it and the panels get taller, which
+     is more square feet of board and more edge banding, so the price follows
+     on its own through the same per-square-foot costs as everything else.
+
+     The ceiling still has the last word: cabinetry cannot be taller than the
+     room, less a couple of inches to get it upright and scribed. */
+  const bayTop = Math.max(SPEC.panel * 2 + 12,
+                   Math.min(cfg.cabTop || SPEC.topShelf, cfg.room.h - 2));
   const usableH = bayTop - floorY;
   const pull = PULLS.find(p=>p.id===cfg.pull) || PULLS[1];
   const pullFin = PULL_FINISHES.find(f=>f.id===cfg.pullFinish) || PULL_FINISHES[0];
@@ -1708,6 +1790,24 @@ export function buildDesign(cfg, cat){
             soloMid = half;
           }
         }
+
+        /* ANYTHING THAT DOES NOT REACH THE TOP GETS A SHELF ON TOP OF IT.
+
+           A drawer bank is as tall as its boxes, about 34", and nothing says
+           it has to be the only thing in an 80" section. Put one in on its
+           own and the bank was built, the bay's top shelf went on at 84",
+           and the 46" between them was a void: no shelf over the drawers, no
+           shelf anywhere in the middle of the section, and the two side
+           panels tied together only at the very top and the very bottom.
+           Drawers, baskets, a hamper, cubbies, a shoe rack -- every one of
+           them has a fixed height, so every one of them had this.
+
+           The shelf that closes a drawer bank IS that section's middle
+           shelf. One rule covers both: wherever the stack stops short of the
+           top, that is where the division goes. */
+        const stackTop = mods.reduce((a, m) => a + m.H, 0);
+        const opening  = wantsTop ? bayH : bayH + SPEC.panel;
+        if(mods.length && opening - stackTop > 6) divisions.push(floorY + stackTop);
       }
       for(const dy of divisions){
         parts.push(P('FIXED', 1, (inner*depth)/144, (inner+depth*2)/12,
@@ -1723,7 +1823,9 @@ export function buildDesign(cfg, cat){
            is the last one, the mid shelf above it otherwise. `capped` says so,
            and a piece that would otherwise build its own shelf reads this and
            does not. */
-        const capped = (s === mods[mods.length-1]) ? wantsTop : true;
+        const capped = (s === mods[mods.length-1])
+          ? (wantsTop || divisions.some(dy => Math.abs(dy - (y + s.H)) < 0.01))
+          : true;
         /* Everything this module pushes gets stamped with the module id, so the
            review panel can say "Drawer bank  $1,240" instead of listing forty
            panels. Parts pushed by the carcass code below carry no stamp and

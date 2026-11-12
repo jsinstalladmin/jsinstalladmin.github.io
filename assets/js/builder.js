@@ -19,7 +19,8 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          ROOM_PLANS, cornerBlocked,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
-         baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF } from './design.js';
+         baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF,
+         cabTopRange, clampCabTop } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, garmentGeo, makeComposer } from './render.js';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
@@ -119,6 +120,10 @@ const FITTINGS = [
 
 const S = {
   type:'reach-in', shape:'straight', room:{w:72,d:24,h:96}, mounting:'floor',
+  /* How high the cabinetry goes, in inches off the floor. The ceiling is the
+     room; this is the closet. They were the same number before, pinned at
+     84", so a tall room built a short closet and said nothing about it. */
+  cabTop: SPEC.topShelf,
   finish: cat.finishes.find(f=>f.x>=0)?.n || cat.finishes[0].n,
   frontFinish:null, pull:'bar4', pullFinish:'nickel',
   runs:{}, sel:null, spin:false, evening:false,
@@ -186,6 +191,13 @@ function seedBays(){ return []; }
    partition because a 3/4" shelf sags past that span, so those are the only
    widths offered — and a custom entry is clamped into the same range. */
 const BAY_PRESETS = [24, 28, 30, 32, 36];
+/* How deep this wall may be built: the product range, and never deeper than
+   the wall itself leaves once the door hardware has had its share. */
+function clampDepth(v, wall){
+  const cap = Math.min(SPEC.runDepthMax, wallDepthCap(wall));
+  const n = Math.round(Number(v) * 2) / 2;
+  return Math.min(cap, Math.max(SPEC.runDepthMin, Number.isFinite(n) ? n : SPEC.hangDepth));
+}
 function clampBay(v){
   return Math.min(SPEC.bayMax, Math.max(SPEC.bayMin, Math.round(v * 2) / 2));
 }
@@ -400,7 +412,7 @@ function cfg(){
        volumes and the quote are all reading the same depth */
     runs.push({wall, start, depth:Math.min(r.depth, wallDepthCap(wall)), bays:withGaps(wall)});
   }
-  return { room:S.room, mounting:S.mounting, finish:S.finish,
+  return { room:S.room, mounting:S.mounting, cabTop:S.cabTop, finish:S.finish,
            frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
            door:S.door, base:S.base, backs:S.backs, corner:S.corner,
            fittings:S.fittings.filter(f=>f.placed), runs };
@@ -1546,8 +1558,27 @@ function paintPlan(){
       <label class="pfield"><span>Depth</span>
         <input type="number" data-dim="d" value="${S.room.d}" min="12" max="360" aria-label="Room depth in inches"><i>in</i></label>
       <label class="pfield"><span>Ceiling</span>
-        <input type="number" data-dim="h" value="${S.room.h}" min="84" max="132" aria-label="Ceiling height in inches"><i>in</i></label>
+        <input type="number" data-dim="h" value="${S.room.h}" min="60" max="180" aria-label="Ceiling height in inches"><i>in</i></label>
     </div>
+    ${(() => {
+      /* HOW HIGH THE CLOSET ITSELF GOES.
+         The ceiling above is the room. This is the cabinetry, and until now
+         it was pinned at 84" however high the room was, so a 144" ceiling
+         built the same closet as a 96" one and the extra five feet was
+         neither drawn nor charged for. It still opens at 84", so nothing
+         anybody drew before this moves. */
+      const r = cabTopRange(S.room.h);
+      const ft = Math.floor(S.cabTop / 12), inch = Math.round(S.cabTop % 12);
+      return `<div class="cabtop">
+        <label class="pfield pf-wide"><span>How high the closet goes</span>
+          <input type="number" data-cabtop="1" value="${S.cabTop}"
+                 min="${r.min}" max="${r.max}" step="1"
+                 aria-label="How high the cabinetry goes, in inches off the floor"><i>in</i></label>
+        <p class="note">${ft}ft ${inch ? inch + '" ' : ''}off the floor, in a ${S.room.h}" room.
+          ${S.cabTop >= r.max ? 'That is as high as this ceiling allows.'
+            : `Anything up to ${r.max}" fits. Taller sections are more board and more edge banding, so the price moves with it.`}</p>
+      </div>`;
+    })()}
     <div class="basebox">
       <b>The baseboard</b>
       <p class="note">A closet cannot sit flush to a wall that has a baseboard on it. What we do here changes the drawing, the width you have to play with and the price.</p>
@@ -1792,6 +1823,30 @@ function paintBays(){
           <i>${r.bays.length} section${r.bays.length===1?'':'s'} &middot; ${Math.round(used)}" of ${Math.round(len)}"${left>0.5?` &middot; ${Math.round(left)}" free`:''}</i>
         </span></button>
       <div class="runbody">
+        ${(() => {
+          /* HOW DEEP THIS WALL IS BUILT.
+             The run has always carried a depth and it has always been 24",
+             because nothing ever asked. A linen run is 12" or 14", a pantry
+             is 16", a hanging run is 24", and every shelf, rod, drawer box
+             and basket in the section is cut to whatever this says, so the
+             price moves with it. */
+          const cap = wallDepthCap(wall);
+          const cur = Math.min(r.depth ?? SPEC.hangDepth, cap);
+          const lo = SPEC.runDepthMin, hi = Math.min(SPEC.runDepthMax, Math.round(cap));
+          return `<div class="rundepth">
+            <label class="pfield pf-wide"><span>How deep this wall is</span>
+              <input type="number" data-rundepth="${wall}" value="${+cur.toFixed(1)}"
+                     min="${lo}" max="${hi}" step="0.5"
+                     aria-label="How deep the ${wall} wall run is, in inches"><i>in</i></label>
+            <div class="depthquick">
+              ${[12,14,16,20,24].filter(v => v >= lo && v <= hi).map(v =>
+                `<button type="button" data-rundepth-set="${wall}" data-v="${v}"
+                   class="${Math.abs(cur - v) < 0.26 ? 'on' : ''}">${v}"</button>`).join('')}
+            </div>
+            <p class="note">${lo}" to ${hi}" on this wall. Shelves, rods, drawer boxes and
+              baskets are all cut to it.</p>
+          </div>`;
+        })()}
         ${strip}
         ${r.bays.length > 0 ? `<div class="trackacts">
           <span class="tahint">Drag any section along the wall. The gaps are real bare wall.</span>
@@ -1868,7 +1923,7 @@ function paintStack(){
   /* the height THIS section actually has, not the room's best case: a window
      or a slope over it means fewer inches to divide between the parts */
   const usable = (cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.h)
-    ?? (Math.min(SPEC.topShelf, S.room.h - 6) - floorY);
+    ?? (Math.max(SPEC.panel * 2 + 12, Math.min(S.cabTop, S.room.h - 2)) - floorY);
 
   /* Is the section being edited the one in the inside corner? If it is, the
      picker does not offer anything with a front on it, because the next run
@@ -1909,7 +1964,12 @@ function paintStack(){
         ${sizes.map((h, i) => ({ h, i })).reverse().map(({ h, i }) => `<li>
           <b>${i + 1}${i === sizes.length - 1 ? ' · top' : i === 0 ? ' · bottom' : ''}</b>
           <select data-dsize="${i}" aria-label="Box height for drawer ${i + 1}">
-            ${DRAWER_SIZES.map(z => `<option value="${z.h}" ${+h === z.h ? 'selected' : ''}>${z.label} box</option>`).join('')}
+            ${/* Only the four a closet is actually built from. A size that is
+                  stocked but no longer offered still appears if this bank is
+                  already using it, so an older design never loses a drawer
+                  it was quoted with. */''}
+            ${DRAWER_SIZES.filter(z => z.offered || +h === z.h)
+               .map(z => `<option value="${z.h}" ${+h === z.h ? 'selected' : ''}>${z.label} box</option>`).join('')}
           </select>
           <i>${(DRAWER_SIZES.find(z => z.h === +h) || {}).use || ''}</i>
         </li>`).join('')}
@@ -2240,6 +2300,7 @@ $('#dims')?.addEventListener('change', e=>{
   const k = i.dataset.dim, mn = +i.min, mx = +i.max;
   const v = Math.round(Number(i.value));
   S.room[k] = Number.isFinite(v) ? Math.min(mx, Math.max(mn, v)) : S.room[k];
+  if(k === 'h') S.cabTop = clampCabTop(S.cabTop, S.room.h);
   rebuild(true);
 });
 $('#dims')?.addEventListener('keydown', e=>{
@@ -2357,7 +2418,18 @@ $('#fitlist').addEventListener('change', e=>{
     const i=e.target.closest('input[data-dim]'); if(!i) return;
     const k=i.dataset.dim, v=Math.round(Number(i.value));
     S.room[k]=Number.isFinite(v)?Math.min(+i.max,Math.max(+i.min,v)):S.room[k];
+    /* Lowering the ceiling under the cabinetry would otherwise leave a closet
+       standing through it. */
+    if(k === 'h') S.cabTop = clampCabTop(S.cabTop, S.room.h);
     rebuild(true);
+  });
+  host.addEventListener('change', e=>{
+    const i=e.target.closest('input[data-cabtop]'); if(!i) return;
+    S.cabTop = clampCabTop(i.value, S.room.h);
+    rebuild(true);
+  });
+  host.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && e.target.matches('input[data-cabtop]')){ e.preventDefault(); e.target.blur(); }
   });
   host.addEventListener('keydown', e=>{
     if(e.key==='Enter' && e.target.matches('input[data-dim]')){ e.preventDefault(); e.target.blur(); }
@@ -2400,6 +2472,13 @@ $('#bays').onclick=e=>{
     } else {
       blk.classList.add('folded'); fold.setAttribute('aria-expanded','false');
     }
+    return;
+  }
+  /* one of the quick depths beside the box */
+  const dq = e.target.closest('[data-rundepth-set]');
+  if(dq){
+    const wall = dq.dataset.rundepthSet, r = S.runs[wall];
+    if(r){ r.depth = clampDepth(+dq.dataset.v, wall); rebuild(true); }
     return;
   }
   const bay=e.target.closest('[data-bay]');
@@ -2468,6 +2547,16 @@ let DRAG = null;
    pointer against the track, which is drawn to scale, so the strip and the
    wall are the same measurement. */
 let TDRAG = null;
+
+/* the depth box sits inside each wall's block, so it listens on #bays */
+$('#bays').addEventListener('change', e => {
+  const i = e.target.closest('input[data-rundepth]'); if(!i) return;
+  const wall = i.dataset.rundepth, r = S.runs[wall];
+  if(r){ r.depth = clampDepth(i.value, wall); rebuild(true); }
+});
+$('#bays').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.matches('input[data-rundepth]')){ e.preventDefault(); e.target.blur(); }
+});
 
 $('#bays').addEventListener('pointerdown', e => {
   const b = e.target.closest('.bay[data-drag]'); if(!b) return;
