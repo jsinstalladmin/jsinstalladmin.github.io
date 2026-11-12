@@ -5,7 +5,7 @@
    Supports images: photograph a handwritten schedule, drop it in,
    and it reads the names, numbers and prices and books the work.
    ============================================================ */
-import { DB, REGIONS, STAGE_LABEL, STAGES, KINDS } from './store.js';
+import { DB, REGIONS, STAGE_LABEL, STAGES, KINDS, sameId } from './store.js';
 import { refresh } from './app.js';
 import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
 
@@ -20,7 +20,7 @@ const R = REGIONS.map(r=>r.id);
 const TOOLS = [
   { name:'read_schedule', description:'Read booked visits. Filter by region and/or an ISO date range. Use this for any question about what is on, who is where, or what is coming up.',
     input_schema:{type:'object',properties:{region:{type:'string',enum:[...R,'all']},from:{type:'string'},to:{type:'string'},stage:{type:'string',enum:STAGES}}} },
-  { name:'list_clients', description:'List clients with contact details, job count and lifetime value. Optional text search on name, email or address.',
+  { name:'list_clients', description:'List clients with contact details, job count and the total of their INSTALLED jobs (not quotes, not jobs still booked). Optional text search on name, email or address.',
     input_schema:{type:'object',properties:{region:{type:'string',enum:[...R,'all']},search:{type:'string'}}} },
   { name:'get_client', description:'Everything about one client, including all of their jobs and quotes.',
     input_schema:{type:'object',required:['name'],properties:{name:{type:'string'}}} },
@@ -82,15 +82,15 @@ function runTool(name, a={}){
       if(a.search){ const q=a.search.toLowerCase();
         c=c.filter(x=>(x.name+x.email+x.addr).toLowerCase().includes(q)); }
       return c.map(x=>({ ...clientOut(x),
-        jobs:DB.jobs('all').filter(j=>j.client===x.id).length,
-        lifetime:DB.jobs('all').filter(j=>j.client===x.id&&j.stage==='done').reduce((s,j)=>s+j.value,0) }));
+        jobs:DB.jobs('all').filter(j=>sameId(j.client,x.id)).length,
+        installed:DB.jobs('all').filter(j=>sameId(j.client,x.id)&&j.stage==='done').reduce((s,j)=>s+(+j.value||0),0) }));
     }
     case 'get_client': {
       const c=DB.findClient(a.name);
       if(!c) return { error:`No client matching "${a.name}". Call list_clients to see who exists.` };
       return { ...clientOut(c),
-        jobs:DB.jobs('all').filter(j=>j.client===c.id).map(jobOut),
-        quotes:DB.quotes('all').filter(q=>q.client===c.id).map(q=>({title:q.title,total:q.total,status:q.status,created:q.created})) };
+        jobs:DB.jobs('all').filter(j=>sameId(j.client,c.id)).map(jobOut),
+        quotes:DB.quotes('all').filter(q=>sameId(q.client,c.id)).map(q=>({title:q.title,total:q.total,status:q.status,created:q.created})) };
     }
     case 'create_client': {
       const ex=DB.findClient(a.name);

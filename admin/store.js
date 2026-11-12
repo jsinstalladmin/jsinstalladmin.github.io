@@ -82,26 +82,53 @@ const fail = (what, err) => { console.error('[store]', what, err); errHandler(wh
 let savedHandler = () => {};
 export const onSaved = fn => { savedHandler = fn; };
 
-/* ───────── row shapes: the database uses snake_case, the app does not ───────── */
-const jobIn  = r => ({ id:r.id, region:r.region, client:r.client_id, title:r.title, type:r.type,
-  stage:r.stage, value:Number(r.value)||0, date:r.date, kind:r.kind, finish:r.finish,
-  crewIds:r.crew_ids||[], crew:'', notes:r.notes||'' });
-const jobOut = j => ({ region:j.region, client_id:j.client||null, title:j.title, type:j.type||'',
-  stage:j.stage, value:j.value||0, date:j.date, kind:j.kind, finish:j.finish||'n/a',
-  crew_ids:j.crewIds||[], notes:j.notes||'' });
+/* ───────── ids ─────────
+   AN ID OFF A FORM IS A STRING. AN ID OUT OF POSTGRES IS A NUMBER.
 
-const quoteIn  = r => ({ id:r.id, region:r.region, client:r.client_id, title:r.title,
+   `<select>.value` and `dataset.crew` are always strings, because that is
+   what HTML holds. Postgres hands back bigints. Every lookup in here and
+   every comparison in app.js uses `===`, so the moment a form-made id met a
+   database-made id they stopped matching, and the screen said so: a quote
+   you had just added showed its client as "Unknown", a visit you had just
+   booked showed its crew as "Unassigned", and accepting a quote quietly
+   failed to move the client to Booked in or to spot the install it had
+   already booked. A reload fixed it, which is the worst kind of bug: it
+   looks broken, then it looks fine, so nobody can say what happened.
+
+   Two rules, and the fifteen `===` comparisons scattered through app.js all
+   come right on their own:
+
+     idIn   every id is made canonical the moment it enters, so a numeric
+            string becomes a number and a temporary 'tmp_x9f2' stays a
+            string. Nothing downstream ever sees the form's version.
+     sameId the lookups compare by value anyway, so the next select somebody
+            adds cannot bring this back. */
+const idIn = v => (v === null || v === undefined || v === '') ? null
+  : (typeof v === 'number' ? v : (/^\d+$/.test(String(v)) ? Number(v) : v));
+const idsIn  = a => (Array.isArray(a) ? a : []).map(idIn).filter(v => v !== null);
+const sameId = (a,b) => a !== null && a !== undefined && b !== null && b !== undefined
+  && String(a) === String(b);
+
+/* ───────── row shapes: the database uses snake_case, the app does not ───────── */
+const jobIn  = r => ({ id:idIn(r.id), region:r.region, client:idIn(r.client_id), title:r.title, type:r.type,
+  stage:r.stage, value:Number(r.value)||0, date:r.date, kind:r.kind, finish:r.finish,
+  crewIds:idsIn(r.crew_ids), crew:'', notes:r.notes||'' });
+const jobOut = j => ({ region:j.region, client_id:idIn(j.client), title:j.title, type:j.type||'',
+  stage:j.stage, value:j.value||0, date:j.date, kind:j.kind, finish:j.finish||'n/a',
+  crew_ids:idsIn(j.crewIds), notes:j.notes||'' });
+
+const quoteIn  = r => ({ id:idIn(r.id), region:r.region, client:idIn(r.client_id), title:r.title,
   total:Number(r.total)||0, status:r.status, summary:r.summary||'', design:r.design||null,
   created:(r.created||'').slice(0,10) });
-const quoteOut = q => ({ region:q.region, client_id:q.client||null, title:q.title,
+const quoteOut = q => ({ region:q.region, client_id:idIn(q.client), title:q.title,
   total:q.total||0, status:q.status||'draft', summary:q.summary||'', design:q.design||null });
 
-const empIn  = r => ({ id:r.id, region:r.region, name:r.name, role:r.role, phone:r.phone||'',
+const empIn  = r => ({ id:idIn(r.id), region:r.region, name:r.name, role:r.role, phone:r.phone||'',
   email:r.email||'', active:r.active!==false, started:r.started||'', notes:r.notes||'' });
 const empOut = e => ({ region:e.region, name:e.name, role:e.role||'Installer', phone:e.phone||'',
   email:e.email||'', active:e.active!==false, started:e.started||today(), notes:e.notes||'' });
 
-const cliIn  = r => ({ id:r.id, region:r.region, name:r.name, phone:r.phone||'', email:r.email||'',
+const cliIn  = r => ({ id:idIn(r.id), region:r.region, name:r.name, phone:r.phone||'', email:r.email||'',
   addr:r.addr||'', source:r.source||'Website', notes:r.notes||'', created:(r.created||'').slice(0,10),
   stage: PIPE_ID.includes(r.stage) ? r.stage : 'new',
   stageAt: r.stage_at || r.created || null });
@@ -111,7 +138,7 @@ const cliOut = c => ({ region:c.region, name:c.name, phone:c.phone||'', email:c.
   stage_at: c.stageAt || new Date().toISOString() });
 
 /* the crew names on a job, derived rather than stored twice */
-const stampCrew = j => { j.crew = (j.crewIds||[]).map(id=>(db.employees.find(e=>e.id===id)||{}).name)
+const stampCrew = j => { j.crew = (j.crewIds||[]).map(id=>(db.employees.find(e=>sameId(e.id,id))||{}).name)
   .filter(Boolean).join(' + '); return j; };
 
 /* ───────── load ───────── */
@@ -172,14 +199,14 @@ export const DB = {
   employees: region => { const r = region||prefs.activeRegion;
     return r==='all' ? db.employees : db.employees.filter(e=>e.region===r); },
 
-  client: id => db.clients.find(c=>c.id===id),
-  clientName: id => (db.clients.find(c=>c.id===id)||{}).name || 'Unknown',
+  client: id => db.clients.find(c=>sameId(c.id,id)),
+  clientName: id => (db.clients.find(c=>sameId(c.id,id))||{}).name || 'Unknown',
   findClient: name => { const n=String(name||'').toLowerCase().trim(); if(!n) return null;
     return db.clients.find(c=>c.name.toLowerCase()===n)
         || db.clients.find(c=>c.name.toLowerCase().includes(n))
         || db.clients.find(c=>n.includes(c.name.toLowerCase().split(' ')[0])) || null; },
-  clientLoad: id => ({ jobs: db.jobs.filter(j=>j.client===id).length,
-                       quotes: db.quotes.filter(q=>q.client===id).length }),
+  clientLoad: id => ({ jobs: db.jobs.filter(j=>sameId(j.client,id)).length,
+                       quotes: db.quotes.filter(q=>sameId(q.client,id)).length }),
 
   addClient: c => { const row = { id:tmpId(), created:today(),
       region:c.region||prefs.activeRegion, name:c.name, phone:c.phone||'', email:c.email||'',
@@ -201,9 +228,14 @@ export const DB = {
      the jobs booked for them. Nothing invented — a client with no numbers
      against them shows no number. */
   clientValue: id => {
-    const q = db.quotes.filter(x => x.client === id && x.status !== 'rejected');
+    /* The four statuses a quote can have are draft, sent, accepted and
+       declined. This filtered out 'rejected', which is not one of them and
+       never has been, so a quote the customer had turned down still counted
+       toward what the client was worth. The office was looking at money it
+       was never going to get. */
+    const q = db.quotes.filter(x => sameId(x.client, id) && x.status !== 'declined');
     if(q.length) return q.reduce((a,x) => a + (+x.total || 0), 0);
-    return db.jobs.filter(x => x.client === id).reduce((a,x) => a + (+x.value || 0), 0);
+    return db.jobs.filter(x => sameId(x.client, id)).reduce((a,x) => a + (+x.value || 0), 0);
   },
   /* whole days since the card last moved */
   daysInStage: c => {
@@ -214,38 +246,41 @@ export const DB = {
   },
   updateClient: (id,p) => { const c = DB.client(id); if(!c) return null;
     Object.assign(c,p); patch('clients', id, cliOut(c)); return c; },
-  removeClient: id => { const i=db.clients.findIndex(c=>c.id===id); if(i<0) return false;
+  removeClient: id => { const i=db.clients.findIndex(c=>sameId(c.id,id)); if(i<0) return false;
     db.clients.splice(i,1);
     db.jobs   = db.jobs.filter(j=>j.client!==id);
     db.quotes = db.quotes.filter(q=>q.client!==id);
     drop('clients', id);                      /* the database cascades the rest */
     return true; },
 
-  job: id => db.jobs.find(j=>j.id===id),
+  job: id => db.jobs.find(j=>sameId(j.id,id)),
   findJob: t => { const n=String(t||'').toLowerCase().trim(); if(!n) return null;
     return db.jobs.find(j=>j.title.toLowerCase()===n)
         || db.jobs.find(j=>j.title.toLowerCase().includes(n)) || null; },
   addJob: j => { const row = stampCrew({ id:tmpId(), region:j.region||prefs.activeRegion,
-      client:j.client, title:j.title||'Untitled', type:j.type||'', stage:j.stage||'lead',
+      client:idIn(j.client), title:j.title||'Untitled', type:j.type||'', stage:j.stage||'lead',
       value:+j.value||0, date:j.date||today(), kind:j.kind||'measure',
-      finish:j.finish||'n/a', crewIds:j.crewIds||[], notes:j.notes||'' });
+      finish:j.finish||'n/a', crewIds:idsIn(j.crewIds), notes:j.notes||'' });
     db.jobs.push(row); push('jobs', jobOut(row), row); return row; },
   updateJob: (id,p) => { const j = DB.job(id); if(!j) return null;
-    Object.assign(j,p); stampCrew(j); patch('jobs', id, jobOut(j)); return j; },
-  removeJob: id => { const i=db.jobs.findIndex(j=>j.id===id); if(i<0) return false;
+    Object.assign(j, p, ('client' in p) ? {client:idIn(p.client)} : {},
+                     ('crewIds' in p) ? {crewIds:idsIn(p.crewIds)} : {});
+    stampCrew(j); patch('jobs', j.id, jobOut(j)); return j; },
+  removeJob: id => { const i=db.jobs.findIndex(j=>sameId(j.id,id)); if(i<0) return false;
     db.jobs.splice(i,1); drop('jobs', id); return true; },
 
-  quote: id => db.quotes.find(q=>q.id===id),
+  quote: id => db.quotes.find(q=>sameId(q.id,id)),
   addQuote: q => { const row = { id:tmpId(), created:today(), region:q.region||prefs.activeRegion,
-      client:q.client, title:q.title||'Untitled quote', total:+q.total||0,
+      client:idIn(q.client), title:q.title||'Untitled quote', total:+q.total||0,
       status:q.status||'draft', summary:q.summary||'', design:q.design||null };
     db.quotes.push(row); push('quotes', quoteOut(row), row); return row; },
-  updateQuote: (id,p) => { const q = db.quotes.find(x=>x.id===id); if(!q) return null;
-    Object.assign(q,p); patch('quotes', id, quoteOut(q)); return q; },
-  removeQuote: id => { const i=db.quotes.findIndex(q=>q.id===id); if(i<0) return false;
+  updateQuote: (id,p) => { const q = DB.quote(id); if(!q) return null;
+    Object.assign(q, p, ('client' in p) ? {client:idIn(p.client)} : {});
+    patch('quotes', q.id, quoteOut(q)); return q; },
+  removeQuote: id => { const i=db.quotes.findIndex(q=>sameId(q.id,id)); if(i<0) return false;
     db.quotes.splice(i,1); drop('quotes', id); return true; },
 
-  employee: id => db.employees.find(e=>e.id===id),
+  employee: id => db.employees.find(e=>sameId(e.id,id)),
   employeeName: id => (DB.employee(id)||{}).name || '',
   addEmployee: e => { const row = { id:tmpId(), region:e.region||prefs.activeRegion,
       name:e.name, role:e.role||'Installer', phone:e.phone||'', email:e.email||'',
@@ -254,12 +289,12 @@ export const DB = {
   updateEmployee: (id,p) => { const e = DB.employee(id); if(!e) return null;
     Object.assign(e,p); patch('employees', id, empOut(e));
     db.jobs.forEach(stampCrew); return e; },
-  removeEmployee: id => { const i=db.employees.findIndex(e=>e.id===id); if(i<0) return false;
+  removeEmployee: id => { const i=db.employees.findIndex(e=>sameId(e.id,id)); if(i<0) return false;
     db.employees.splice(i,1);
     /* the database has a trigger that takes them off every visit; mirror it here
        so the screen agrees with the database without waiting for a round trip */
-    for(const j of db.jobs) if(j.crewIds?.includes(id)){
-      j.crewIds = j.crewIds.filter(x=>x!==id); stampCrew(j);
+    for(const j of db.jobs) if(j.crewIds?.some(x=>sameId(x,id))){
+      j.crewIds = j.crewIds.filter(x=>!sameId(x,id)); stampCrew(j);
     }
     drop('employees', id); return true; },
 
@@ -267,7 +302,7 @@ export const DB = {
   leads: () => db.leads,
   newLeads: () => db.leads.filter(l => !l.handled),
   enquiries: () => db.leads.filter(l => l.handled),
-  lead: id => db.leads.find(l=>l.id===id),
+  lead: id => db.leads.find(l=>sameId(l.id,id)),
   addEnquiry: e => { const row = { id:tmpId(), created:new Date().toISOString(), handled:true,
       region_id:e.regionId||null, source:e.source||'Website', contact:e.contact,
       design:e.design||null, client_id:e.clientId||null };
@@ -279,7 +314,7 @@ export const DB = {
     l.handled = true; l.client_id = clientId || l.client_id; l.region_id = regionId || l.region_id;
     patch('leads', id, { handled:true, client_id:l.client_id, region_id:l.region_id });
     return l; },
-  removeEnquiry: id => { const i=db.leads.findIndex(l=>l.id===id); if(i<0) return false;
+  removeEnquiry: id => { const i=db.leads.findIndex(l=>sameId(l.id,id)); if(i<0) return false;
     db.leads.splice(i,1); drop('leads', id); return true; },
 
   /* ───────── settings ─────────
@@ -347,3 +382,6 @@ export const DB = {
     return count;
   },
 };
+
+/* app.js compares ids too; it uses the same rule rather than its own. */
+export { idIn, sameId };

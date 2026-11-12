@@ -740,3 +740,49 @@ button.backlink:hover{opacity:1}
 .wkurl .btn{flex:0 0 auto}
 .wkmeta{margin:.55em 0 .9em;font-size:.72rem;color:var(--muted)}
 .wkmeta #wk-len{font-variant-numeric:tabular-nums}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TABLES ON A PHONE
+   Last block in the file on purpose: at equal specificity the last rule
+   wins, so the overrides below are not fighting anything written earlier.
+
+   The tables already sat in a horizontal scroller, so they were supposed
+   to be fine on a phone. They were not. The scroller held them to a flat
+   `min-width:620px` while `table{width:100%}` squeezed them to exactly
+   that, and `td b, td .sub{overflow-wrap:anywhere}` then broke whatever
+   would not fit. An eight column client list on a 390px screen rendered
+   "Daniel Okafor" down the page one or two letters per line, and the
+   email under it the same way. The data was all there and none of it was
+   readable.
+
+   A table inside a scroller should be as wide as its content needs and
+   never narrower than the panel, and the scroller moves. So:
+     width:max-content   columns take the width they actually want
+     min-width:100%      and still fill the panel on a wide screen
+   Then the only things allowed to break mid-word are the two that
+   genuinely can be one long unbroken string: an email and a URL.
+   ══════════════════════════════════════════════════════════════════════ */
+.tscroll > table{ width:max-content; min-width:100%; }
+
+/* names, money, stages, dates: never broken mid-word */
+.tscroll td, .tscroll th{ overflow-wrap:normal; word-break:normal; }
+.tscroll td b{ overflow-wrap:normal; white-space:nowrap; }
+
+/* the two that can legitimately be one long run of characters, given a
+   ceiling so one 70 character address cannot make the table 1400px */
+.tscroll td .sub{ overflow-wrap:anywhere; }
+.tscroll td.addr{ max-width:30ch; }
+.tscroll td.addr a{ overflow-wrap:anywhere; }
+
+/* a quote's summary line is a sentence, so it wraps at spaces inside a
+   sensible column rather than becoming a one-word-per-line tower */
+.tscroll td .qsum, .tscroll td .sub.wrap{ white-space:normal; overflow-wrap:break-word; }
+
+/* The horizontal scroll has to be discoverable, or a column nobody can
+   see is a column that does not exist. A hairline fade on the right says
+   there is more, and it goes when the table fits. */
+@media(max-width:900px){
+  .tscroll{ scrollbar-width:thin; }
+  .tscroll::-webkit-scrollbar{ height:6px; }
+  .tscroll::-webkit-scrollbar-thumb{ background:var(--line); border-radius:3px; }
+}

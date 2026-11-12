@@ -14,6 +14,13 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.47.10/+esm';
 import { SUPA_URL, SUPA_KEY } from '../assets/js/supa-config.js';
 
+/* True once supa-config.js has a project in it. On this site it always is.
+   It exists so admin/boot.js is the SAME FILE here and in the template,
+   where a fresh copy has no database yet and an unconfigured office must
+   say so on the sign-in panel instead of going blank. One file, one
+   behaviour, nothing to keep in step by hand. */
+export const CONFIGURED = !!(SUPA_URL && SUPA_KEY);
+
 export const sb = createClient(SUPA_URL, SUPA_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, storageKey: 'js_closets_auth' }
 });

@@ -12,7 +12,7 @@
    delete, and every change is written to storage the moment it is made.
    ============================================================ */
 import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS, ROLES,
-         PIPE, PIPE_ID, PIPE_LABEL, PIPE_COLOR } from './store.js';
+         PIPE, PIPE_ID, PIPE_LABEL, PIPE_COLOR, sameId } from './store.js';
 import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
 import { describe } from '../assets/js/enquiry.js';
 import { packWeekShort, mondayOf, addDays } from '../assets/js/crewlink.js';
@@ -114,7 +114,7 @@ function pipeCard(c){
   const v    = DB.clientValue(c.id);
   const d    = DB.daysInStage(c);
   const load = DB.clientLoad(c.id);
-  const next = DB.jobs('all').filter(j => j.client === c.id && j.date >= today())
+  const next = DB.jobs('all').filter(j => sameId(j.client, c.id) && j.date >= today())
                  .sort((a,b) => a.date.localeCompare(b.date))[0];
   const what = next ? `${next.kind} ${fmtD(next.date)}`
              : load.quotes ? `${load.quotes} quote${load.quotes===1?'':'s'}`
@@ -319,9 +319,9 @@ V.clients = () => {
         <i class="sdot" style="background:${st.c}"></i>${st.label} <i>${count(st.id)}</i></button>`).join('')}
      </div>`
   + panel('', '', c.length
-    ? scroll(`<table><thead><tr><th>Name</th><th>Where they are</th><th>Phone</th><th>Address</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Source</th><th>Jobs</th><th class="mono">Lifetime</th></tr></thead><tbody>
+    ? scroll(`<table><thead><tr><th>Name</th><th>Where they are</th><th>Phone</th><th>Address</th>${DB.region()==='all'?'<th>Region</th>':''}<th>Source</th><th>Jobs</th><th class="mono">Installed</th></tr></thead><tbody>
       ${c.map(x=>{
-        const js = DB.jobs('all').filter(j=>j.client===x.id);
+        const js = DB.jobs('all').filter(j=>sameId(j.client, x.id));
         const done = js.filter(j=>j.stage==='done').sort((a,b)=>b.date.localeCompare(a.date));
         const st = x.stage || 'new';
         return `<tr data-client="${x.id}">
@@ -334,7 +334,14 @@ V.clients = () => {
           ${regionCell(x)}
           <td><span class="pill muted">${esc(x.source||'—')}</span></td>
           <td>${js.length}</td>
-          <td class="mono">${money(js.filter(j=>j.stage==='done').reduce((a,j)=>a+j.value,0))}</td></tr>`;
+          ${/* This column only ever counted jobs at the Installed stage, but it
+                was headed "Lifetime", so a client with a $4,200 quote out and a
+                $7,400 install on the calendar read as being worth $0. It says
+                what it counts now, and a client who has not had an install yet
+                gets a dash rather than a figure that looks calculated. */''}
+          <td class="mono">${(() => { const inst = js.filter(j=>j.stage==='done')
+              .reduce((a,j)=>a+(+j.value||0),0);
+            return inst ? money(inst) : '<span class="sub">&ndash;</span>'; })()}</td></tr>`;
       }).join('')}</tbody></table>`)
     : empty(CLI_STAGE==='all'
         ? 'No clients in this region yet. Add the first one with the button above.'
@@ -637,7 +644,12 @@ function inboxFile(){
   else DB.addEnquiry({ ...e, regionId:region, clientId:client.id });
   INBOX_DRAFT = null;
   render();
-  toast(`Filed. ${client.name} is in ${REGIONS.find(r=>r.id===region).name}, with a measure visit today${quote?' and a draft quote of '+money(quote.total):''}.`);
+  /* The whole filing succeeded by this point. Looking the region name up
+     with a bare .name would throw on an unknown region id and turn a
+     finished job into an error toast, which reads as "it did not work"
+     when it did. */
+  const rname = DB.regionMeta(region).name;
+  toast(`Filed. ${client.name} is in ${rname}, with a measure visit today${quote?' and a draft quote of '+money(quote.total):''}.`);
 }
 
 /* ───────── settings ───────── */
@@ -882,7 +894,7 @@ function openLead(id){
 function openClient(id){
   const c = id ? DB.client(id) : null;
   const load = c ? DB.clientLoad(c.id) : {jobs:0,quotes:0};
-  const jobs = c ? DB.jobs('all').filter(j=>j.client===c.id).sort((a,b)=>b.date.localeCompare(a.date)) : [];
+  const jobs = c ? DB.jobs('all').filter(j=>sameId(j.client, c.id)).sort((a,b)=>b.date.localeCompare(a.date)) : [];
   /* What this client has actually been worth. Only the installed ones count,
      because a lead with a number against it is a hope, not revenue. */
   const doneTotal = jobs.filter(j=>j.stage==='done').reduce((a,j)=>a+(+j.value||0),0);
@@ -943,7 +955,7 @@ function openClient(id){
       const v = Math.max(0, +inp.value || 0);
       inp.value = v;
       DB.updateJob(inp.dataset.jval, { value: v });
-      const fresh = DB.jobs('all').filter(j => j.client === c.id && j.stage === 'done')
+      const fresh = DB.jobs('all').filter(j => sameId(j.client, c.id) && j.stage === 'done')
                       .reduce((a,j) => a + (+j.value||0), 0);
       const tot = $('#m-donetot'); if(tot) tot.textContent = money(fresh);
       render();
@@ -982,7 +994,7 @@ function openJob(id, presetDate){
   const crewPool = DB.employees('all').filter(e=>e.active!==false);
   const picked = new Set(j?.crewIds||[]);
   dlg.innerHTML = `<h2>${j?'Visit':'New visit'}</h2>
-   <div class="f"><label>Client</label><select id="m-c">${cs.map(c=>`<option value="${c.id}"${j&&j.client===c.id?' selected':''}>${esc(c.name)} · ${DB.regionMeta(c.region).short}</option>`).join('')}</select></div>
+   <div class="f"><label>Client</label><select id="m-c">${cs.map(c=>`<option value="${c.id}"${j&&sameId(j.client,c.id)?' selected':''}>${esc(c.name)} · ${DB.regionMeta(c.region).short}</option>`).join('')}</select></div>
    <div class="f"><label>Job title</label><input id="m-t" value="${esc(j?.title||'')}" placeholder="e.g. Primary walk-in"></div>
    <div class="f2"><div class="f"><label>Date</label><input id="m-d" type="date" value="${j?.date||presetDate||today()}"></div>
      <div class="f"><label>Visit type</label><select id="m-k">${KINDS.map(k=>`<option${j&&j.kind===k?' selected':''}>${k}</option>`).join('')}</select></div></div>
@@ -1019,7 +1031,13 @@ function openJob(id, presetDate){
       stage:$('#m-st').value, value:+$('#m-v').value, crewIds,
       crew: crewIds.map(id=>DB.employeeName(id)).filter(Boolean).join(' + '),
       finish:$('#m-fi').value||'n/a', notes:$('#m-no').value };
-    j ? DB.updateJob(j.id,p) : DB.addJob({...p, type:p.title});
+    /* `type` is the kind of closet -- walk-in, reach-in, garage -- which is
+       what the room pages and the reporting read. It used to be handed the
+       job's TITLE, so every visit booked from this dialog went into the
+       database with "Shoe wall install" sitting in the closet-type column.
+       Nothing on screen showed it, which is why it survived. A visit booked
+       here simply has no closet type until somebody sets one. */
+    j ? DB.updateJob(j.id,p) : DB.addJob(p);
     close(); render(); toast(j?'Saved.':'Booked.');
   };
 }
@@ -1073,13 +1091,18 @@ function openEmployee(id){
 /* A quote that came in from the 3D builder carries the whole drawing, so the
    parts list is a click away rather than back in the email it arrived in. */
 function openQuote(id){
-  const q = id ? DB.quotes('all').find(x=>x.id===id) : null;
+  /* Every row hands this an id out of a data attribute, which is a STRING,
+     and this was the one place that looked a quote up by hand with `===`
+     instead of going through DB.quote. It never matched, so clicking a quote
+     opened a blank "New quote" form -- and saving it created a second quote
+     and wiped the title off the first. DB.quote compares by value. */
+  const q = id ? DB.quote(id) : null;
   const d = q?.design;
   const cs = DB.clients('all').sort((a,b)=>a.name.localeCompare(b.name));
   if(!q && !cs.length){ toast('Add a client first.', true); return openClient(null); }
   dlg.innerHTML = `<h2>${q?esc(q.title):'New quote'}</h2>
     ${q?`<p class="sub dlgsub">${esc(DB.clientName(q.client))} · ${esc(q.summary||'')}</p>`:''}
-    <div class="f"><label>Client</label><select id="m-c">${cs.map(c=>`<option value="${c.id}"${q&&q.client===c.id?' selected':''}>${esc(c.name)} · ${DB.regionMeta(c.region).short}</option>`).join('')}</select></div>
+    <div class="f"><label>Client</label><select id="m-c">${cs.map(c=>`<option value="${c.id}"${q&&sameId(q.client,c.id)?' selected':''}>${esc(c.name)} · ${DB.regionMeta(c.region).short}</option>`).join('')}</select></div>
     <div class="f"><label>Title</label><input id="m-t" value="${esc(q?.title||'')}" placeholder="e.g. Primary walk-in, Level 2"></div>
     <div class="f2"><div class="f"><label>Total ($)</label><input id="m-v" type="number" value="${q?.total||0}"></div>
       <div class="f"><label>Status</label><select id="m-st">${['draft','sent','accepted','declined'].map(x=>`<option${q?.status===x?' selected':''}>${x}</option>`).join('')}</select></div></div>
@@ -1121,8 +1144,11 @@ function openQuote(id){
           <button class="btn" id="q-mail">Email it to ${esc((DB.client(q.client)||{}).name || 'the client')}</button>
         </div></div>`;
     })() : ''}
+    ${/* "Close" next to a Save button reads as "discard"; every other editor
+          in here says Cancel, so this one does too. The read-only dialogs,
+          which have nothing to save, keep Close. */''}
     <div class="dlgacts">${q?'<button class="btn danger" id="m-del">Delete</button>':''}
-      <button class="btn" value="cancel">Close</button>
+      <button class="btn" value="cancel">Cancel</button>
       <button class="btn btn-p" id="m-ok">${q?'Save changes':'Add quote'}</button></div>`;
   dlg.showModal(); wireCancel();
   /* A row of real buttons instead of a 140px dropdown. Same data, but you can
@@ -1156,7 +1182,7 @@ function openQuote(id){
     if(p.status === 'accepted' && was !== 'accepted'){
       const n = quoteNumbers(saved, DB.settings());
       const c = DB.client(p.client);
-      const already = DB.jobs('all').some(j => j.client === p.client && j.kind === 'install'
+      const already = DB.jobs('all').some(j => sameId(j.client, p.client) && j.kind === 'install'
                         && j.title === p.title);
       if(!already){
         DB.addJob({ region: c?.region || DB.region(), client: p.client, kind:'install',

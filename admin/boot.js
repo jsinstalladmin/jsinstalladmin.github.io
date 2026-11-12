@@ -5,7 +5,7 @@
    the data is in hand, so no screen can ever render half-empty while
    a query is still in flight.
    ============================================================ */
-import { sb, currentUser, signIn, signOut, readable } from './supa.js';
+import { sb, currentUser, signIn, signOut, readable, CONFIGURED } from './supa.js';
 import { DB, hydrate, onError, onSaved } from './store.js';
 
 const $ = s => document.querySelector(s);
@@ -45,6 +45,15 @@ async function start(user){
   });
 }
 
+/* TEMPLATE: no database configured yet. Say so where someone will read it,
+   on the sign-in panel, and do not pretend the form can work. */
+if(!CONFIGURED){
+  gate.hidden = false;
+  form.querySelectorAll('input,button').forEach(el => el.disabled = true);
+  msg.className = 'bad';
+  msg.textContent = readable(new Error('NO_DATABASE'));
+}
+
 form.addEventListener('submit', async e => {
   e.preventDefault();
   const btn = $('#g-go');
@@ -64,9 +73,11 @@ document.addEventListener('click', e => {
 });
 
 /* already signed in from last time? go straight in */
-const user = await currentUser();
-if(user) await start(user);
-else { gate.hidden = false; $('#g-e').focus(); }
+if(CONFIGURED){
+  const user = await currentUser();
+  if(user) await start(user);
+  else { gate.hidden = false; $('#g-e').focus(); }
+}
 
 /* if the session is ended elsewhere, do not leave a live screen behind */
 sb.auth.onAuthStateChange((event) => {
