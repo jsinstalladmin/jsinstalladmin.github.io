@@ -68,19 +68,62 @@ const WORDS = {
   ct:['connecticut','fairfield','new haven','hartford','stamford','greenwich','norwalk'],
   pa:['pennsylvania','philadelphia','bucks','montgomery','chester','delaware county','lehigh','newtown'],
 };
-export function regionFor({ region='', location='', address='', zip:zipField='' } = {}){
+/* The contact form has a State box with exactly the five states he covers
+   in it, plus Other. The customer picking their own state out of a short
+   list is the single most reliable thing on the form, and until now it was
+   thrown away: regionFor never looked at it. A New York customer whose ZIP
+   was mistyped, or whose town is not in the word list below, arrived with
+   no region at all and the office had to guess. */
+const STATE_REGION = { FL:'fl', NY:'ny', NJ:'nj', CT:'ct', PA:'pa' };
+const stateRegion = v => STATE_REGION[String(v||'').trim().toUpperCase()] || null;
+
+const zipRegion = (zipField, location, address) => {
   /* The form asks for the ZIP in a box of its own now, so use it rather than
      hunting for five digits in a sentence. The hunt stays as the fallback for
      enquiries pasted in from an email. */
   const zip = String(zipField).match(/\b(\d{5})\b/)
            || String(location+' '+address).match(/\b(\d{5})\b/);
-  if(zip){
-    const n = +zip[1];
-    for(const [id, lo, hi] of ZIP_BANDS) if(n >= lo && n <= hi) return id;
-  }
-  const hay = (region+' '+location+' '+address).toLowerCase();
-  for(const id of REGION_IDS) if(WORDS[id].some(w => hay.includes(w))) return id;
+  if(!zip) return null;
+  const n = +zip[1];
+  for(const [id, lo, hi] of ZIP_BANDS) if(n >= lo && n <= hi) return id;
   return null;
+};
+const wordRegion = hay => {
+  const h = String(hay).toLowerCase();
+  for(const id of REGION_IDS) if(WORDS[id].some(w => h.includes(w))) return id;
+  return null;
+};
+
+export function regionFor({ region='', location='', address='', zip:zipField='', state='' } = {}){
+  return zipRegion(zipField, location, address)
+      || stateRegion(state)
+      || wordRegion(region+' '+location+' '+address);
+}
+
+/* WHAT THE REGION WAS WORKED OUT FROM, so the office can see it rather than
+   take it on trust.
+
+   The office must not be able to retype where a customer lives. But that is
+   only safe if the office can see WHY the system decided what it decided,
+   and if the rare case where the signals disagree is put in front of a human
+   instead of being resolved silently. A mistyped ZIP that lands in another
+   state is exactly that case: the customer picked NY and the digits say FL,
+   and nothing on the screen should pretend to know which is right.
+
+   Returns { region, from, state, zip, agree, conflict }. */
+export function regionEvidence(contact = {}){
+  const byZip   = zipRegion(contact.zip, contact.location || '', contact.address || '');
+  const byState = stateRegion(contact.state);
+  const byWord  = wordRegion((contact.region||'') + ' ' + (contact.location||'') + ' ' + (contact.address||''));
+  const region  = byZip || byState || byWord;
+  const from    = byZip ? 'their ZIP code' : byState ? 'the state they picked'
+                : byWord ? 'the town they gave' : null;
+  /* only a disagreement between two things the customer stated themselves
+     counts; the word hunt is our inference, not their statement */
+  const conflict = !!(byZip && byState && byZip !== byState);
+  return { region, from, state: String(contact.state||'').trim().toUpperCase() || null,
+           zip: String(contact.zip||'').trim() || null,
+           byZip, byState, byWord, conflict };
 }
 
 /* A one-screen summary a human can read without decoding anything. */

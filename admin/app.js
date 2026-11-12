@@ -14,7 +14,7 @@
 import { DB, REGIONS, STAGES, STAGE_LABEL, KINDS, ROLES,
          PIPE, PIPE_ID, PIPE_LABEL, PIPE_COLOR, sameId } from './store.js';
 import { quickPrice, MODULES, MODULE_IDS } from '../assets/js/design.js';
-import { describe } from '../assets/js/enquiry.js';
+import { describe, regionEvidence } from '../assets/js/enquiry.js';
 import { packWeekShort, mondayOf, addDays } from '../assets/js/crewlink.js';
 import { quoteDoc, quoteNumbers, linearFeet, orderSheet } from './quote.js';
 
@@ -570,7 +570,21 @@ function inboxPreview(e){
      like clicking the row simply did nothing. */
   const ct = e.contact || {};
   const d = e.design;
-  const rm = REGIONS.find(r=>r.id===e.regionId);
+  /* WHERE A CUSTOMER LIVES IS NOT AN OFFICE SETTING.
+
+     They picked their state out of a list of five and typed their own ZIP.
+     That is their statement about themselves, and this screen used to put a
+     dropdown next to it defaulted to whatever region the office happened to
+     be looking at, so one careless Enter filed a Queens job to the Florida
+     crew. The region is shown as a fact now, with what it was worked out
+     from, and there is nothing to change.
+
+     Two cases still need a human, and only those two get a picker: nothing
+     on the form said where they are, or the ZIP and the state disagree. */
+  const ev = regionEvidence(ct);
+  const known = e.regionId || ev.region;
+  const rm = REGIONS.find(r=>r.id===known);
+  const mustAsk = !rm || ev.conflict;
   const parts = (d?.order||[]).reduce((a,o)=>a+(+o.qty||0),0);
   const existing = ct.name ? DB.findClient(ct.name) : null;
   return `<div class="note ok"><b>Read it.</b> ${esc(describe(e))}</div>
@@ -579,7 +593,14 @@ function inboxPreview(e){
       <tr><th>Phone</th><td>${esc(ct.phone||'—')}</td></tr>
       <tr><th>Email</th><td>${esc(ct.email||'—')}</td></tr>
       <tr><th>Where</th><td>${esc([ct.address,ct.location].filter(Boolean).join(', ')||'—')}</td></tr>
-      <tr><th>Region</th><td>${rm ? esc(rm.name) : '<b>Could not work it out from the ZIP. Pick one below.</b>'}</td></tr>
+      <tr><th>State</th><td>${ev.state ? `<b>${esc(ev.state)}</b>` : '<span class="sub">They did not say</span>'}${ev.zip?` · ZIP ${esc(ev.zip)}`:''}</td></tr>
+      <tr><th>Region</th><td>${rm
+        ? `<b>${esc(rm.name)}</b>${ev.from?` <span class="sub">&mdash; from ${esc(ev.from)}</span>`:''}`
+        : '<b>Nothing on the form said where they are.</b>'}</td></tr>
+      ${ev.conflict?`<tr><th></th><td><span class="note warn" style="display:block">Their ZIP is in
+        ${esc(DB.regionMeta(ev.byZip).name)} but they picked <b>${esc(ev.state)}</b>. One of the two is a
+        typo and nothing here can tell which, so pick the right one below and
+        call them if you are not sure.</span></td></tr>`:''}
       <tr><th>Project</th><td>${esc(ct.project||'—')}</td></tr>
       ${d?`<tr><th>Room</th><td>${d.room.w}" × ${d.room.d}" × ${d.room.h}" · ${esc(d.mounting||'')}</td></tr>
       <tr><th>Sections</th><td>${(d.bays||[]).length}, ${parts} parts and pieces</td></tr>
@@ -593,9 +614,15 @@ function inboxPreview(e){
     </tbody></table>
     ${existing?`<div class="note warn">There is already a client called <b>${esc(existing.name)}</b> in ${esc(DB.regionMeta(existing.region).name)}. Filing this adds the job to them rather than making a second record.</div>`:''}
     <div class="f2">
-      <div class="f"><label>Which region</label><select id="inbox-region">
-        ${REGIONS.map(r=>`<option value="${r.id}"${r.id===(e.regionId||DB.region())?' selected':''}>${esc(r.name)}</option>`).join('')}
-      </select></div>
+      ${mustAsk
+        ? `<div class="f"><label>Which region</label><select id="inbox-region">
+             <option value="">&mdash; pick one &mdash;</option>
+             ${REGIONS.map(r=>`<option value="${r.id}"${r.id===ev.byState?' selected':''}>${esc(r.name)}</option>`).join('')}
+           </select></div>`
+        : `<div class="f"><label>Which region</label>
+             <div class="lockfield" title="This is what the customer told us. It is not an office setting.">
+               <b>${esc(rm.name)}</b><span>from ${esc(ev.from || 'their own answers')}</span>
+             </div></div>`}
       <div class="f"><label>Onto the board at</label><select id="inbox-stage">
         ${PIPE.filter(x=>x.id!=='lost').map(x=>`<option value="${x.id}"${x.id==='new'?' selected':''}>${esc(x.label)}</option>`).join('')}
       </select></div>
@@ -606,10 +633,30 @@ function inboxPreview(e){
     <div class="btnrow"><button class="btn btn-p" data-act="inbox-file">File it onto the board</button></div>`;
 }
 
-function inboxFile(){
+/* Filing now waits on the database, so there is a moment where the button
+   has been pressed and nothing has happened yet. Two presses in that moment
+   used to mean two clients. */
+let FILING = false;
+async function inboxFile(){
   const e = INBOX_DRAFT; if(!e) return;
-  const region = $('#inbox-region')?.value || DB.region();
-  const stage  = $('#inbox-stage')?.value || 'new';
+  if(FILING) return;
+  FILING = true;
+  try { return await fileIt(e); } finally { FILING = false; }
+}
+async function fileIt(e){
+  /* The customer's own answer, every time. The picker only exists when there
+     was no answer to read, or when the two answers contradict each other, and
+     only then is the office allowed to supply one. Falling back to the region
+     the office is browsing would file the job to whoever happened to be on
+     screen, which is how a Queens job ends up on the Florida calendar. */
+  const ev      = regionEvidence(INBOX_DRAFT?.contact || {});
+  const stated  = INBOX_DRAFT?.regionId || (ev.conflict ? null : ev.region);
+  const picked  = $('#inbox-region')?.value || '';
+  const region  = (ev.conflict ? (picked || stated) : (stated || picked)) || DB.region();
+  const stage   = $('#inbox-stage')?.value || 'new';
+  if(!region || region === 'all'){
+    toast('Pick which region this job is in before filing it.', true); return;
+  }
   const d = e.design;
   /* Same guard as inboxPreview: a lead can arrive with no contact block at
      all (the setup check does exactly that), and every field below reads
@@ -617,7 +664,9 @@ function inboxFile(){
      statement and filing a lead did nothing at all. */
   const ct = e.contact || {};
   let client = ct.name ? DB.findClient(ct.name) : null;
+  let isNew = false;
   if(!client){
+    isNew = true;
     client = DB.addClient({ region, name:ct.name || 'Website enquiry',
       phone:ct.phone||'', email:ct.email||'',
       addr:[ct.address, ct.location].filter(Boolean).join(', '),
@@ -628,6 +677,24 @@ function inboxFile(){
       email: client.email || ct.email || '',
       addr:  client.addr  || [ct.address, ct.location].filter(Boolean).join(', ') });
   }
+  /* THE CLIENT HAS TO EXIST BEFORE ANYTHING POINTS AT IT.
+
+     A brand new client is on screen instantly with a temporary id, and its
+     real one arrives a moment later. The visit, the quote and the lead all
+     carry that id as a foreign key, so all three were being written with
+     'tmp_x9f2' in them. Against a bigint column every one of those writes
+     fails, and because the lead is the one that records "handled", the
+     enquiry stayed in the inbox and made a fresh duplicate client on every
+     attempt. One await, and the three rows below point at something real. */
+  if(isNew){
+    const realId = await DB.realId(client);
+    if(!realId){
+      toast('The client could not be saved, so nothing was filed. Check the connection and try again.', true);
+      return;
+    }
+    client.id = realId;
+  }
+
   const title = d ? `${d.typeLabel || ct.project || 'Closet'} from the 3D builder`
                   : (ct.project || 'Website enquiry');
   const job = DB.addJob({ region, client:client.id, title,
@@ -910,12 +977,36 @@ function openClient(id){
          class="${(c?.stage||'new')===st.id?'on':''}" title="${esc(st.note)}">
          <i class="sdot" style="background:${st.c}"></i>${st.label}</button>`).join('')}
      </div></div>
-   <div class="f"><label>Which state are they in?</label>
-     <div class="pickrow wide" id="m-r" data-pick="${esc(c?.region||DB.region()==='all'?(c?.region||'fl'):DB.region())}">
-       ${REGIONS.map(r=>`<button type="button" data-region-pick="${r.id}"
-         class="${(c?.region || (DB.region()==='all'?'fl':DB.region()))===r.id?'on':''}">
-         <b>${r.short}</b><span>${esc(r.name)}</span></button>`).join('')}
-     </div></div>
+   ${(() => {
+     /* A client who filled in the form told us their state themselves. That
+        is their answer about where they live, and the office does not get to
+        retype it: a stray click here moves a real job onto another crew's
+        calendar. Locked, with where it came from written next to it.
+
+        A client the office added by hand has no such answer behind them, so
+        the picker is exactly right there. The lead row is what tells the two
+        apart, and it is already in the database. */
+     const fromWeb = c ? DB.leadForClient(c.id) : null;
+     const cur = c?.region || (DB.region()==='all' ? 'fl' : DB.region());
+     if(fromWeb){
+       const ev = regionEvidence(fromWeb.contact || {});
+       const rm = DB.regionMeta(c.region);
+       return `<div class="f"><label>Which state are they in?</label>
+         <div class="lockfield" title="This came in on their enquiry. It is not an office setting.">
+           <b>${esc(rm.name)}</b><span>${esc(ev.state ? `they put ${ev.state}` : 'from their enquiry')}${
+             ev.zip?` · ZIP ${esc(ev.zip)}`:''}</span>
+         </div>
+         <p class="note">They said this on the enquiry form, so it is not editable here.
+           If it is genuinely wrong, it is wrong on the enquiry too: fix it there.</p>
+       </div>`;
+     }
+     return `<div class="f"><label>Which state are they in?</label>
+       <div class="pickrow wide" id="m-r" data-pick="${esc(cur)}">
+         ${REGIONS.map(r=>`<button type="button" data-region-pick="${r.id}"
+           class="${cur===r.id?'on':''}">
+           <b>${r.short}</b><span>${esc(r.name)}</span></button>`).join('')}
+       </div></div>`;
+   })()}
    <div class="f"><label>Where did they come from?</label>
      <div class="pickrow" id="m-s" data-pick="${esc(c?.source||'Website')}">
        ${['Website','Referral','Google','Houzz','Trade','Walk-in'].map(x=>`<button type="button"
@@ -973,8 +1064,13 @@ function openClient(id){
     if(!name){ $('#m-n').focus(); toast('A client needs a name.', true); return; }
     const picked = sel => $(sel)?.dataset.pick || '';
     const stage = picked('#m-stage') || 'new';
+    /* With the region locked there is no #m-r on the page at all, and
+       `|| 'fl'` would have quietly moved every web client to Florida the
+       first time anybody saved one. Keep what they told us. */
+    const lockedRegion = c && DB.leadForClient(c.id) ? c.region : null;
     const p = {name, phone:$('#m-p').value, email:$('#m-e').value, addr:$('#m-a').value,
-               region:picked('#m-r') || 'fl', source:picked('#m-s') || 'Website',
+               region: lockedRegion || picked('#m-r') || c?.region || (DB.region()==='all'?'fl':DB.region()),
+               source:picked('#m-s') || 'Website',
                notes:$('#m-no').value};
     if(c){
       DB.updateClient(c.id, p);

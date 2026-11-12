@@ -162,12 +162,41 @@ export async function hydrate(){
 }
 
 /* ───────── writes: cache first so the screen is instant, then persist ───────── */
+/* ── WAITING FOR A REAL ID ───────────────────────────────────────────────
+   A new row appears on screen immediately with a temporary id like
+   'tmp_x9f2', and the database's real id is swapped in a moment later.
+   That is what makes the office feel instant, and it is fine as long as
+   the temporary id never leaves this browser.
+
+   It did leave. Filing an enquiry created the client, then immediately
+   wrote that client's id onto the lead, the job and the quote -- while it
+   was still 'tmp_x9f2'. Three foreign keys pointing at a client id that
+   has never existed in the database. Against a bigint column the writes
+   simply fail, so the lead is never marked handled: it sits in the inbox
+   and files a second client every time somebody tries again.
+
+   So: anything holding a temporary id can wait for the real one.
+     const id = await DB.realId(client);
+   It resolves the moment the insert comes back, straight away for a row
+   that was already saved, and to null if the insert failed. */
+const PENDING = new WeakMap();
+const expectId = row => {
+  let settle; PENDING.set(row, { p: new Promise(r => settle = r), settle });
+  return row;
+};
+const settleId = (row, id) => { const d = PENDING.get(row); if(d){ d.settle(id); PENDING.delete(row); } };
+
 async function push(table, row, local){
   const { data, error } = await sb.from(table).insert(row).select().single();
-  if(error){ fail('could not save that', error); await hydrate(); savedHandler(); return null; }
+  if(error){
+    fail('could not save that', error);
+    if(local) settleId(local, null);
+    await hydrate(); savedHandler(); return null;
+  }
   if(local && data){
     local.id = data.id;                           // swap the temporary id for the real one
     if(data.created) local.created = String(data.created).slice(0,10);
+    settleId(local, data.id);
     savedHandler();                               // redraw, so the buttons carry the real id
   }
   return data;
@@ -213,7 +242,7 @@ export const DB = {
       addr:c.addr||'', source:c.source||'Website', notes:c.notes||'',
       stage: PIPE_ID.includes(c.stage) ? c.stage : 'new',
       stageAt: new Date().toISOString() };
-    db.clients.push(row); push('clients', cliOut(row), row); return row; },
+    db.clients.push(row); push('clients', cliOut(row), row); return expectId(row); },
 
   /* Moving someone along the board is the one action the whole office is
      built around, so it stamps WHEN it moved. That is what lets a card say
@@ -261,7 +290,7 @@ export const DB = {
       client:idIn(j.client), title:j.title||'Untitled', type:j.type||'', stage:j.stage||'lead',
       value:+j.value||0, date:j.date||today(), kind:j.kind||'measure',
       finish:j.finish||'n/a', crewIds:idsIn(j.crewIds), notes:j.notes||'' });
-    db.jobs.push(row); push('jobs', jobOut(row), row); return row; },
+    db.jobs.push(row); push('jobs', jobOut(row), row); return expectId(row); },
   updateJob: (id,p) => { const j = DB.job(id); if(!j) return null;
     Object.assign(j, p, ('client' in p) ? {client:idIn(p.client)} : {},
                      ('crewIds' in p) ? {crewIds:idsIn(p.crewIds)} : {});
@@ -273,7 +302,7 @@ export const DB = {
   addQuote: q => { const row = { id:tmpId(), created:today(), region:q.region||prefs.activeRegion,
       client:idIn(q.client), title:q.title||'Untitled quote', total:+q.total||0,
       status:q.status||'draft', summary:q.summary||'', design:q.design||null };
-    db.quotes.push(row); push('quotes', quoteOut(row), row); return row; },
+    db.quotes.push(row); push('quotes', quoteOut(row), row); return expectId(row); },
   updateQuote: (id,p) => { const q = DB.quote(id); if(!q) return null;
     Object.assign(q, p, ('client' in p) ? {client:idIn(p.client)} : {});
     patch('quotes', q.id, quoteOut(q)); return q; },
@@ -285,7 +314,7 @@ export const DB = {
   addEmployee: e => { const row = { id:tmpId(), region:e.region||prefs.activeRegion,
       name:e.name, role:e.role||'Installer', phone:e.phone||'', email:e.email||'',
       active:e.active!==false, started:e.started||today(), notes:e.notes||'' };
-    db.employees.push(row); push('employees', empOut(row), row); return row; },
+    db.employees.push(row); push('employees', empOut(row), row); return expectId(row); },
   updateEmployee: (id,p) => { const e = DB.employee(id); if(!e) return null;
     Object.assign(e,p); patch('employees', id, empOut(e));
     db.jobs.forEach(stampCrew); return e; },
@@ -302,7 +331,28 @@ export const DB = {
   leads: () => db.leads,
   newLeads: () => db.leads.filter(l => !l.handled),
   enquiries: () => db.leads.filter(l => l.handled),
+  /* The database's own id for a row that was only just added, awaited.
+     Resolves straight away once the insert has landed, and to null if it
+     failed, so a caller can tell the difference. */
+  realId: async row => {
+    if(!row) return null;
+    const d = PENDING.get(row);
+    if(!d) return row.id ?? null;
+    const id = await d.p;
+    return id ?? null;
+  },
+
   lead: id => db.leads.find(l=>sameId(l.id,id)),
+
+  /* THE ENQUIRY A CLIENT CAME IN ON, if there was one.
+
+     A client the office typed in by hand can be moved between regions
+     freely: the office is the only source of that information. A client
+     who filled in the form stated their own state and their own ZIP, and
+     that is not something the office gets to retype. This is how the two
+     are told apart, and it needs no new column: the lead row already
+     points at the client it was filed into. */
+  leadForClient: id => db.leads.find(l => l.client_id != null && sameId(l.client_id, id)) || null,
   addEnquiry: e => { const row = { id:tmpId(), created:new Date().toISOString(), handled:true,
       region_id:e.regionId||null, source:e.source||'Website', contact:e.contact,
       design:e.design||null, client_id:e.clientId||null };

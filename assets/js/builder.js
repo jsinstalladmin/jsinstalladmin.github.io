@@ -19,7 +19,7 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          ROOM_PLANS, cornerBlocked,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
-         baseHeight, canOffer } from './design.js';
+         baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, garmentGeo, makeComposer } from './render.js';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
@@ -1949,8 +1949,26 @@ function paintStack(){
         </span>
       </div>
       ${isDrawers ? drawerRows(st) : ''}
+      ${d.inside ? insideRow(st, slot) : ''}
       ${slot === 'bottom' ? `<label class="ctop"><input type="checkbox" data-counter="1" ${sl.counter?'checked':''}>
         <span><b>A worktop over it</b>, a folding bench or a packing surface, 2" thick.</span></label>` : ''}
+    </div>`;
+  };
+
+  /* ══ WHAT IS BEHIND THE DOOR ═══════════════════════════════════════
+     A door used to be the end of the conversation: you picked it, a slab
+     appeared, and the cupboard behind it was empty and unpriced. Nobody
+     buys an empty cupboard, so the one question that was missing is asked
+     here, in the card for the door itself, the same way the number of
+     shelves is asked in the card for shelves. */
+  const insideRow = (st, slot) => {
+    const cur = st.o?.inside || DOOR_INSIDE_DEF;
+    return `<div class="insider">
+      <span class="inlab">Behind the door</span>
+      <div class="inpick">
+        ${DOOR_INSIDE.map(id => `<button type="button" class="${id===cur?'on':''}"
+           data-inside="${id}" data-slot="${slot}">${MODULES[id].label}</button>`).join('')}
+      </div>
     </div>`;
   };
 
@@ -2612,6 +2630,13 @@ $('#stack').onclick=e=>{
     if(t.dataset.dadd !== undefined){ if(sz.length < 8) sz.push(sz[sz.length-1] ?? 7.5); }
     else if(sz.length > 1) sz.pop();
     st.o = { ...st.o, sizes: sz };
+  }
+  else if(t.dataset.inside){
+    const slot = t.dataset.slot;
+    const sl = slots(bay.stack);
+    const st = slot === 'bottom' ? sl.bottom : sl.top;
+    if(!st || !MODULES[st.m].inside) return;
+    st.o = { ...st.o, inside: t.dataset.inside };
   }
   else if(t.dataset.opt){
     const slot = t.dataset.slot;

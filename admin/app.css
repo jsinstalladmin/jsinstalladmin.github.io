@@ -786,3 +786,12 @@ button.backlink:hover{opacity:1}
   .tscroll::-webkit-scrollbar{ height:6px; }
   .tscroll::-webkit-scrollbar-thumb{ background:var(--line); border-radius:3px; }
 }
+
+/* A fact the office is shown but cannot edit. It has to look settled rather
+   than disabled: a greyed-out control invites clicking at it, a stated value
+   does not. Used for the region on anything that came in off the website,
+   because where a customer lives is their answer and not an office setting. */
+.lockfield{display:flex;flex-direction:column;gap:2px;padding:.62em .8em;
+  border:1px solid var(--line);border-radius:10px;background:var(--surf2)}
+.lockfield b{font-size:.92rem;color:var(--fg)}
+.lockfield span{font-size:.72rem;color:var(--muted)}

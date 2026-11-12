@@ -738,51 +738,121 @@ export const MODULES = {
          but never billed, so a hamper was costed as the mechanism and the wire
          basket with the panel on the front of it free. */
       parts.push(P('DOOR',1,(w*h)/144,((w+h)*2)/12,'Tilt-out hamper front'));
-      /* A tilt-out pivots on a hinge at the BOTTOM of its front, so the front
-         swings down and out and the wire basket comes with it. It was being
-         rotated about its own centre instead, which pushed the bottom edge
-         forward and pulled the top edge back: the front came away from the
-         carcass and read as a loose panel leaning against the closet.
 
-         Rotating a panel of height H about its bottom edge puts its centre at
-         (H/2·cos θ) up and (H/2·sin θ) out, which is what keeps the hinge line
-         exactly where the cabinetry is. */
-      const TILT = 0.30;                                   // about 17 degrees
-      const fh = h - 0.6;                                  // the front panel
-      const hinge = { y: y + 0.3, z: d/2 - 0.4 };          // bottom front edge
-      const fcY = hinge.y + (fh/2) * Math.cos(TILT);
-      const fcZ = hinge.z + (fh/2) * Math.sin(TILT);
-      G.push({k:'front', p:[0, fcY, fcZ], s:[w-0.2, fh, 0.78], m:'front', tilt:TILT});
-      /* the pull sits on the front, near its top edge, and leans with it */
-      const pY = hinge.y + (fh - 2.2) * Math.cos(TILT);
-      const pZ = hinge.z + (fh - 2.2) * Math.sin(TILT) + 0.4;
-      addPull(G, pull, 0, pY, pZ, w, fh);
-      /* the wire basket is carried by the front, so it leans the same way and
-         you can see into it. Each wire is placed in the basket's own frame and
-         then rotated about the same hinge. */
-      const HW_ = 0.22, hw = w - 3, hd = d - 4.2;
-      const hb = y + 2.2, ht = y + h - 3.4;
-      /* every wire is placed where it would sit with the hamper shut, then
-         swung about the hinge with the front, so the basket leans out with it
-         instead of staying square behind a tilted panel */
+      /* ══ THE BASKET ════════════════════════════════════════════════════
+         What was here was not a basket. It was a row of front-to-back bars
+         with a rail across the front and the back, two posts in the middle
+         of the sides, and nothing else: no rim down the sides joining the
+         front rail to the back one, no bottom rim, no corners, no mesh.
+         From the front it read as a comb hanging in the opening, and that
+         is what it looked like on the drawing.
+
+         A wire hamper basket is a welded frame: a rectangle of rod round
+         the top, the same round the bottom, four corner posts between
+         them, and mesh filling the four sides and the floor. All of it is
+         below, and the top rim closes all the way round, which is the
+         thing that makes it read as a basket and not a rack.
+
+         It also went through the shelf above it. A tilt-out swings about
+         the bottom front edge, so the back of the basket rises as the
+         front comes down, and nothing was checking that the back still
+         cleared the fixed shelf. It passed a quarter of an inch into it,
+         and in a deep bay the top rail came up through the hanging as
+         well. The height is worked out from the swing now rather than
+         guessed: see FIT below. */
+      const fh    = h - 0.6;                   // the front panel
+      const hinge = { y: y + 0.3, z: d/2 - 0.4 };   // bottom front edge
+      const ROD  = 0.34;                       // rim and corner posts
+      const MESH = 0.19;                       // the mesh between them
+
+      /* THE BASKET IS A REAL SIZE, AND THE ANGLE GIVES WAY TO IT.
+
+         A hamper basket is about 22" tall and 18" deep whatever bay it goes
+         in, so those are fixed first. What has to bend is how far the thing
+         is drawn open, because swinging it about the bottom front edge
+         lifts the BACK of the basket, and the back has to stay under the
+         shelf above.
+
+         The lever on that lift is not the basket's depth. It is the whole
+         distance from the hinge at the front of the bay to the back face of
+         the basket, which in a 24" deep bay is 21", not 18. Getting that
+         wrong is what put a quarter inch of rod through the fixed shelf.
+
+         Rather than solve it in closed form and be wrong again, take the
+         largest angle that actually fits, by trying them. */
+      const bh = Math.min(h - 6, 22);
+      const bd = Math.min(d - 3.6, 18);
+      const bw = w - 2.4;
+      const yB = 1.6, yT = yB + bh;            // basket floor and rim, upright
+      const arm = d/2 + bd/2 + 0.4;            // hinge to the basket's back face
+      const ceiling = h - 0.8;                 // leave the shelf above alone
+      let TILT = 0;
+      for(let t = 0.30; t > 0.02; t -= 0.005){
+        const top = 0.3 + (yT - 0.3) * Math.cos(t) + arm * Math.sin(t) + ROD/2;
+        if(top <= ceiling){ TILT = t; break; }
+      }
       const cT = Math.cos(TILT), sT = Math.sin(TILT);
+
+      /* every wire is drawn where it sits with the hamper shut, then swung
+         about the hinge with the front, so the whole basket leans out as one
+         piece instead of staying square behind a tilted panel */
       const bar = (px,py,pz,sx,sy,sz) => {
-        const dy = py - hinge.y, dz = pz - hinge.z;
+        const dy = (y + py) - hinge.y, dz = pz - hinge.z;
         G.push({ k:'wire', m:'metal', tilt:TILT,
                  p:[px, hinge.y + dy*cT - dz*sT, hinge.z + dy*sT + dz*cT],
                  s:[sx,sy,sz] });
       };
-      const fN = Math.max(4, Math.round(hw/2.4));
-      for(let k=0;k<fN;k++) bar(-hw/2 + (hw/(fN-1))*k, hb, -0.6, HW_, HW_, hd);
-      bar(0, ht, -hd/2-0.6, hw, HW_*1.5, HW_*1.5);
-      bar(0, ht,  hd/2-0.6, hw, HW_*1.5, HW_*1.5);
-      for(const sx of [-1,1]) bar(sx*(hw/2), (hb+ht)/2, -0.6, HW_*1.4, ht-hb, HW_*1.4);
-      const vN2 = Math.max(5, Math.round(hw/2.6));
-      for(let k=1;k<vN2;k++){
-        const px = -hw/2 + (hw/vN2)*k;
-        bar(px, (hb+ht)/2, -hd/2-0.6, HW_, ht-hb, HW_);
-        bar(px, (hb+ht)/2,  hd/2-0.6, HW_, ht-hb, HW_);
+      const zF =  bd/2 - 0.8, zK = -bd/2 - 0.8;      // front and back faces
+      const xL = -bw/2, xR = bw/2;
+      const zC = (zF + zK) / 2;
+
+      /* ── the two rims, each a closed rectangle ── */
+      for(const py of [yB, yT]){
+        bar(0, py, zF, bw, ROD, ROD);                 // front
+        bar(0, py, zK, bw, ROD, ROD);                 // back
+        bar(xL, py, zC, ROD, ROD, bd);                // left   ← the side of
+        bar(xR, py, zC, ROD, ROD, bd);                // right  ← the top rim
       }
+      /* ── four corner posts tying the rims together ── */
+      for(const px of [xL, xR]) for(const pz of [zF, zK])
+        bar(px, (yB+yT)/2, pz, ROD, bh, ROD);
+
+      /* ── mesh up the front and the back ── */
+      const nX = Math.max(5, Math.round(bw / 2.6));
+      for(let k=1;k<nX;k++){
+        const px = xL + (bw/nX)*k;
+        bar(px, (yB+yT)/2, zF, MESH, bh, MESH);
+        bar(px, (yB+yT)/2, zK, MESH, bh, MESH);
+      }
+      /* ── mesh up the two sides ── */
+      const nZ = Math.max(3, Math.round(bd / 3.4));
+      for(let k=1;k<nZ;k++){
+        const pz = zK + (bd/nZ)*k;
+        bar(xL, (yB+yT)/2, pz, MESH, bh, MESH);
+        bar(xR, (yB+yT)/2, pz, MESH, bh, MESH);
+      }
+      /* ── the floor, a grid rather than a comb ── */
+      for(let k=1;k<nX;k++) bar(xL + (bw/nX)*k, yB, zC, MESH, MESH, bd);
+      const nF = Math.max(3, Math.round(bd / 3.0));
+      for(let k=1;k<nF;k++) bar(0, yB, zK + (bd/nF)*k, bw, MESH, MESH);
+
+      /* ── the front panel, hinged on its bottom edge ──
+         Rotating a panel of height H about its bottom edge puts its centre at
+         (H/2·cos θ) up and (H/2·sin θ) out, which is what keeps the hinge line
+         exactly where the cabinetry is. Rotating it about its own centre, as
+         it used to, pushed the bottom edge forward and pulled the top edge
+         back, and the front came away from the carcass and read as a loose
+         panel leaning against the closet. */
+      const fcY = hinge.y + (fh/2) * cT;
+      const fcZ = hinge.z + (fh/2) * sT;
+      G.push({k:'front', p:[0, fcY, fcZ], s:[w-0.2, fh, 0.78], m:'front', tilt:TILT});
+      /* the pull sits ON the panel near its top edge, so it is placed in the
+         panel's own frame and swung with it rather than parked in mid air */
+      const pOff = fh/2 - 2.2;
+      addPull(G, pull, 0,
+              fcY + pOff*cT + 0.45*sT,
+              fcZ + pOff*sT + 0.45*cT, w, fh);
+
       if(pull && pull.id!=='none') parts.push({code:'PULL',qty:1,note:`1 × ${pull.name}`});
     }
   },
@@ -893,8 +963,11 @@ export const MODULES = {
     spec:'Slab front · 12\"–84\" tall',
     icon:'M3 2h18v28H3zM18 15h2',
     defH:48, minH:12, maxH:84, fill:true,
+    inside: true,
     build(c){
       const {w,d,y,h,G,parts,pull} = c;
+      /* WHAT IS BEHIND IT, built first so the leaf closes over it. */
+      buildInside(c, c.o?.inside, 0.75);
       /* Past about 26" a single slab is too wide: it sags on its hinges, it
          needs a metre of swing in front of it, and no shop builds one. It
          goes in as a pair on a centre stile. Two leaves is two sets of edges
@@ -919,8 +992,12 @@ export const MODULES = {
     spec:'Framed glass front · 12\"–84\" tall',
     icon:'M3 2h18v28H3zM6 5h12v22H6zM18 15h2',
     defH:48, minH:12, maxH:84, fill:true,
+    inside: true,
     build(c){
       const {w,d,y,h,G,parts,pull} = c;
+      /* A glass door is the one front you can see through, so what is behind
+         it matters more here than anywhere else in the build. */
+      buildInside(c, c.o?.inside, 0.75);
       parts.push(P('DOOR',1,(w*h)/144*0.35,((w+h)*2)/12,'Glass door frame'));
       parts.push({code:'GLASS_LITE',qty:1,w:w-4,h:h-4,note:'Glass lite — supplied locally'});
       const t=1.6;
@@ -1239,6 +1316,51 @@ export const MODULE_IDS = Object.keys(MODULES);
    What is left is the four that really are a tall empty span with nothing
    holding the sides apart. Those get the shelf. */
 const MID_WHEN_ALONE = new Set(['SHELVES','OPEN','DOOR','GLASS_DOOR']);
+
+/* ══ WHAT GOES BEHIND A DOOR ═══════════════════════════════════════════
+   A door is a front. It is not a filling, and it never was: adding one
+   drew a slab across the opening and built nothing at all behind it, so
+   every door in the catalogue was a cupboard with an empty box inside and
+   a price that charged for the slab alone. Whatever the customer pictured
+   behind it -- shirts on a rail, folded knits, a bank of drawers -- was
+   neither drawn nor quoted.
+
+   So a door now carries its own inside, picked the same way everything
+   else is picked, drawn behind the front and priced with it.
+
+   Not everything belongs back there. Another door behind a door is
+   nonsense, a worktop is a surface and wants to be reachable, and a
+   tilt-out hamper cannot tilt out through a closed door. What is left is
+   the list of things people actually put in a cupboard. */
+export const DOOR_INSIDE = ['SHELVES','HANG','DOUBLE_HANG','SHORT_HANG','LONG_HANG',
+                            'DRAWERS','BASKETS','CUBBIES','SHOES','SHOE_SLANT','OPEN'];
+export const DOOR_INSIDE_DEF = 'SHELVES';
+
+/* Build the chosen inside into the same section, set back far enough that
+   nothing it draws touches the leaf in front of it. */
+function buildInside(c, id, frontThickness){
+  const pick = DOOR_INSIDE.includes(id) ? id : DOOR_INSIDE_DEF;
+  if(pick === 'OPEN') return pick;
+  const inner = MODULES[pick];
+  if(!inner) return DOOR_INSIDE_DEF;
+  const sub = [];
+  const mark = c.parts.length;
+  inner.build({ ...c, G:sub, d: Math.max(6, c.d - frontThickness - 0.9), o: c.o?.insideOpt || {} });
+  /* everything the inside drew is pushed back by half the clearance it just
+     gave up, so it sits centred in the space behind the leaf rather than
+     hard against the back */
+  /* Anything that carries its OWN front -- a drawer bank, pull-out baskets --
+     has to clear the leaf by more than a shelf does, or the drawer fronts end
+     up in the same plane as the door and the two read as one solid lump. */
+  const ownFront = sub.some(g => g.m === 'front');
+  const shift = -(frontThickness + 0.9) / 2 - (ownFront ? 1.1 : 0);
+  for(const g of sub) c.G.push({ ...g, p:[g.p[0], g.p[1], g.p[2] + shift], inside:true });
+  /* name the parts so an order sheet says what is behind the door rather
+     than listing panels with no context */
+  for(let i=mark;i<c.parts.length;i++)
+    if(c.parts[i].note) c.parts[i].note = c.parts[i].note + ' (behind the door)';
+  return pick;
+}
 
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
