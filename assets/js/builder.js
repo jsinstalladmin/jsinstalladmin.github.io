@@ -135,6 +135,11 @@ const S = {
   frontFinish:null, pull:'bar4', pullFinish:'nickel',
   runs:{}, sel:null, spin:false, evening:false,
   door:'none',
+  /* How wide the opening is. Nothing is built from it, so it does not touch
+     the engine; it travels with the enquiry because the crew needs to know
+     what size doors are coming off and going back on, and the customer
+     measured it anyway. Zero means they did not say. */
+  doorW:0,
   /* The baseboard is not decoration, it is the reason a closet does not sit
      flush to the wall. `handling` says what happens where the run meets it,
      and `measured` says whether the width they gave was taken wall to wall or
@@ -481,7 +486,7 @@ function cfg(){
   }
   return { room:S.room, mounting:S.mounting, cabTop:S.cabTop, finish:S.finish,
            frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
-           door:S.door, base:S.base, backs:S.backs, corner:'wall-to-wall',
+           door:S.door, doorW:S.doorW, base:S.base, backs:S.backs, corner:'wall-to-wall',
            fittings:S.fittings.filter(f=>f.placed), runs };
 }
 
@@ -1460,7 +1465,7 @@ function rebuild(reframe){
   if(DRAGGING) paintWhileDragging(); else paintAll();
   built = true;
 }
-function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps();
+function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps(); paintFlat();
   /* steps 3 and 5 look at one tower, so changing which one is selected has
      to move the camera too, not just the panel */
   const st = document.body.dataset.step;
@@ -2885,6 +2890,171 @@ $('#scene').onclick=e=>{const b=e.target.closest('button');if(!b)return;const a=
     scene.environmentIntensity=S.evening?.34:1; key.intensity=S.evening?.55:1.25;
     key.color.setHex(S.evening?0xffd9a8:0xfffdfa)}};
 /* the ResizeObserver above covers this now */
+/* ══════════════════════════════════════════════════════════════════════
+   THE OPENING QUESTION
+
+   There are four numbers and two choices that have to exist before a closet
+   can be drawn at all, and until they do, every other control on the page
+   is asking about a room nobody has described. So they are asked first, on
+   their own, over the stage: how wide the back wall is, how far the room
+   goes back, how high the ceiling is, which walls are being built on, and
+   how the closet opens.
+
+   It is a gate, not a wizard. Anything typed here can be changed inside,
+   "Skip" goes straight in on the defaults, and anybody arriving from a
+   layout page on a ?plan= or ?preset= link never sees it, because they have
+   already said what they want.
+   ══════════════════════════════════════════════════════════════════════ */
+function openGate(){
+  const gate = $('#gate'), form = $('#gateform');
+  if(!gate || !form) return;
+
+  const sel = $('#gatedoor');
+  if(sel) sel.innerHTML = DOORS.map(d =>
+    `<option value="${d.id}"${d.id === S.door ? ' selected' : ''}>${d.label}</option>`).join('');
+  form.w.value = S.room.w; form.d.value = S.room.d; form.h.value = S.room.h;
+  const shape = form.querySelector(`input[name="shape"][value="${S.shape}"]`);
+  if(shape) shape.checked = true;
+
+  gate.hidden = false;
+  /* Focus the first field, but not on a phone: bringing the keyboard up over
+     the card the moment the page opens hides the thing it is asking about. */
+  if(!matchMedia('(max-width:700px)').matches) setTimeout(() => form.w.focus(), 60);
+
+  const shut = () => { gate.hidden = true; resize(); frame(); };
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const num = (name, lo, hi, fallback) => {
+      const v = Math.round(Number(form[name].value));
+      return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
+    };
+    S.room = { w:num('w', 36, 288, S.room.w),
+               d:num('d', 12, 360, S.room.d),
+               h:num('h', 60, 180, S.room.h) };
+    S.cabTop = clampCabTop(S.cabTop, S.room.h);
+    const sh = form.querySelector('input[name="shape"]:checked')?.value;
+    if(sh && SHAPES[sh]) applyShape(sh);
+    const dt = form.doortype?.value;
+    if(dt && DOORS.some(d => d.id === dt)) S.door = dt;
+    const dw = Math.round(Number(form.door.value));
+    /* A door opening only means something when there is a door in it. */
+    if(Number.isFinite(dw) && dw > 0 && S.door !== 'none') S.doorW = dw;
+    shut();
+    rebuild(true);
+    if(typeof window.gotoStep === 'function') window.gotoStep('2');
+  });
+
+  $('#gateskip')?.addEventListener('click', () => { shut(); rebuild(true); });
+  /* Escape is the same as skip: nobody should be trapped behind a form. */
+  gate.addEventListener('keydown', e => { if(e.key === 'Escape'){ shut(); rebuild(true); } });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE FLAT VIEWS
+
+   Everybody who sells closets online shows the same three: looking down on
+   the room, looking straight at a wall, and the 3D. The first two are the
+   ones a customer checks a measurement on and the ones a fitter reads, and
+   this builder only had the third.
+
+   They are drawn by the same module that draws the PDF, from the same
+   geometry the 3D view renders, so there is exactly one description of a
+   closet on this site. The drawing is also the control: every tower in it
+   carries which wall and which tower it is, so clicking one selects it and
+   the panel on the right jumps to it, the same as clicking it in 3D.
+   ══════════════════════════════════════════════════════════════════════ */
+let VIEW = '3d';          // '3d' | 'wall' | 'plan'
+let FLATWALL = null;      // which wall the elevation is showing
+let DRAW = null;          // the drawing module, fetched the first time it is wanted
+
+async function flatModule(){
+  if(!DRAW) DRAW = await import('./drawing.js');
+  return DRAW;
+}
+
+function wallsWithTowers(){
+  return ['back','left','right'].filter(w => (cur?.bays || []).some(b => b.wall === w));
+}
+
+function paintFlat(){
+  const host = $('#v2d');
+  if(!host || VIEW === '3d' || !host.isConnected) return;
+  const walls = wallsWithTowers();
+  if(VIEW === 'wall' && (!FLATWALL || !walls.includes(FLATWALL))) FLATWALL = S.sel?.wall && walls.includes(S.sel.wall) ? S.sel.wall : walls[0];
+
+  /* the wall picker only exists when there is more than one wall to pick */
+  const picker = $('#v2dwalls');
+  if(picker){
+    picker.innerHTML = VIEW === 'plan'
+      ? '<span class="v2dname">Looking down on the room</span>'
+      : (walls.length > 1
+          ? walls.map(w => `<button type="button" data-flatwall="${w}" aria-pressed="${w === FLATWALL}">${WALL_LABEL[w] || w}</button>`).join('')
+          : `<span class="v2dname">${WALL_LABEL[FLATWALL] || ''}</span>`);
+  }
+
+  const box = $('#v2dcanvas');
+  if(!box) return;
+  if(!walls.length){
+    box.innerHTML = `<p class="v2dempty">Nothing is drawn yet. Add a tower and it appears here,
+      measured, from above and straight on.</p>`;
+    return;
+  }
+  /* The drawing is built at the size of the space it is going into, so the
+     figures stay the same size on screen however big the window is, instead
+     of a wide screen printing tiny numbers on a huge drawing. */
+  const width = Math.max(320, Math.min(1180, Math.round(box.clientWidth || 900)));
+  flatModule().then(({ elevation, plan }) => {
+    if(VIEW === '3d') return;
+    /* The drawing's own caption is left off here: the switcher and the wall
+       buttons above it already say which wall this is, and a second title
+       inside the drawing collided with the overall dimension across the top
+       of it. On paper and on its own the caption stays. */
+    const opt = { width, pick:true, selected:S.sel, title:false };
+    const svg = VIEW === 'plan' ? plan(cur, opt) : elevation(cur, FLATWALL, opt);
+    box.innerHTML = svg || `<p class="v2dempty">There is nothing on that wall yet.</p>`;
+  }).catch(err => {
+    console.warn('[flat view]', err);
+    box.innerHTML = `<p class="v2dempty">The drawing could not be made. The 3D view still works.</p>`;
+  });
+}
+
+function setView(v){
+  VIEW = v;
+  const host = $('#v2d');
+  if(host) host.hidden = (v === '3d');
+  $('#vswitch')?.querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.view === v)));
+  /* the scene controls belong to the 3D view and mean nothing over a plan */
+  const sc = $('#scene'); if(sc) sc.hidden = (v !== '3d');
+  const hint = document.querySelector('.bhint'); if(hint) hint.hidden = (v !== '3d');
+  if(v === '3d'){ needsFrame = true; } else paintFlat();
+}
+
+$('#vswitch')?.addEventListener('click', e => {
+  const b = e.target.closest('button[data-view]'); if(!b) return;
+  setView(b.dataset.view);
+});
+$('#v2dwalls')?.addEventListener('click', e => {
+  const b = e.target.closest('button[data-flatwall]'); if(!b) return;
+  FLATWALL = b.dataset.flatwall; paintFlat();
+});
+/* clicking a tower in a flat view is clicking that tower */
+$('#v2dcanvas')?.addEventListener('click', e => {
+  const r = e.target.closest('.pick'); if(!r) return;
+  S.sel = { wall:r.dataset.wall, i:+r.dataset.bay };
+  if(document.body.dataset.step === '1' && typeof window.gotoStep === 'function')
+    window.gotoStep('2');
+  paintAll();
+});
+/* a flat view is laid out for the width it was drawn at */
+let flatPending = null;
+addEventListener('resize', () => {
+  if(VIEW === '3d') return;
+  clearTimeout(flatPending);
+  flatPending = setTimeout(paintFlat, 160);
+});
+
 /* ───────── sending the design to the office ─────────
    Clicking this used to drop the design into storage and jump straight to the
    contact page, which left the customer wondering what, if anything, had just
@@ -2953,6 +3123,7 @@ function quotePackage(){
               + hardwareFor(cur.parts, HARDWARE_MAP).reduce((a,h)=>a+(+h.qty||0),0),
     warnings:cur.warnings,
     door: DOORS.find(d=>d.id===S.door)?.label || 'Open / no doors',
+    ...(S.doorW > 0 ? { doorOpening: S.doorW } : {}),
     /* Everything the customer told us about this thing travels: which wall,
        how far along it, how high off the floor, how big it is, and what they
        said about it in their own words. Sending only the name meant the crew
@@ -3038,7 +3209,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
       order: q.order, hardware: q.hardware, notes: q.warnings,
       finish: q.finish, frontFinish: q.frontFinish, pull: q.pull,
-      pullFinish: q.pullFinish, door: q.door,
+      pullFinish: q.pullFinish, door: q.door, doorOpening: q.doorOpening,
       shot, filename: `JS-Closets-${designRef()}.pdf`
     });
     q.drawing = { madeAt:new Date().toISOString(), ref:designRef(),
@@ -3061,7 +3232,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
       order:q.order, hardware:q.hardware, notes:q.warnings, shot,
       finish:q.finish, frontFinish:q.frontFinish, pull:q.pull,
-      pullFinish:q.pullFinish, door:q.door,
+      pullFinish:q.pullFinish, door:q.door, doorOpening:q.doorOpening,
       filename:`JS-Closets-${designRef()}.pdf` });
     b.textContent = was;
   }catch(err){
@@ -3109,6 +3280,11 @@ $('#breakdown').onclick=()=>{
 paintPulls();
 paintFin('carcass'); paintFin('fronts');
 rebuild(true); resize();
+
+/* The opening question, for somebody who arrived with nothing chosen. A
+   ?plan= or ?preset= link has already answered it, and so has a room that
+   somebody has already put towers in, so neither sees it. */
+if(!qPre && !qPlan && !Object.values(S.runs).some(r => r?.bays?.length)) openGate();
 
 const sheet = new Image();
 sheet.crossOrigin = 'anonymous';

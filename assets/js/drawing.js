@@ -92,7 +92,7 @@ export function elevation(design, wall, opt = {}){
      columns for figures too short to hold their own number, and out beyond
      all of them the overall ceiling height. They each need their own lane
      or they print on top of one another. */
-  const PAD = { l:86, r:34, t:54, b:50 };
+  const PAD = { l:86, r:34, t:54, b:62 };
   const W = opt.width || 980;
   const k = (W - PAD.l - PAD.r) / spanIn;              // px per inch
   const H = Math.round(hIn * k) + PAD.t + PAD.b;
@@ -204,9 +204,46 @@ export function elevation(design, wall, opt = {}){
   const caption = opt.title === false ? '' :
     `<text x="${PAD.l}" y="20" font-family="${FONT}" font-size="12" font-weight="600"
            fill="${INK}">${esc(title)}</text>`;
+
+  /* THE DOORS, STANDING IN FRONT OF IT.
+
+     A reach-in is seen through its own doorway, and a drawing that leaves
+     the doorway out makes a closet look wider than the hole it has to go
+     through. If the customer measured the opening it is drawn in front of
+     the cabinetry, dashed because it is the room and not something we
+     build, and dimensioned, so the width of the opening and the width of
+     the run are side by side where they can be compared. */
+  let doorway = '';
+  const dw = design.doorOpening || 0;
+  if(wall === 'back' && dw > 0 && dw <= spanIn + 0.5){
+    const x0 = (spanIn - dw) / 2, x1 = x0 + dw;
+    doorway = `<g>
+      <rect x="${X(x0).toFixed(1)}" y="${Y(hIn).toFixed(1)}"
+        width="${(dw*k).toFixed(1)}" height="${(hIn*k).toFixed(1)}"
+        fill="none" stroke="${DIM}" stroke-width="0.9" stroke-dasharray="6 4"/>
+      ${dimH(X(x0), X(x1), Y(0) + 26, inch(dw) + ' opening')}
+    </g>`;
+  }
+
+  /* ON THE PAGE THIS DRAWING IS ALSO THE CONTROL.
+
+     opt.pick lays an invisible rectangle over each tower carrying which wall
+     and which tower it is, so clicking a tower in the flat view selects it
+     exactly as clicking it in the 3D view does. In the PDF it is left off,
+     because paper does not take clicks. */
+  let picks = '';
+  if(opt.pick){
+    for(const b of sorted){
+      const left = posOf(b) - b.w / 2;
+      picks += `<rect class="pick" data-wall="${esc(wall)}" data-bay="${b.bay}"
+        ${opt.selected && opt.selected.wall === wall && opt.selected.i === b.bay ? 'data-on="1"' : ''}
+        x="${X(left).toFixed(1)}" y="${Y(b.top).toFixed(1)}"
+        width="${(b.w * k).toFixed(1)}" height="${Math.max(8, b.h * k).toFixed(1)}"><title>Tower ${b.bay + 1}, ${inch(b.w)} wide</title></rect>`;
+    }
+  }
   return `<svg xmlns="${NS}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
     aria-label="${esc(title)}"><rect width="${W}" height="${H}" fill="#FFFFFF"/>
-    ${caption}${frame}${body}${dims}${heights}</svg>`;
+    ${caption}${frame}${body}${doorway}${dims}${heights}${picks}</svg>`;
 }
 
 /* ══ PLAN ══════════════════════════════════════════════════════════════
@@ -228,7 +265,7 @@ export function plan(design, opt = {}){
   const byWall = {};
   for(const b of (design.bays || [])) (byWall[b.wall] = byWall[b.wall] || []).push(b);
 
-  let dims = '';
+  let dims = '', picks = '';
   for(const [wall, bays] of Object.entries(byWall)){
     for(const b of bays){
       const dep = b.depth || 24;
@@ -242,6 +279,10 @@ export function plan(design, opt = {}){
       body += `<rect x="${X(x).toFixed(1)}" y="${Z(z).toFixed(1)}"
         width="${(w*k).toFixed(1)}" height="${(d*k).toFixed(1)}"
         fill="#EFE6D8" stroke="${LINE}" stroke-width="0.8"/>`;
+      if(opt.pick) picks += `<rect class="pick" data-wall="${esc(wall)}" data-bay="${b.bay}"
+        ${opt.selected && opt.selected.wall === wall && opt.selected.i === b.bay ? 'data-on="1"' : ''}
+        x="${X(x).toFixed(1)}" y="${Z(z).toFixed(1)}"
+        width="${(w*k).toFixed(1)}" height="${(d*k).toFixed(1)}"><title>${esc(wall)} wall, tower ${b.bay + 1}</title></rect>`;
     }
   }
 
@@ -290,7 +331,7 @@ export function plan(design, opt = {}){
            fill="${INK}">Looking down on the room</text>`;
   return `<svg xmlns="${NS}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
     aria-label="Plan view"><rect width="${W}" height="${H}" fill="#FFFFFF"/>
-    ${caption}${body}${dims}</svg>`;
+    ${caption}${body}${dims}${picks}</svg>`;
 }
 
 /* ── every wall that has something on it ─────────────────────────────── */
@@ -486,7 +527,8 @@ export async function buildPdf(design, meta = {}){
     say('Fronts', design.frontFinish?.n || meta.frontFinish);
   say('Handles', [design.pull?.name || meta.pull,
                   design.pullFinish?.name || meta.pullFinish].filter(Boolean).join(' · '));
-  say('Doors', meta.door);
+  say('Doors', meta.door
+    + (meta.doorOpening ? ` · ${inch(meta.doorOpening)} opening` : ''));
   /* WHERE each tower is, not only how big. A list of widths tells you what
      to cut; it does not tell you which order they go in or how far along the
      wall the first one starts, and that is what gets set out on site. */

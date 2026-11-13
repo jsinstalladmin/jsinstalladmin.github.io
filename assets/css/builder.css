@@ -1588,3 +1588,108 @@ body[data-step="6"] .pacts{margin-top:0}
   .orderhd .orderbtns{width:100%}
   .orderhd .orderbtns .btn{flex:1 1 auto}
 }
+
+/* ══ THE VIEW SWITCHER ═══════════════════════════════════════════════════
+   Three ways of looking at one closet, sitting on the stage itself rather
+   than in the panel, because the thing they switch between IS the stage.
+   The flat views are drawn as SVG over the canvas: the canvas keeps its
+   last frame underneath and does not have to be torn down and rebuilt
+   every time somebody checks a measurement. */
+.vswitch{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:6;
+  display:flex;gap:2px;padding:3px;border-radius:999px;
+  background:color-mix(in srgb, var(--paper) 86%, transparent);
+  border:1px solid var(--line-2);backdrop-filter:blur(8px)}
+.vswitch button{appearance:none;border:0;background:transparent;cursor:pointer;
+  font:inherit;font-size:.76rem;letter-spacing:.02em;color:var(--muted);
+  padding:.42em 1.05em;border-radius:999px;line-height:1.2;white-space:nowrap}
+.vswitch button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.vswitch button:focus-visible{outline:2px solid var(--accent,#A8824C);outline-offset:2px}
+
+.v2d{position:absolute;inset:0;z-index:5;background:var(--paper);
+  display:flex;flex-direction:column;align-items:center;
+  padding:56px 16px 16px;overflow:auto}
+.v2dwalls{display:flex;gap:4px;margin:0 0 10px;flex-wrap:wrap;justify-content:center}
+.v2dwalls button{appearance:none;cursor:pointer;font:inherit;font-size:.72rem;
+  padding:.34em .9em;border-radius:999px;border:1px solid var(--line-2);
+  background:transparent;color:var(--muted)}
+.v2dwalls button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
+.v2dcanvas{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.v2dcanvas svg{max-width:100%;max-height:100%;height:auto;width:auto}
+/* a tower you can click, and the one that is selected */
+.v2dcanvas .pick{fill:transparent;cursor:pointer}
+.v2dcanvas .pick:hover{fill:color-mix(in srgb, var(--accent,#A8824C) 12%, transparent)}
+.v2dcanvas .pick[data-on="1"]{fill:color-mix(in srgb, var(--accent,#A8824C) 16%, transparent);
+  stroke:var(--accent,#A8824C);stroke-width:1.4}
+.v2dempty{color:var(--muted);font-size:.86rem;text-align:center;max-width:34ch;line-height:1.6}
+@media(max-width:860px){
+  .vswitch{top:8px}
+  .v2d{padding:46px 10px 10px}
+}
+
+/* ══ THE OPENING QUESTION ════════════════════════════════════════════════
+   Centred over the stage, the way every configurator that works opens:
+   one card, the handful of numbers that have to exist before a closet can
+   be drawn, and one button. It covers the canvas rather than replacing it,
+   so the room is already drawn underneath when it closes. */
+.gate{position:absolute;inset:0;z-index:9;display:flex;align-items:center;
+  justify-content:center;padding:20px;overflow:auto;
+  background:color-mix(in srgb, var(--paper) 93%, transparent);backdrop-filter:blur(6px)}
+.gate[hidden]{display:none}
+.gatecard{width:min(560px,100%);background:var(--paper);border:1px solid var(--line-2);
+  border-radius:18px;padding:26px 24px 22px;box-shadow:0 18px 50px rgba(20,15,10,.12)}
+.gatecard h2{margin:0 0 .3em;font-size:1.5rem;line-height:1.15;color:var(--ink)}
+.gatecard > p{margin:0 0 1.2em;font-size:.84rem;line-height:1.6;color:var(--muted)}
+/* Fields line up on their boxes, not on their labels: a label that wraps to
+   two lines used to push its own input half an inch below its neighbours. */
+.gaterow{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:.6em;align-items:end}
+.gaterow label{position:relative;display:flex;flex-direction:column;gap:.3em;min-width:0}
+.gaterow label > span{font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.gaterow input,.gaterow select{width:100%;min-width:0;font:inherit;font-size:.95rem;
+  padding:.56em .7em;border:1px solid var(--line-2);border-radius:10px;
+  background:var(--paper);color:var(--ink)}
+.gaterow label > i{position:absolute;right:.7em;bottom:.72em;font-style:normal;
+  font-size:.74rem;color:var(--muted);pointer-events:none}
+.gaterow label.wide > i{display:none}
+.gateshape{border:0;padding:0;margin:1.1em 0 0;min-width:0}
+.gateshape legend{padding:0;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.5em}
+.gatepick{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:.5em}
+.gatepick label{display:flex;flex-direction:column;gap:.15em;cursor:pointer;
+  padding:.7em .8em;border:1px solid var(--line-2);border-radius:12px;min-width:0}
+.gatepick input{position:absolute;opacity:0;pointer-events:none}
+.gatepick b{font-size:.9rem;font-weight:600;color:var(--ink)}
+.gatepick span{font-size:.72rem;color:var(--muted);line-height:1.4}
+.gatepick label:has(input:checked){border-color:var(--ink);
+  background:color-mix(in srgb, var(--ink) 5%, transparent)}
+.gatepick label:has(input:focus-visible){outline:2px solid var(--accent,#A8824C);outline-offset:2px}
+.gateacts{display:flex;align-items:center;gap:.7em;flex-wrap:wrap;margin-top:1.4em}
+@media(max-width:560px){
+  .gatecard{padding:20px 16px 18px}
+  .gatecard h2{font-size:1.28rem}
+  .gaterow{grid-template-columns:1fr 1fr}
+  .gaterow label.wide{grid-column:1 / -1}
+  .gatepick{grid-template-columns:1fr}
+  .gateacts .btn{flex:1 1 auto;justify-content:center}
+}
+
+/* the view switcher is about the drawing; there is no drawing yet */
+.bstage:has(.gate:not([hidden])) .vswitch,
+.bstage:has(.gate:not([hidden])) .scene,
+.bstage:has(.gate:not([hidden])) .bhint{display:none}
+
+/* On a phone the stage is shorter than the card, so the card scrolled
+   inside a box barely taller than itself and the heading and the button
+   were both off screen at once. There, the question takes the whole
+   screen: it is the first thing anybody does on this page. */
+@media(max-width:860px){
+  /* The site header is fixed at z-index 70 and stays there, so the card
+     starts below it rather than under it. 74px is the header at its phone
+     size: 13px of padding top and bottom either side of a 48px row. */
+  .gate{position:fixed;inset:0;z-index:60;align-items:flex-start;
+    padding:calc(env(safe-area-inset-top,0px) + 86px) 14px
+            calc(env(safe-area-inset-bottom,0px) + 20px);
+    background:var(--paper);backdrop-filter:none;-webkit-overflow-scrolling:touch}
+  .gatecard{box-shadow:none;border:0;padding:8px 2px 2px}
+}
+.v2dwalls .v2dname{font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);align-self:center}

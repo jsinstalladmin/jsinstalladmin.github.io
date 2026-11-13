@@ -1964,6 +1964,10 @@ export function buildDesign(cfg, cat){
               afterwards -- the elevation, the plan, the PDF -- needs it, and
               without it they were all quietly falling back to a default
               96x24 room and drawing the wrong thing. */
+           /* the opening they measured, so a drawing can show the doors
+              standing in front of the closet rather than leaving the
+              customer to imagine them */
+           doorOpening: cfg.doorW || 0,
            room: cfg.room, cabTop: bayTop, mounting: cfg.mounting,
            bays:bayIndex, wallGap:GAP, warnings:[...new Set(warnings)],
            quote:quoteSummary(price, bayIndex, cfg.runs),
