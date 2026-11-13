@@ -2,7 +2,7 @@
    tour.js — the first time through the builder.
 
    Somebody landing on /design/ is looking at a 3D room, a five-step bar, a
-   section strip and a price card, all at once, and nothing tells them which
+   section strip and an order card, all at once, and nothing tells them which
    one to touch first. This walks them through it: six short steps, each one
    pointing at the thing it is talking about.
 
@@ -14,7 +14,7 @@ const KEY = 'js_tour_v1';
 const STEPS = [
   { sel: '.steptabs',
     title: 'Five steps, start to finish',
-    text:  'Your space, the layout, the color, the handles, then your order with the price. Move with the button at the bottom of each step, or jump straight to any of them up here.' },
+    text:  'Your space, the layout, the color, the handles, then your order. Move with the button at the bottom of each step, or jump straight to any of them up here.' },
   { sel: '#plan', tab: '1',
     title: 'Start with the real room',
     text:  'Width, depth, ceiling, and what the baseboard is doing. Everything after this is cut from these numbers, so it is worth getting them off the wall rather than guessing.' },
@@ -25,11 +25,11 @@ const STEPS = [
     title: 'A section is a top and a bottom',
     text:  'Sections sit anywhere along the wall — drag them, and the bare wall between them is real. Inside each one you choose what goes on top and what goes underneath, and only what can actually go there is offered.' },
   { sel: '.pfoot',
-    title: 'The price moves with you',
-    text:  'Cabinetry only, off the same parts list we order from, updating on every change. Anything the design wants you to know is behind the button in the corner.' },
+    title: 'The design checks itself',
+    text:  'Every change is measured against the real parts we build from, so the closet on screen is one that can actually be made. Anything the design wants you to know is behind the button in the corner.' },
   { sel: '#send',
     title: 'Send it when you are happy',
-    text:  'The whole drawing travels with it: every panel, rod, drawer box, glide and pull, and whatever you told us about the walls. Nothing gets retyped, so we are most of the way to a quote before anyone visits.' },
+    text:  'The whole drawing travels with it: a measured drawing of every wall, the overhead view, and every panel, rod, drawer box, glide and pull on the list. Nothing gets retyped, so we are most of the way to a quote before anyone visits.' },
 ];
 
 export function mountTour(){

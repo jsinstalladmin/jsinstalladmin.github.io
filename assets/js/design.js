@@ -1887,7 +1887,13 @@ export function buildDesign(cfg, cat){
         for(const g of sub) local.push({...g, p:[cx + g.p[0], y + g.p[1], g.p[2]]});
         y += s.H;
       }
-      bayIndex.push({ wall:run.wall, bay:bi, x:cx, w:bay.w, h:bayH, top:myTop, depth, stack:bay.stack });
+      /* `x` is where this tower sits ALONG its own run. A side run does not
+         start at the corner -- it starts clear of the back run by the
+         standoff -- so the drawing needs that offset too, or every side
+         tower is drawn a foot too far forward. */
+      bayIndex.push({ wall:run.wall, bay:bi, x:cx, w:bay.w, h:bayH, top:myTop, depth,
+                      start: run.start || 0, alongRoom: (run.start || 0) + cx,
+                      stack:bay.stack });
       lastTop = myTop;
       x += bay.w;
     });
@@ -1937,11 +1943,14 @@ export function buildDesign(cfg, cat){
                                   ['Bridge deck over the corner', floorY + SPEC.panel/2]]){
           parts.push(P('FIXED', 1, (span * sDep) / 144, (span + sDep * 2) / 12,
                        `${label} — ${span.toFixed(0)}" between the ${side.wall} wall and the back`));
-          G.push({ k:'shelf', p:[atX, yc, atZ], s:[sDep, SPEC.panel, span], m:'carcass' });
+          G.push({ k:'shelf', p:[atX, yc, atZ], s:[sDep, SPEC.panel, span], m:'carcass', wall:side.wall, bridge:true });
         }
-        parts.push(P('KICK', 1, (span * kickH) / 144, span / 12,
+        /* 'TK' is the toe kick in his own parts list. This line was written
+           with a made-up code, so the order printed the code itself as the
+           item name and the piece was priced off nothing. */
+        parts.push(P('TK', 1, (span * kickH) / 144, span / 12,
                      `Toe kick under the corner bridge — ${span.toFixed(0)}"`));
-        G.push({ k:'toe', p:[atX, kickH/2, atZ], s:[sDep, kickH, span], m:'carcass' });
+        G.push({ k:'toe', p:[atX, kickH/2, atZ], s:[sDep, kickH, span], m:'carcass', wall:side.wall, bridge:true });
         warnings.push(`The ${side.wall} wall stands ${span.toFixed(0)}" clear of the back wall, bridged top and bottom.`);
       }
     }
@@ -1951,6 +1960,11 @@ export function buildDesign(cfg, cat){
   const DF = cat.finishes.find(f=>f.n===cfg.frontFinish)  || F;
   const price = priceParts(parts, cat, F, DF, pull, pullFin);
   return { parts, geo:G, price, finish:F, frontFinish:DF, pull, pullFinish:pullFin,
+           /* the room the design was built for. Anything that draws this
+              afterwards -- the elevation, the plan, the PDF -- needs it, and
+              without it they were all quietly falling back to a default
+              96x24 room and drawing the wrong thing. */
+           room: cfg.room, cabTop: bayTop, mounting: cfg.mounting,
            bays:bayIndex, wallGap:GAP, warnings:[...new Set(warnings)],
            quote:quoteSummary(price, bayIndex, cfg.runs),
            order:orderList(parts, cat, F, DF, pull, pullFin) };
@@ -1963,6 +1977,12 @@ export function buildDesign(cfg, cat){
    thing it certainly is not. `gap` is how far off the wall the run really
    stands, and both the drawing and the position strip are built from it. */
 function place(g, run, room, gap){
+  /* Stamp which wall this piece belongs to. An elevation has to draw one
+     wall and only that wall, and working it out afterwards from where the
+     piece ended up is guesswork: a side tower sitting near the back wall
+     looks exactly like a back tower sitting deep. The run knows, so the
+     run says so. */
+  g = { ...g, wall: run.wall };
   const G = gap || 0;
   const [lx,y,lz]=g.p, [sx,sy,sz]=g.s, dep=run.builtDepth ?? run.depth;
   const along = (run.start||0) + (run.wall==='island' ? 0 : G);
@@ -2164,7 +2184,12 @@ function orderList(parts, cat, F, DF, pull, pullFin){
   return [...group.values()].map(g=>({
     item:g.item, finish:g.finish, qty:Math.round(g.qty),
     sq_ft:+g.sqft.toFixed(2), edgeband_ft:+g.edge_ft.toFixed(2),
+    /* The table on the page shows the first three, because a cell with nine
+       notes in it is unreadable on a phone. The drawing that goes to the
+       workshop gets ALL of them: the instruction was every single piece,
+       and "Fixed Shelf ×10, three of the reasons" is not every piece. */
     detail:[...g.notes].slice(0,3).join('; '),
+    details:[...g.notes],
     ...(NO_PRICE_IN_SHEET.has(g.code) ? { noPrice:true } : {})
   })).sort((a,b)=>a.item.localeCompare(b.item));
 }

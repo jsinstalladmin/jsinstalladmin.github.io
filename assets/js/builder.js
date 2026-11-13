@@ -175,8 +175,20 @@ const placedFittings = () => S.fittings.filter(f => f.placed);
    because the side runs are already pushed clear of the back run by their
    `start` offset in cfg(). The back run goes corner to corner; the side runs
    begin where it ends. That is how the cabinetry actually goes in. */
+/* And a side wall is the wall MINUS where its run is allowed to begin.
+   This was taking off a flat 24", the default hanging depth, while cfg()
+   actually starts a side run at the back run's own depth plus the twelve
+   inch standoff. On an 84" deep room with a 24" back run that is 36", so the
+   layout handed out 60" of towers starting at 36 and the last two feet of
+   the run were built into the far wall. The drawing showed it; nobody had
+   drawn it before. If there is no back run there is nothing to stand clear
+   of and the whole wall is available. */
+function sideStart(){
+  if(!S.runs.back?.on || !(S.runs.back.bays || []).length) return 0;
+  return sideRunStart(Math.min(S.runs.back.depth ?? SPEC.hangDepth, wallDepthCap('back')));
+}
 function wallLength(wall){
-  const base = wall==='back' ? S.room.w : S.room.d - SPEC.hangDepth;
+  const base = wall==='back' ? S.room.w : S.room.d - sideStart();
   /* Standing in front of the baseboard costs the run the thickness of the
      base at BOTH ends — but only if the number they gave was measured wall to
      wall. If they measured between the baseboards, it is already right. */
@@ -326,6 +338,48 @@ function fitRun(wall){
   const len=wallLength(wall), each=+(len/r.bays.length).toFixed(1);
   r.bays.forEach(b=>b.w=each);
 }
+/* PULL A RUN BACK INSIDE ITS WALL.
+
+   A room plan writes its tower widths straight in, and the side run's own
+   starting point moves whenever the back run gets deeper or shallower. Both
+   can leave a run longer than the wall it stands on, which the engine will
+   happily build and the drawing will happily show going through the far
+   wall. This squeezes the towers back down in proportion, keeps them at or
+   above the minimum width, and re-lays them from the start of the run, so
+   what is drawn is always something that fits in the room.
+
+   It does nothing at all when the run already fits, so a design somebody
+   laid out by hand is never quietly rearranged underneath them. */
+function fitWall(wall){
+  const r = S.runs[wall]; if(!r || !r.bays.length) return false;
+  const len = wallLength(wall);
+  const L = layout(wall);
+  const end = L.reduce((a, s) => Math.max(a, s.end), 0);
+  if(end <= len + 0.05) return false;
+  /* Everything is scaled by the same factor, positions as well as widths, so
+     the run keeps its proportions: the gap the customer left for a radiator
+     stays where it was in relation to the towers either side of it. */
+  const k = len / end;
+  for(const s of L){
+    s.bay.w  = +Math.max(SPEC.bayMin, s.w * k).toFixed(1);
+    s.bay.at = +Math.max(0, s.at * k).toFixed(2);
+  }
+  /* Scaling is exact until the minimum width catches one of them. Re-lay
+     from the start so nothing overlaps its neighbour after that. */
+  let at = 0;
+  for(const s of L){
+    s.bay.at = +Math.max(s.bay.at, at).toFixed(2);
+    at = s.bay.at + s.bay.w;
+  }
+  /* If the minimum width stopped the squeeze short, drop towers off the end
+     until the rest fit rather than leave one standing in the wall. */
+  while(r.bays.length > 1 && at > len + 0.05){
+    const last = r.bays.pop();
+    at -= last.w;
+  }
+  r.bays = layout(wall).map(s => s.bay);
+  return true;
+}
 function applyShape(s, keep){
   S.shape = SHAPES[s] ? s : 'straight';
   const def = SHAPES[S.shape];
@@ -400,6 +454,9 @@ if(qPlan && ROOM_PLANS[qPlan]){
       return b;
     });
   }
+  /* A plan's side runs are written from the corner; they still have to clear
+     the back run and its standoff once they are in a real room. */
+  for(const wall of Object.keys(pl.runs || {})) fitWall(wall);
   const first = Object.keys(pl.runs || {}).find(w => S.runs[w]?.bays.length);
   if(first) S.sel = { wall:first, i:0 };
 }
@@ -542,6 +599,7 @@ new IntersectionObserver(es=>{ for(const e of es) visible = e.isIntersecting; },
    it stops. The last frame of a drag is the one you look at. */
 /* ?perf=1 exposes the renderer, the scene and a frame counter so the two
    render paths can be timed against each other rather than guessed at. */
+const AUDIT = new URLSearchParams(location.search).has('audit');
 const PERF = new URLSearchParams(location.search).has('perf')
   ? (window.__perf = { frames:0, get calls(){ return renderer.info.render.calls; },
       get tris(){ return renderer.info.render.triangles; },
@@ -1313,6 +1371,24 @@ function view(step){
                p:[px + (f.wall === 'back' ? off : 0), f.y + f.h * 0.3,
                   pz + (f.wall === 'back' ? 0 : off)] };
     }
+    case 'doc': {
+      /* THE VIEW THAT GOES ON PAPER.
+
+         Not a step the customer ever sees: the one framing used for the
+         picture in the drawing. The step-1 view sits inside a deep walk-in,
+         so the nearest side tower filled half the page and the back wall was
+         a strip behind it. This stands well outside the opening, up at about
+         a standing eye line and over to one side, and looks back at the
+         middle of the room, so both runs and the bridge between them are in
+         the one picture. */
+      const c = [W/2, H*0.45, D*0.45];
+      const r = fitDist(H*1.45, Math.max(W, D) * 1.5);
+      const az = 26 * Math.PI/180, el = 20 * Math.PI/180;
+      return { t:c,
+               p:[c[0] + r*Math.cos(el)*Math.sin(az),
+                  c[1] + r*Math.sin(el),
+                  c[2] + r*Math.cos(el)*Math.cos(az)] };
+    }
     default: {             // 1 and 6: the whole room
       /* The room used to be drawn with 46" of padding on each side, so the
          framing had to allow for scenery that is no longer there. Fitting the
@@ -1373,6 +1449,10 @@ let cur=null;
 
 function rebuild(reframe){
   cur=buildDesign(cfg(),cat);
+  /* ?audit=1 hands the built design to a test runner so a sweep can check
+     that nothing was placed outside the room it was drawn for. It is off
+     unless asked for, so nothing is exposed to an ordinary visitor. */
+  if(AUDIT) window.__cur = cur;
   if(!DRAGGING) drawRoom();
   drawCloset(cur);
   if(!DRAGGING) resize();
@@ -2333,6 +2413,8 @@ $('#dims')?.addEventListener('change', e=>{
   const v = Math.round(Number(i.value));
   S.room[k] = Number.isFinite(v) ? Math.min(mx, Math.max(mn, v)) : S.room[k];
   if(k === 'h') S.cabTop = clampCabTop(S.cabTop, S.room.h);
+  if(k === 'w') fitWall('back');
+  if(k === 'd'){ fitWall('left'); fitWall('right'); }
   rebuild(true);
 });
 $('#dims')?.addEventListener('keydown', e=>{
@@ -2453,6 +2535,9 @@ $('#fitlist').addEventListener('change', e=>{
     /* Lowering the ceiling under the cabinetry would otherwise leave a closet
        standing through it. */
     if(k === 'h') S.cabTop = clampCabTop(S.cabTop, S.room.h);
+    /* Shrinking the room cannot leave towers standing outside it. */
+    if(k === 'w') fitWall('back');
+    if(k === 'd'){ fitWall('left'); fitWall('right'); }
     rebuild(true);
   });
   host.addEventListener('change', e=>{
@@ -2583,7 +2668,14 @@ let TDRAG = null;
 $('#bays').addEventListener('change', e => {
   const i = e.target.closest('input[data-rundepth]'); if(!i) return;
   const wall = i.dataset.rundepth, r = S.runs[wall];
-  if(r){ r.depth = clampDepth(i.value, wall); rebuild(true); }
+  if(r){
+    r.depth = clampDepth(i.value, wall);
+    /* The back run getting deeper pushes both side runs further down the
+       room, so they have to be brought back inside it before anything is
+       drawn or priced. */
+    if(wall === 'back'){ fitWall('left'); fitWall('right'); }
+    rebuild(true);
+  }
 });
 $('#bays').addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.matches('input[data-rundepth]')){ e.preventDefault(); e.target.blur(); }
@@ -2798,6 +2890,38 @@ $('#scene').onclick=e=>{const b=e.target.closest('button');if(!b)return;const a=
    contact page, which left the customer wondering what, if anything, had just
    been sent. Now it says exactly what travels with the enquiry, and only then
    goes on to ask who they are and where the room is. */
+/* THE 3D VIEW, AS A PICTURE.
+
+   The PDF carries the view the customer was actually looking at, so Joseph
+   opens the drawing and sees the same closet they did. Two things make that
+   less simple than reading the canvas: the renderer draws only when asked,
+   so the buffer holds whatever frame was last composed, and by the time
+   anyone presses send the canvas is usually on a hidden tab. If it still has
+   a size we compose one fresh frame first; if it does not we take the last
+   one that was drawn, which preserveDrawingBuffer has kept for us. Either
+   way a failure here returns null and the drawing goes without the shot. */
+function snapshot(){
+  const pos = cam.position.clone(), tgt = ctl.target.clone();
+  try{
+    if(canvas.clientWidth > 0 && canvas.clientHeight > 0){
+      /* The shot is taken from the whole-room view, not from wherever the
+         customer happened to leave the camera. Pressing send with the camera
+         two inches from a drawer front was putting a photograph of a drawer
+         front in the drawing, which tells Joseph nothing. The camera is put
+         back the moment the picture is taken, so nothing moves on screen. */
+      const v = view('doc');
+      cam.position.set(...v.p); ctl.target.set(...v.t); ctl.update();
+      if(composer) composer.render(); else renderer.render(scene, cam);
+    }
+    return renderer.domElement.toDataURL('image/png');
+  }catch(e){
+    console.warn('[drawing] no 3D shot:', e); return null;
+  }finally{
+    cam.position.copy(pos); ctl.target.copy(tgt); ctl.update();
+    needsFrame = true;
+  }
+}
+
 function quotePackage(){
   return {
     summary:`${TYPES[S.type].label} · ${S.room.w}"×${S.room.d}"×${S.room.h}" · ${cur.bays.length} tower${cur.bays.length===1?'':'s'} · ${cur.finish.n}`,
@@ -2844,6 +2968,15 @@ function quotePackage(){
       ...(f.depth != null ? { sticksOutInches:Math.round(f.depth)} : {}),
       ...(f.spot  ? { where: f.spot === 'floor' ? 'In the floor' : 'On the wall' } : {}),
       note: f.note || '' })),
+    /* THE DESIGN ITSELF, NOT A DESCRIPTION OF IT.
+
+       Everything above is the design written out in words, which is what the
+       office reads. This is the design: the same small object the builder
+       hands the engine. With it the admin can rebuild the closet exactly —
+       every piece and every dimension — and print the drawing again months
+       later without the customer still having the tab open. It is a few
+       hundred bytes and it is the difference between a record and a copy. */
+    state: cfg(),
     generated:new Date().toISOString()
   };
 }
@@ -2879,10 +3012,68 @@ $('#send').onclick=()=>{
   dl.showModal();
 };
 $('#sendCancel')?.addEventListener('click', ()=> $('#sendDlg').close());
-$('#sendGo')?.addEventListener('click', ()=>{
-  try{ localStorage.setItem('js_quote', JSON.stringify(quotePackage())); }catch(e){}
+/* THE DRAWING TRAVELS WITH THE ENQUIRY.
+
+   Joseph re-draws every closet in ClosetPro before he prices it, so what
+   he needs from here is not a picture of a closet, it is a measured
+   drawing: every wall in elevation with every tower dimensioned, the plan
+   with the standoff on it, the 3D view the customer was looking at, and
+   every piece behind them. He was getting a list of part names and had to
+   guess the rest.
+
+   The PDF is built in the browser from the same geometry the 3D view
+   draws, downloaded so the customer keeps a copy, and the reference is
+   put on the enquiry so the office knows a drawing exists for it. If the
+   PDF library cannot be fetched the enquiry still goes, because an
+   enquiry that fails to send is worse than one without a drawing. */
+$('#sendGo')?.addEventListener('click', async ()=>{
+  const btn = $('#sendGo');
+  const was = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Drawing it up…';
+  const q = quotePackage();
+  try{
+    const { downloadPdf } = await import('./drawing.js');
+    const shot = snapshot();
+    await downloadPdf(cur, {
+      ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
+      order: q.order, hardware: q.hardware, notes: q.warnings,
+      finish: q.finish, frontFinish: q.frontFinish, pull: q.pull,
+      pullFinish: q.pullFinish, door: q.door,
+      shot, filename: `JS-Closets-${designRef()}.pdf`
+    });
+    q.drawing = { madeAt:new Date().toISOString(), ref:designRef(),
+                  walls:[...new Set((cur.bays||[]).map(b=>b.wall))] };
+  }catch(err){
+    console.warn('[drawing] the PDF could not be built, the enquiry still goes:', err);
+  }
+  btn.disabled = false; btn.textContent = was;
+  try{ localStorage.setItem('js_quote', JSON.stringify(q)); }catch(e){}
   location.href=(window.BASE||'')+'contact.html';
 });
+/* the same drawing, on demand, without sending anything */
+$('#dlDrawing')?.addEventListener('click', async ()=>{
+  const b = $('#dlDrawing'), was = b.textContent;
+  b.disabled = true; b.textContent = 'Drawing it up…';
+  try{
+    const { downloadPdf } = await import('./drawing.js');
+    const q = quotePackage();
+    const shot = snapshot();
+    await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
+      order:q.order, hardware:q.hardware, notes:q.warnings, shot,
+      finish:q.finish, frontFinish:q.frontFinish, pull:q.pull,
+      pullFinish:q.pullFinish, door:q.door,
+      filename:`JS-Closets-${designRef()}.pdf` });
+    b.textContent = was;
+  }catch(err){
+    console.warn('[drawing]', err);
+    /* There is no toast on this page, and an alert() would block the tab,
+       so the button says so itself and puts its own label back. */
+    b.textContent = 'Could not draw it';
+    setTimeout(()=>{ b.textContent = was; }, 2600);
+  }
+  b.disabled = false;
+});
+
 $('#dlOrder').onclick=()=>{
   const rows=[['Item','Qty','Sq ft','Edgeband ft','Color','Detail'],
     ...cur.order.map(o=>[o.item,o.qty,o.sq_ft,o.edgeband_ft,o.finish,o.detail])];

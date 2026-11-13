@@ -26,7 +26,11 @@ export function linearFeet(design){
 export function quoteNumbers(quote, settings){
   const d = quote.design;
   const ft = linearFeet(d);
-  const cabinetry = Math.round(quote.total || d?.price || 0);
+  /* The quote is Joseph's figure, full stop. It used to fall back to the
+     builder's own internal number when the box was still empty, which put a
+     price on a quote sheet that nobody in the business had agreed to. An
+     empty box is zero, and a zero reads as "not priced yet". */
+  const cabinetry = Math.round(quote.total || 0);
   const rate = +settings.installPerFt || 0;
   const minimum = +settings.installMin || 0;
   const install = rate ? Math.max(Math.round(ft * rate), minimum) : null;

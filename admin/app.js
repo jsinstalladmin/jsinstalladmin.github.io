@@ -209,7 +209,7 @@ V.today = () => {
   const todo =
       unread.map(l => doRow('#C2572F', `Reply to ${esc(l.contact?.name || 'a new enquiry')}`,
           `${esc(l.source || 'Website')} &middot; came in ${fmtD((l.created||today()).slice(0,10))}`
-          + (l.design?.price ? ` &middot; ${money(l.design.price)} drawn` : ''),
+          + (l.design?.pieceCount ? ` &middot; ${l.design.pieceCount} pieces drawn` : ''),
           `data-leadopen="${esc(l.id)}"`)).join('')
     + waiting.map(q => doRow('#5C6FA8', `Chase the quote for ${esc(DB.clientName(q.client))}`,
           `${money(q.total)} &middot; sent ${q.created ? fmtD(q.created) : 'recently'}, no answer yet`,
@@ -530,26 +530,26 @@ V.inbox = () => {
       `<button class="btn btn-sm" data-act="inbox-sync">Check for new ones</button>`)
 
   + panel('Waiting on you', fresh.length ? `${fresh.length} new` : '', fresh.length
-      ? scroll(`<table><thead><tr><th>Came in</th><th>Waiting</th><th>Customer</th><th>What they drew</th><th class="mono">Estimate</th><th></th></tr></thead><tbody>
+      ? scroll(`<table><thead><tr><th>Came in</th><th>Waiting</th><th>Customer</th><th>What they drew</th><th class="mono">Pieces</th><th></th></tr></thead><tbody>
         ${[...fresh].sort((a,b)=>(a.created||'').localeCompare(b.created||'')).map(l=>`<tr>
           <td class="mono">${when(l)}</td>
           <td>${ageTag(l)}</td>
           <td><b>${esc(l.contact?.name||'Unknown')}</b><br><span class="sub">${esc(l.contact?.phone||'')} ${esc(l.contact?.email||'')}</span></td>
           <td class="sub">${esc(describe(l))}<br><span class="sub">${esc([l.contact?.address,l.contact?.location].filter(Boolean).join(', '))}</span></td>
-          <td class="mono">${money(l.design?.price||0)}</td>
+          <td class="mono">${l.design?.pieceCount || '—'}</td>
           <td class="rowact"><button class="btn btn-p btn-sm" data-leadopen="${esc(l.id)}" data-stop="1">Open it</button></td></tr>`).join('')}
       </tbody></table>`)
       : empty('Nothing waiting. New enquiries from the website land here by themselves.'),
       fresh.length ? 'accent' : '')
 
   + panel('Filed', `${filed.length}`, filed.length
-      ? scroll(`<table><thead><tr><th>Came in</th><th>Customer</th><th>What they drew</th>${DB.region()==='all'?'<th>Region</th>':''}<th class="mono">Estimate</th><th></th></tr></thead><tbody>
+      ? scroll(`<table><thead><tr><th>Came in</th><th>Customer</th><th>What they drew</th>${DB.region()==='all'?'<th>Region</th>':''}<th class="mono">Pieces</th><th></th></tr></thead><tbody>
         ${filed.map(l=>`<tr>
           <td class="mono">${when(l)}</td>
           <td><b>${esc(l.contact?.name||'Unknown')}</b><br><span class="sub">${esc(l.contact?.phone||'')}</span></td>
           <td class="sub">${esc(describe(l))}</td>
           ${DB.region()==='all'?`<td><span class="rtag">${esc((l.regionId||'').toUpperCase()||'—')}</span></td>`:''}
-          <td class="mono">${money(l.design?.price||0)}</td>
+          <td class="mono">${l.design?.pieceCount || '—'}</td>
           <td class="rowact">${l.client_id?`<button class="btn btn-sm" data-lead-open="${esc(l.client_id)}" data-stop="1">Open client</button>`:''}</td></tr>`).join('')}
       </tbody></table>`)
       : empty('Nothing filed yet.'))
@@ -612,7 +612,7 @@ function inboxPreview(e){
       <tr><th>Hardware</th><td>${esc(d.pull||'—')} in ${esc(d.pullFinish||'—')}</td></tr>
       <tr><th>Doors</th><td>${esc(d.door||'—')}</td></tr>
       ${(d.fittings||[]).length?`<tr><th>On the walls</th><td>${d.fittings.map(f=>esc(f.item)+(f.note?' ('+esc(f.note)+')':'')).join(', ')}</td></tr>`:''}
-      <tr><th>Estimate</th><td class="mono">${money(d.price)}</td></tr>
+      <tr><th>Every piece</th><td class="mono">${d.pieceCount || parts} pieces on the list</td></tr>
       ${(d.warnings||[]).length?`<tr><th>Flags</th><td>${d.warnings.map(esc).join(' ')}</td></tr>`:''}`:''}
       ${ct.message?`<tr><th>They said</th><td>${esc(ct.message)}</td></tr>`:''}
     </tbody></table>
@@ -634,7 +634,8 @@ function inboxPreview(e){
     <p class="note">Filing makes the client, books a measure visit and starts a draft quote
       with the whole parts list on it. Pick the column it should land in: somebody you have
       already spoken to does not belong back in <b>New lead</b>.</p>
-    <div class="btnrow"><button class="btn btn-p" data-act="inbox-file">File it onto the board</button></div>`;
+    <div class="btnrow"><button class="btn btn-p" data-act="inbox-file">File it onto the board</button>
+      ${d?.state?`<button class="btn" data-act="inbox-pdf">Download the drawing (PDF)</button>`:''}</div>`;
 }
 
 /* Filing now waits on the database, so there is a moment where the button
@@ -709,7 +710,14 @@ async function fileIt(e){
     finish: d?.finish || 'n/a', crew:'', crewIds:[],
     notes:[describe(e), ct.message].filter(Boolean).join(' — ') });
   let quote = null;
-  if(d) quote = DB.addQuote({ region, client:client.id, title, total:Math.round(d.price||0),
+  /* A DRAFT QUOTE OPENS AT NOTHING.
+
+     The builder works a figure out for its own internal checks, and that
+     figure has no business on this screen. Joseph re-draws every closet in
+     ClosetPro from the drawing the customer sent and prices it there, off
+     his own sheets and his own margins. A number sitting in this box with a
+     dollar sign on it is a number somebody eventually quotes. */
+  if(d) quote = DB.addQuote({ region, client:client.id, title, total:0,
       status:'draft', summary:d.summary, design:d });
   /* A lead that came from the website is already a row; it just gets marked
      handled. One that was pasted in from an email has to be created. */
@@ -869,6 +877,13 @@ function doAct(a){
     return;
   }
   if(a==='inbox-file'){ const r = inboxFile(); if(dlg.open) dlg.close(); return r; }
+  /* the drawing, without filing anything: the dialog stays open */
+  if(a==='inbox-pdf'){
+    const d = INBOX_DRAFT?.design;
+    const btn = dlg.querySelector('[data-act="inbox-pdf"]');
+    if(!btn) return;
+    return redrawPdf(btn, d, INBOX_DRAFT?.contact?.name || 'Website enquiry');
+  }
   if(a==='newclient')   return openClient(null);
   if(a==='newjob')      return openJob(null);
   if(a==='newemp')      return openEmployee(null);
@@ -1190,6 +1205,35 @@ function openEmployee(id){
   };
 }
 
+/* Rebuild a sent design and hand back its drawing as a PDF. Both the engine
+   and the drawing are loaded on demand: this page opens dozens of times a
+   day and almost none of them want a PDF. */
+async function redrawPdf(btn, d, title){
+  if(!d?.state){ toast('This enquiry came in before drawings were attached.', true); return; }
+  const was = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Drawing it up…';
+  try{
+    const [{ buildDesign }, { downloadPdf }] = await Promise.all([
+      import('../assets/js/design.js'),
+      import('../assets/js/drawing.js'),
+    ]);
+    const design = buildDesign(d.state, cat);
+    await downloadPdf(design, {
+      ref: `${title || 'Closet'} · ${new Date().toLocaleDateString()}`,
+      order: d.order, hardware: d.hardware, notes: d.warnings,
+      finish: d.finish, frontFinish: d.frontFinish, pull: d.pull,
+      pullFinish: d.pullFinish, door: d.door,
+      filename: `${String(title || 'closet').replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-drawing.pdf`
+    });
+    btn.textContent = was;
+  }catch(err){
+    console.warn('[drawing]', err);
+    toast('The drawing could not be rebuilt. ' + (err?.message || ''), true);
+    btn.textContent = was;
+  }
+  btn.disabled = false;
+}
+
 /* A quote that came in from the 3D builder carries the whole drawing, so the
    parts list is a click away rather than back in the email it arrived in. */
 function openQuote(id){
@@ -1226,6 +1270,7 @@ function openQuote(id){
       <tbody>${(d.order||[]).map(o=>`<tr><td>${esc(o.item)}</td><td class="mono">${o.qty}</td>
         <td class="mono">${o.sq_ft??''}</td><td class="mono">${o.edgeband_ft??''}</td><td class="sub">${esc(o.detail||'')}</td></tr>`).join('')}</tbody></table></div>
       <div class="btnrow"><button class="btn btn-sm" id="q-csv">Download the parts list</button>
+        ${d.state?`<button class="btn btn-sm" id="q-pdf">Download the drawing (PDF)</button>`:''}
         <button class="btn btn-sm" id="q-order">Open the order sheet</button></div></div>`:''}
     ${q ? (() => {
       const n = quoteNumbers(q, DB.settings());
@@ -1344,6 +1389,17 @@ function openQuote(id){
     DB.updateQuote(q.id, { status:'sent' });
     close(); render(); toast('Quote marked as sent.');
   };
+  /* THE DRAWING, AGAIN, MONTHS LATER.
+
+     The customer gets the PDF when they press send; this is the same one,
+     rebuilt here. The enquiry carries the design itself, not a description
+     of it, so the engine draws it again from scratch and the drawing on this
+     screen is the drawing they sent rather than a stored picture of it. The
+     only thing missing is the 3D view, because there is no 3D view on this
+     page to photograph. */
+  const pdf = dlg.querySelector('#q-pdf');
+  if(pdf) pdf.onclick = () => redrawPdf(pdf, d, q.title);
+
   const csv = dlg.querySelector('#q-csv');
   if(csv) csv.onclick = () => {
     const rows = [['Item','Qty','Sq ft','Edgeband ft','Color','Detail'],

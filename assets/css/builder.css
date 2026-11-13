@@ -1576,3 +1576,15 @@ body[data-step="6"] .pacts{margin-top:0}
   color:var(--ink-2);cursor:pointer}
 .depthquick button:hover{border-color:var(--ink-3);color:var(--ink)}
 .depthquick button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+
+/* Two buttons sit on the order header now, the drawing and the CSV. The
+   header is a flex row with the count on the left, so they go in a span of
+   their own; that span is a child of .orderhd, which already styles its
+   spans as small grey text, so it has to opt back out. On a phone the row
+   wraps rather than squashing either button. */
+.orderhd{flex-wrap:wrap}
+.orderhd .orderbtns{display:flex;gap:.45em;flex-wrap:wrap;font-size:inherit;color:inherit}
+@media(max-width:420px){
+  .orderhd .orderbtns{width:100%}
+  .orderhd .orderbtns .btn{flex:1 1 auto}
+}
