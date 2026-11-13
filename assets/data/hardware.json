@@ -1,0 +1,119 @@
+{
+ "_comment": "Which loose hardware each built part needs, taken straight from the Hardware Needed column of his ClosetPro parts export. This is what lets the enquiry list every cam, dowel, screw and shelf pin rather than stopping at the panels. Wall bed hardware is deliberately absent: he does not build them.",
+ "parts": {
+  "FIXED": {
+   "Double Dowels": 2,
+   "Half Dowels": 4,
+   "Cam": 6
+  },
+  "ADJ": {
+   "Shelf Pins": 4
+  },
+  "PANEL": {
+   "Cam": 6,
+   "Half Dowels": 6,
+   "Matching Screw Cover": 6
+  },
+  "KICK": {
+   "Cam": 4,
+   "Double Dowels": 2,
+   "Half Dowels": 4
+  },
+  "CLEAT": {
+   "Cam": 4,
+   "Double Dowels": 4,
+   "Half Dowels": 4
+  },
+  "BACK": {
+   "Cam": 8,
+   "Matching Screw Cover": 8,
+   "Double Dowels": 8,
+   "Half Dowels": 8
+  },
+  "CUBBY": {
+   "Cam": 4,
+   "Half Dowels": 4
+  },
+  "SHOE": {
+   "Shelf Pins": 4
+  },
+  "SLANT": {
+   "Half Dowels": 2,
+   "Shelf Pins": 2,
+   "Cam": 2
+  },
+  "DRAWER": {
+   "6 x 5/8 Flat Screws": 6,
+   "13mm Euro Screws": 8
+  },
+  "HAMPER": {
+   "Mounting Bracket for Tilt out hamper baskets": 1,
+   "Flap Stay with Catch White": 2,
+   "13mm Euro Screws": 6,
+   "6 x 5/8 Flat Screws": 6
+  },
+  "FILLER": {
+   "Cam": 2,
+   "Double Dowels": 2,
+   "Half Dowels": 2,
+   "Mending Plate": 2,
+   "6 x 5/8 Flat Screws": 8
+  }
+ },
+ "skus": {
+  "13mm Euro Screws": {
+   "sku": "R-FPESNM613PRM1 13mmEuro"
+  },
+  "16mm Euro Screws For Brackets": {
+   "sku": "H-013.02.904 16mm Euro Screws For Brackets"
+  },
+  "6 x 5/8 Flat Screws": {
+   "sku": "R-\u00a0FPCN658PRM1 6 x 5/8 Flat Screws"
+  },
+  "7.5mm Euro Screws ( Use double slides)": {
+   "sku": "R-6620752G 7-5mmEuro"
+  },
+  "Cam": {
+   "sku": "Cam"
+  },
+  "Corner Brace (under vert)": {
+   "sku": "Corner Brace"
+  },
+  "Double Dowels": {
+   "sku": "H-263.24.972 Rafix Double Bolt, steel, for 19mm"
+  },
+  "Flap Stay with Catch White": {
+   "sku": "H-365.75.729 Flap Stay with Catch White"
+  },
+  "Half Dowels": {
+   "sku": "H-263.20.313 Rafix Spreading Bolt, zinc, plastic, black, 5mm"
+  },
+  "Hang Rail": {
+   "sku": "Hang Rail"
+  },
+  "Matching Screw Cover": {
+   "sku": "Matching Screw Cover"
+  },
+  "Mending Plate": {
+   "sku": "R-95X20B Mending Plate"
+  },
+  "Mounting Bracket for Tilt out hamper baskets": {
+   "sku": "H-547.42.990 Mounting Bracket for Tilt out hamper baskets"
+  },
+  "Rollout Spacer Block": {
+   "sku": "R-CP60285012"
+  },
+  "Shelf Pins": {
+   "sku": "Shelf Pins"
+  },
+  "Square Corner Brace 1\" x 1\" Zinc": {
+   "sku": "R-MP5232G L Brace 1\" x 1\" Zinc"
+  },
+  "Suspension Bracket": {
+   "sku": "Sus-Bracket"
+  },
+  "Suspension Bracket Cover": {
+   "sku": "Sus-Bracket-Cover"
+  }
+ }
+}

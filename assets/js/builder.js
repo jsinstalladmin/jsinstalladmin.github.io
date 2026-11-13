@@ -16,10 +16,10 @@ const PART_TILE = {
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS, PRESET_ALIAS,
          presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit, wallGap,
-         ROOM_PLANS, cornerBlocked,
+         ROOM_PLANS, cornerBlocked, sideRunStart,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
-         baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF,
+         baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
          cabTopRange, clampCabTop } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, garmentGeo, makeComposer } from './render.js';
@@ -33,6 +33,13 @@ import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
    three.js and every module below it had been parsed and evaluated. */
 const cat = await (window.__CAT || Promise.resolve(null))
   .then(c => c || fetch((window.BASE||"")+'assets/data/catalog.json').then(r=>r.json()));
+/* The loose hardware behind every part: cams, dowels, screws, shelf pins.
+   Without it an enquiry lists forty panels and nothing that holds them
+   together, which is exactly what goes missing on the van. It is small and
+   it must not hold the builder up, so a failure here costs the hardware
+   lines and nothing else. */
+const HARDWARE_MAP = await fetch((window.BASE||"")+'assets/data/hardware.json')
+  .then(r => r.ok ? r.json() : null).catch(() => null);
 const $ = s => document.querySelector(s);
 const money = n => '$'+Math.round(n||0).toLocaleString();
 
@@ -133,13 +140,13 @@ const S = {
      and `measured` says whether the width they gave was taken wall to wall or
      between the baseboards, which changes how much wall there actually is. */
   base:{ h:4.5, t:0.75, measured:'wall', handling:'scribe' },
-  /* A back on every section. Off, because a built-in closet's back is the
+  /* A back on every tower. Off, because a built-in closet's back is the
      wall and that is what gets installed. */
   backs:false,
-  /* Where two runs meet. 'into' gives the corner to the back wall and starts
-     the side run clear of it; 'stop' holds both runs back so the corner stays
-     a bare square. Both get built; they are different closets. */
-  corner:'into',
+  /* Where two runs meet. There is one answer now: the back wall runs the
+     full width and the side wall stands SPEC.sideStandoff clear of it. Kept
+     as a field because the engine and the enquiry both read it. */
+  corner:'wall-to-wall',
   /* Which half of the selected section is being changed: 'top', 'bottom' or
      null for neither. */
   pick:null,
@@ -213,13 +220,13 @@ function freeSpace(wall){
    where the customer wants it, all mean a run may start part way along and
    may have a genuine hole in the middle.
 
-   So every section now carries `at`: inches from the LEFT CORNER of its wall.
-   Sections are kept sorted by `at`, so the index of a section in this array is
+   So every tower now carries `at`: inches from the LEFT CORNER of its wall.
+   Towers are kept sorted by `at`, so the index of a tower in this array is
    still the index the 3D drawing and the quote use. Gaps are not stored; they
    are worked out from the spaces between, which means a gap can never drift
-   out of agreement with the sections either side of it. */
+   out of agreement with the towers either side of it. */
 
-/* every section's position, filling in anything that predates `at` */
+/* every tower's position, filling in anything that predates `at` */
 function layout(wall){
   const r = S.runs[wall]; if(!r) return [];
   let run = 0;
@@ -239,7 +246,7 @@ function sortRun(wall){
   r.bays = L.map(s => s.bay);
 }
 /* ── the numbers printed along a wall ─────────────────────────────────────
-   Every gap and every section was rounded on its own, so a 20.4" gap, a 24"
+   Every gap and every tower was rounded on its own, so a 20.4" gap, a 24"
    section, a 36" section and a 15.6" gap printed as 20 + 24 + 36 + 17 = 97
    under a ruler that said 96. Round them together instead: round each one,
    then give the whole rounding error to the item that was furthest from a
@@ -276,12 +283,12 @@ function gapsOn(wall){
   if(len - cur > 0.05) out.push({ at:cur, w:len - cur, before:null });
   return out;
 }
-/* the first stretch of bare wall a section this wide would fit in */
+/* the first stretch of bare wall a tower this wide would fit in */
 function firstFit(wall, w){
   for(const g of gapsOn(wall)) if(g.w >= w - 0.01) return g.at;
   return null;
 }
-/* how far a section can travel without crossing its neighbours or the corners */
+/* how far a tower can travel without crossing its neighbours or the corners */
 function travelRange(wall, index){
   const len = wallLength(wall), L = layout(wall);
   const k = L.findIndex(s => s.i === index);
@@ -290,7 +297,7 @@ function travelRange(wall, index){
   return { lo: k > 0 ? L[k-1].end : 0,
            hi: (k < L.length-1 ? L[k+1].at : len) - me.w };
 }
-/* put a section at a given distance from the corner, clamped to what is free */
+/* put a tower at a given distance from the corner, clamped to what is free */
 function moveSection(wall, index, at){
   const { lo, hi } = travelRange(wall, index);
   const b = S.runs[wall].bays[index]; if(!b) return null;
@@ -301,7 +308,7 @@ function moveSection(wall, index, at){
   sortRun(wall);
   return b.at;
 }
-/* what design.js needs: sections with the bare wall between them spelled out */
+/* what design.js needs: towers with the bare wall between them spelled out */
 function withGaps(wall){
   const len = wallLength(wall), out = [];
   let cur = 0;
@@ -354,7 +361,7 @@ function applyType(t){
 applyType(S.type);
 
 /* Every layout page links straight in here with ?preset=drawer-tower, so the
-   customer lands on the section they were just reading about, already drawn
+   customer lands on the tower they were just reading about, already drawn
    and already priced, instead of on an empty room with a blank panel. */
 const qPre = qp.get('preset');
 if(qPre){
@@ -374,7 +381,7 @@ if(qPre){
 
 /* Every "See the build" on a room page carries ?plan=, so the photograph the
    customer pressed opens as a drawn, priced room rather than as an empty box
-   of the right type. A plan sets the room, the walls and every section; from
+   of the right type. A plan sets the room, the walls and every tower; from
    that point it is theirs and everything in it can be changed. */
 const qPlan = qp.get('plan');
 if(qPlan && ROOM_PLANS[qPlan]){
@@ -405,16 +412,19 @@ function cfg(){
        The side runs always begin clear of the back run's depth, because two
        boxes cannot occupy the same cubic foot. */
     const backDepth = Math.min(S.runs.back?.depth ?? SPEC.hangDepth, wallDepthCap('back'));
-    const start = wall==='back'
-      ? ((S.runs.left?.on && S.corner==='stop') ? SPEC.hangDepth : 0)
-      : backDepth;
+    /* The back wall runs wall to wall. A side wall starts clear of it by the
+       back run's depth plus the twelve inch standoff, because a side tower
+       pushed up against the back run gives you a corner nobody can reach
+       into. That gap is bridged with a top and a bottom piece, which are
+       built and listed by the engine. */
+    const start = wall==='back' ? 0 : sideRunStart(backDepth);
     /* clamp here, not only inside buildDesign, so the plan drawing, the click
        volumes and the quote are all reading the same depth */
     runs.push({wall, start, depth:Math.min(r.depth, wallDepthCap(wall)), bays:withGaps(wall)});
   }
   return { room:S.room, mounting:S.mounting, cabTop:S.cabTop, finish:S.finish,
            frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
-           door:S.door, base:S.base, backs:S.backs, corner:S.corner,
+           door:S.door, base:S.base, backs:S.backs, corner:'wall-to-wall',
            fittings:S.fittings.filter(f=>f.placed), runs };
 }
 
@@ -908,9 +918,9 @@ function drawRoom(){
      This is the whole "it is not up to the wall" problem, and it was the
      drawing's fault rather than the geometry's: the run's back face has
      always been exactly on the wall, but the baseboard was drawn straight
-     through it, full length. Because the sections are open at the back and
+     through it, full length. Because the towers are open at the back and
      the base is 4.5" against a 3.75" toe kick, three quarters of an inch of
-     white baseboard showed INSIDE every section, right at floor level. A
+     white baseboard showed INSIDE every tower, right at floor level. A
      white strip behind the cabinetry is the exact thing your eye reads as
      "that is standing off the wall".
 
@@ -1008,14 +1018,14 @@ function drawCloset(res){
       root.add(outline);
 
       /* There used to be a translucent gold box over the whole section as
-         well. On a section with cabinetry in it you barely saw it; on an EMPTY
+         well. On a tower with cabinetry in it you barely saw it; on an EMPTY
          one there was nothing behind it, so the three faces you see at once
          stacked up into a solid yellow block sitting in the room. The outline
          says which section is selected on its own. */
     }
   }
   /* The shadow map is 2560 square and every rebuild asked for a fresh one.
-     Dragging a section along a wall rebuilds the geometry on every frame, so
+     Dragging a tower along a wall rebuilds the geometry on every frame, so
      that was six and a half million shadow texels per frame, for a shadow
      nobody can study while the thing casting it is sliding. It is marked
      dirty here and redrawn once the picture settles, with the AO. */
@@ -1026,7 +1036,7 @@ const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
 const ndcFrom=(e)=>{ const r=canvas.getBoundingClientRect();
   ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); return ndc; };
 
-/* nothing told you a section could be clicked. Cursor changes over one. */
+/* nothing told you a tower could be clicked. Cursor changes over one. */
 canvas.addEventListener('pointermove', e=>{
   if(e.buttons) return;                               // orbiting, not hovering
   ray.setFromCamera(ndcFrom(e), cam);
@@ -1035,15 +1045,15 @@ canvas.addEventListener('pointermove', e=>{
 /* ══════════════════════════════════════════════════════════════════════
    DRAG A SECTION ALONG ITS WALL, IN THE DRAWING
 
-   Up to now a section could only be reordered from the little strip in the
-   side panel, which nobody found. Press on a section in the 3D view and pull
+   Up to now a tower could only be reordered from the little strip in the
+   side panel, which nobody found. Press on a tower in the 3D view and pull
    it left or right and it walks along the run, swapping with its neighbours
    as it passes them. The orbit controls are switched off for the duration so
    the camera does not spin while you are placing cabinetry.
 
    The maths: project the run's own left-to-right axis into screen space once
    on pointerdown, then every move is a dot product of the pointer delta onto
-   that axis. That way dragging right always moves the section right no
+   that axis. That way dragging right always moves the tower right no
    matter where the camera happens to be standing.
    ══════════════════════════════════════════════════════════════════════ */
 let SDRAG = null;
@@ -1097,7 +1107,7 @@ canvas.addEventListener('pointermove', e=>{
 });
 
 /* ---- the running measurement -------------------------------------------
-   While a section is being moved, the one number that matters is how far it
+   While a tower is being moved, the one number that matters is how far it
    now sits from the corner of the wall. It follows the pointer, in the 3D
    view and on the strip alike, and disappears the moment you let go. */
 function showAtTip(wall, i, px, py){
@@ -1112,7 +1122,7 @@ function showAtTip(wall, i, px, py){
   const right = Math.max(0, len - me.end);
   const G = baseGap();
   tip.innerHTML = `<b>${(me.at+G).toFixed(1).replace(/\.0$/,'')}"</b> from the left corner`
-    + `<span>${me.w.toFixed(0)}" section &middot; ${(right+G).toFixed(1).replace(/\.0$/,'')}" to the right corner`
+    + `<span>${me.w.toFixed(0)}" tower &middot; ${(right+G).toFixed(1).replace(/\.0$/,'')}" to the right corner`
     + (G ? ` &middot; ${G}" off the wall at the baseboard` : '') + `</span>`;
   tip.style.left = px + 'px';
   tip.style.top  = py + 'px';
@@ -1120,7 +1130,7 @@ function showAtTip(wall, i, px, py){
 }
 const hideAtTip = () => { const t = $('#attip'); if(t) delete t.dataset.on; };
 
-/* inches between where the section started and where it sits now */
+/* inches between where the tower started and where it sits now */
 function offsetOf(bays, from, now){
   let d = 0;
   if(now > from) for(let k = from; k < now; k++) d += bays[k].w;
@@ -1149,7 +1159,7 @@ canvas.addEventListener('pointerup',e=>{
     rebuild(false);
     /* Dividing the wall and filling it are one panel now, so clicking a
        section on the drawing just selects it. It used to yank you onto
-       another tab, which is what made adding two sections in a row feel
+       another tab, which is what made adding two towers in a row feel
        like the thing was fighting you. */
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
   }
@@ -1243,7 +1253,7 @@ function view(step){
   const { w:W, d:D, h:H } = S.room;
   switch(String(step)){
     case '2': {
-      /* Layout. With a section selected, go in on it. With nothing selected
+      /* Layout. With a tower selected, go in on it. With nothing selected
          yet, show the wall straight on so the widths read true. */
       if(!S.sel || !cur?.bays?.length){
         const d = fitDist(H * 1.12, (W + 10) * 1.02);
@@ -1251,7 +1261,7 @@ function view(step){
       }
       const b = focusBay();
       const midY = baseHeight(S.mounting, placedFittings()) + b.h / 2;
-      /* Frame the section being edited WITH its neighbours. Fitting the bay
+      /* Frame the tower being edited WITH its neighbours. Fitting the bay
          alone cropped the rest of the run against the edge of the canvas,
          which read as a broken drawing rather than a close-up. Show the whole
          run when it is short, and the bay plus about one either side when it
@@ -1264,7 +1274,7 @@ function view(step){
       /* Aim at the SECTION but keep the window over the RUN.
 
          This looked straight at the selected section's centre. Select the
-         first of four 36" sections on a 144" wall and the framed window is
+         first of four 36" towers on a 144" wall and the framed window is
          122" centred on x=18, so it runs from -43" to 79": the first section
          sits against the left edge of the canvas, the other three are off the
          right of it entirely, and the drawing reads as having slid out of the
@@ -1349,7 +1359,7 @@ for(const ev of ['pointerdown','wheel','touchstart'])
 /* ───────── render pass ───────── */
 let cur=null;
 /* ── Dragging ──────────────────────────────────────────────────────────
-   Sliding a section along a wall used to run the whole machine on every
+   Sliding a tower along a wall used to run the whole machine on every
    single pointermove: the room's walls, floor, textures and baseboards were
    thrown away and rebuilt, the canvas was re-measured, all nine panels were
    re-rendered from scratch, and the camera was told to fly somewhere. At
@@ -1371,7 +1381,7 @@ function rebuild(reframe){
   built = true;
 }
 function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps();
-  /* steps 3 and 5 look at one section, so changing which one is selected has
+  /* steps 3 and 5 look at one tower, so changing which one is selected has
      to move the camera too, not just the panel */
   const st = document.body.dataset.step;
   if((st === '2' || st === '4') && cur?.bays?.length) flyTo(st, 520);
@@ -1576,7 +1586,7 @@ function paintPlan(){
                  aria-label="How high the cabinetry goes, in inches off the floor"><i>in</i></label>
         <p class="note">${ft}ft ${inch ? inch + '" ' : ''}off the floor, in a ${S.room.h}" room.
           ${S.cabTop >= r.max ? 'That is as high as this ceiling allows.'
-            : `Anything up to ${r.max}" fits. Taller sections are more board and more edge banding, so the price moves with it.`}</p>
+            : `Anything up to ${r.max}" fits. Taller towers are more board and more edge banding, so the price moves with it.`}</p>
       </div>`;
     })()}
     <div class="basebox">
@@ -1594,19 +1604,26 @@ function paintPlan(){
         <button type="button" data-bmeas="baseboard" class="${S.base.measured==='baseboard'?'on':''}">Baseboard to baseboard</button>
       </div>
       ${Object.values(S.runs).filter(r=>r?.on).length > 1 ? `
-      <em class="baseq">Where two walls meet, what happens in the corner?</em>
-      <div class="segrow col">
-        <button type="button" data-corner="into" class="${S.corner==='into'?'on':''}">
-          <b>Run the back wall into the corner</b><span>Nothing is wasted, but the last foot of that section is deep and awkward to reach. Shelves there, not drawers.</span></button>
-        <button type="button" data-corner="stop" class="${S.corner==='stop'?'on':''}">
-          <b>Stop both runs at the corner</b><span>The side panel meets the back panel and the corner is left bare. You lose the square, and every inch you keep is easy to reach.</span></button>
+      ${/* THE CORNER IS NOT A QUESTION ANY MORE.
+            It used to be two buttons: run the back wall into the corner, or
+            stop both runs short of it. One left a bare square nobody could
+            use, the other made a tower a foot deep you cannot reach the
+            back of, and he builds neither. He builds wall to wall with the
+            side run standing twelve inches clear, bridged top and bottom.
+            So it is stated, not asked. */''}
+      <div class="cornernote">
+        <b>Where the walls meet</b>
+        <p class="note">The back wall runs the whole way. The side wall starts
+          <b>${SPEC.sideStandoff}" clear</b> of it, so you can reach into the corner,
+          and that gap is closed with a top piece and a bottom piece on its own toe
+          kick. Both are drawn, measured and on your piece list.</p>
       </div>` : ''}
-      <em class="baseq">Do the sections need a back?</em>
+      <em class="baseq">Do the towers need a back?</em>
       <div class="segrow col">
         <button type="button" data-backs="0" class="${S.backs?'':'on'}">
           <b>No back &mdash; the wall is the back</b><span>How a built-in closet normally goes in. Nothing to pay for.</span></button>
         <button type="button" data-backs="1" class="${S.backs?'on':''}">
-          <b>Build a back on every section</b><span>For a block wall, a garage, or plaster you would rather not look at. Adds board and hardware to every section.</span></button>
+          <b>Build a back on every tower</b><span>For a block wall, a garage, or plaster you would rather not look at. Adds board and hardware to every tower.</span></button>
       </div>
       <em class="baseq">And where the cabinetry meets it?</em>
       <div class="segrow col">
@@ -1737,10 +1754,10 @@ function paintBays(){
     /* ---- the wall, drawn to scale ---------------------------------------
        Every section sits at its real distance from the left corner and can be
        dragged anywhere along the wall, corner to corner, with the inches
-       shown while you move it. The bare wall between sections is drawn as a
-       gap you can click to drop a section straight into. */
+       shown while you move it. The bare wall between towers is drawn as a
+       gap you can click to drop a tower straight into. */
     const pc = v => ((v / Math.max(1, len)) * 100).toFixed(3) + '%';
-    /* Gaps and sections are measured along the same wall, so they are rounded
+    /* Gaps and towers are measured along the same wall, so they are rounded
        together: left to right, every number whole, and the row adds up to the
        wall underneath it. */
     const tape = wholeTape(
@@ -1757,8 +1774,8 @@ function paintBays(){
               data-bay="${fits ? 'addgap' : 'nofit'}" data-wall="${wall}"
               data-at="${g.at.toFixed(1)}" data-gw="${g.w.toFixed(1)}"
               title="${fits
-                ? `${g.n}&quot; of bare wall, ${Math.round(g.at)}&quot; from the corner. Click to put a section here.`
-                : `${g.n}&quot; of wall, under the ${SPEC.bayMin}&quot; minimum for a section.`}">
+                ? `${g.n}&quot; of bare wall, ${Math.round(g.at)}&quot; from the corner. Click to put a tower here.`
+                : `${g.n}&quot; of wall, under the ${SPEC.bayMin}&quot; minimum for a tower.`}">
               <span class="gapn">${g.n}"</span>
               ${fits ? '<span class="gapadd">+</span>' : ''}</button>`;
           }).join('')}
@@ -1790,8 +1807,8 @@ function paintBays(){
     const addBlock = !r.bays.length || left >= SPEC.bayMin
       ? `<div class="addrow">
           <div class="addhd">
-            <b>${r.bays.length ? 'Add another section' : 'Add your first section'}</b>
-            <span>${left.toFixed(0)}" of wall still free &middot; sections run ${SPEC.bayMin}&ndash;${SPEC.bayMax}" wide</span>
+            <b>${r.bays.length ? 'Add another tower' : 'Add your first tower'}</b>
+            <span>${left.toFixed(0)}" of wall still free &middot; towers run ${SPEC.bayMin}&ndash;${SPEC.bayMax}" wide</span>
           </div>
           <div class="addgrid">
             ${fits.map(w=>`<button class="wcard" data-bay="addw" data-wall="${wall}" data-w="${w}">
@@ -1801,7 +1818,7 @@ function paintBays(){
             ${left >= SPEC.bayMin ? `<button class="wcard fill" data-bay="addfill" data-wall="${wall}">
               <b>${clampBay(left).toFixed(0)}"</b>
               <span class="wbar"><span style="width:100%"></span></span>
-              <em>Fill what is left of the wall in one section.</em></button>` : ''}
+              <em>Fill what is left of the wall in one tower.</em></button>` : ''}
           </div>
           ${r.bays.length > 1 ? `<div class="addutil one">
             <button class="mini" data-bay="even" data-wall="${wall}">Make them all the same width</button>
@@ -1809,7 +1826,7 @@ function paintBays(){
         </div>`
       : `<div class="addrow"><div class="addhd full">
           <b>This wall is full</b>
-          <span>All ${len.toFixed(0)}" used. Narrow a section to make room for another, or work on a different wall.</span>
+          <span>All ${len.toFixed(0)}" used. Narrow a tower to make room for another, or work on a different wall.</span>
         </div>${r.bays.length > 1 ? `<div class="addutil one">
           <button class="mini" data-bay="even" data-wall="${wall}">Make them all the same width</button>
         </div>` : ''}</div>`;
@@ -1820,7 +1837,7 @@ function paintBays(){
           <b>${wall[0].toUpperCase()+wall.slice(1)} wall</b></span>
         <span class="runmeta ${left < -0.5 ? 'over' : ''}">
           <span class="runbar"><span style="width:${pct.toFixed(1)}%"></span></span>
-          <i>${r.bays.length} section${r.bays.length===1?'':'s'} &middot; ${Math.round(used)}" of ${Math.round(len)}"${left>0.5?` &middot; ${Math.round(left)}" free`:''}</i>
+          <i>${r.bays.length} tower${r.bays.length===1?'':'s'} &middot; ${Math.round(used)}" of ${Math.round(len)}"${left>0.5?` &middot; ${Math.round(left)}" free`:''}</i>
         </span></button>
       <div class="runbody">
         ${(() => {
@@ -1828,7 +1845,7 @@ function paintBays(){
              The run has always carried a depth and it has always been 24",
              because nothing ever asked. A linen run is 12" or 14", a pantry
              is 16", a hanging run is 24", and every shelf, rod, drawer box
-             and basket in the section is cut to whatever this says, so the
+             and basket in the tower is cut to whatever this says, so the
              price moves with it. */
           const cap = wallDepthCap(wall);
           const cur = Math.min(r.depth ?? SPEC.hangDepth, cap);
@@ -1849,11 +1866,11 @@ function paintBays(){
         })()}
         ${strip}
         ${r.bays.length > 0 ? `<div class="trackacts">
-          <span class="tahint">Drag any section along the wall. The gaps are real bare wall.</span>
+          <span class="tahint">Drag any tower along the wall. The gaps are real bare wall.</span>
           <button class="btn-mini" data-bay="tidy" data-wall="${wall}"
-            title="Push every section back into the left corner, shoulder to shoulder">Into the corner</button>
+            title="Push every tower back into the left corner, shoulder to shoulder">Into the corner</button>
           ${r.bays.length > 1 ? `<button class="btn-mini" data-bay="even" data-wall="${wall}"
-            title="Equal sections with equal air between them, across the whole wall">Space them evenly</button>` : ''}
+            title="Equal towers with equal air between them, across the whole wall">Space them evenly</button>` : ''}
         </div>` : ''}
         <div class="stackslot"></div>
         ${addBlock}
@@ -1866,12 +1883,12 @@ function paintBays(){
 /* ───────── step 2b: what goes in the selected section ─────────
    This used to be its own tab, and it used to show two pickers: a row of
    "layouts" and a grid of "pieces". They were the same control. A layout is
-   just a section pre-filled with pieces, so both now live in one grid, with
+   just a tower pre-filled with pieces, so both now live in one grid, with
    the ready-made ones first and badged.
 
    It also used to dead-end: no section selected meant an empty panel telling
-   you to go and pick one. If sections exist, one of them is selected. */
-/* The parts picker belongs directly under the section being edited, on the
+   you to go and pick one. If towers exist, one of them is selected. */
+/* The parts picker belongs directly under the tower being edited, on the
    wall being edited. Working on the back wall, section 3: the cards for
    section 3 render immediately beneath the back wall's section strip, so the
    image you click and the box it lands in are never more than a glance apart.
@@ -1900,7 +1917,7 @@ function paintStack(){
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
     /* If the chosen wall exists but has nothing on it yet, STAY on it. This
-       used to jump the selection to whichever wall did have sections, which
+       used to jump the selection to whichever wall did have towers, which
        meant opening an empty wall immediately bounced you back to the full
        one and the empty wall could never be worked on. */
     if(run?.on){
@@ -1913,7 +1930,7 @@ function paintStack(){
     }
     const wall = Object.keys(S.runs).find(k => S.runs[k]?.on && S.runs[k].bays.length);
     if(wall){ S.sel = { wall, i:0 }; return paintStack(); }
-    box.innerHTML = `<p class="note emptysel">Add a section above and its parts appear here.</p>`;
+    box.innerHTML = `<p class="note emptysel">Add a tower above and its parts appear here.</p>`;
     dockStack();
     return;
   }
@@ -1925,7 +1942,7 @@ function paintStack(){
   const usable = (cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.h)
     ?? (Math.max(SPEC.panel * 2 + 12, Math.min(S.cabTop, S.room.h - 2)) - floorY);
 
-  /* Is the section being edited the one in the inside corner? If it is, the
+  /* Is the tower being edited the one in the inside corner? If it is, the
      picker does not offer anything with a front on it, because the next run
      comes across that front and it could not be opened. */
   const inCorner = cornerBlocked(cfg(), S.sel.wall, S.sel.i, bay.at ?? 0, bay.w);
@@ -1942,7 +1959,7 @@ function paintStack(){
   const sl = slots(bay.stack);
   const pick = S.pick;                                  // 'top' | 'bottom' | null
 
-  /* a small elevation of this section, with one half lit up */
+  /* a small elevation of this tower, with one half lit up */
   const dia = lit => {
     const bH = sl.bottom ? (sl.bottom.m === 'DRAWERS'
         ? drawerBankHeight(sl.bottom.o?.sizes || defaultDrawerSizes(sl.bottom.o?.n))
@@ -1983,14 +2000,14 @@ function paintStack(){
     </div>`;
   };
 
-  /* one half of the section */
+  /* one half of the tower */
   const half = (slot, st) => {
     const open = pick === slot;
     if(!st) return `<button class="slotcard empty ${open?'on':''}" type="button" data-pickslot="${slot}">
       <span class="sico"><svg viewBox="0 0 24 32"><path d="M2 7h20M4 7v3M20 7v3"/></svg></span>
       <span class="sname"><b>${slot === 'top' ? 'Nothing at the top yet' : 'Nothing underneath yet'}</b>
         <i>${slot === 'top'
-            ? 'Pick what fills the section'
+            ? 'Pick what fills the tower'
             : 'Optional. Drawers, a hamper, baskets, shoes or shelving'}</i></span>
       <span class="slotgo">${slot === 'top' ? 'Choose' : 'Add'}</span></button>`;
     const d = MODULES[st.m];
@@ -2068,14 +2085,14 @@ function paintStack(){
   }).join('');
 
   box.innerHTML = `
-    <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · section ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
+    <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · tower ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
       <span class="selacts">
         <span class="wadj"><button data-bw="-2" title="Narrower">−</button><i>${bay.w.toFixed(0)}" wide</i><button data-bw="2" title="Wider">+</button></span>
         <span class="movw">
           <button data-move="-1" ${S.sel.i===0?'disabled':''} title="Move left along the wall">&#9664;</button>
           <button data-move="1" ${S.sel.i>=S.runs[S.sel.wall].bays.length-1?'disabled':''} title="Move right along the wall">&#9654;</button>
         </span>
-        <button class="rmsec" data-rmsec="1" title="Remove this section">Remove section</button>
+        <button class="rmsec" data-rmsec="1" title="Remove this tower">Remove tower</button>
       </span></div>
 
     <div class="halves">
@@ -2089,7 +2106,7 @@ function paintStack(){
     <div class="swaphd">
       ${dia(pick)}
       <span class="swaptx">
-        <b>${pick === 'top' ? 'The top of this section' : 'Underneath it'}</b>
+        <b>${pick === 'top' ? 'The top of this tower' : 'Underneath it'}</b>
         <span>Everything below can go there. Anything that cannot is not shown.
           <button class="swapback" data-pickclose="1" type="button">Close</button></span>
       </span>
@@ -2097,7 +2114,7 @@ function paintStack(){
     <div class="pgrid">${slotCards(pick)}</div>` : `
     `}`;
   /* The ready-made block used to sit under the two halves, offering eleven
-     pre-assembled sections next to the very pickers that build them. Two ways
+     pre-assembled towers next to the very pickers that build them. Two ways
      to do one job, and the pre-made one quietly wrote BOTH halves, so picking
      a top could wipe a bottom the customer had already chosen. They pick the
      top and the bottom; the named layouts stay on /layouts/ where they belong
@@ -2184,18 +2201,30 @@ function paintPulls(){
     <span class="pz p-${p.kind}"></span><i>${p.name}</i></button>`).join('');
   $('#pullfin').innerHTML=PULL_FINISHES.map(f=>`<button data-pf="${f.id}" aria-pressed="${f.id===S.pullFinish}">
     <span class="dotm" style="background:#${f.hex.toString(16).padStart(6,'0')}"></span>${f.name}</button>`).join('');
-  const p=PULLS.find(x=>x.id===S.pull);
-  $('#pullNote').innerHTML=`<b>${p.name}</b> <span class="muted">· ${p.cost?'$'+p.cost.toFixed(2)+' each':'no charge'}</span><br>${p.note}`;
+  /* a design saved before the range was cut back may name a handle that is
+     no longer offered; it resolves to the bar rather than showing nothing */
+  const p=PULLS.find(x=>x.id===S.pull) || PULLS.find(x=>x.id===resolvePull(S.pull)) || PULLS[1];
+  $('#pullNote').innerHTML=`<b>${p.name}</b><br>${p.note}`;
 }
 
 /* ───────── price + order ───────── */
 function paintPrice(){
-  $('#price').textContent=money(cur.price.price);
+  /* NO PRICE GOES IN FRONT OF A CUSTOMER.
+     Joseph prices every closet himself on ClosetPro, against the real room
+     and the real access, and a number on this page that he then has to
+     correct is worse than no number at all. The engine still costs the
+     design -- the office, the order sheet and the enquiry all need it --
+     it is simply never shown here. What the customer gets instead is the
+     one promise we can keep: send it, and the figure comes back inside a
+     day. */
+  const built = cur.bays.length > 0;
+  $('#price').textContent = built ? 'Price back within 24 hours' : 'Start with a tower';
   const nb=cur.bays.length;
-  /* "0 bay · 0 parts" — one is the plural of none. And they are sections
-     everywhere else on the page, so they are sections here too. */
-  $('#priceSub').textContent =
-    `${nb} section${nb===1?'':'s'} · ${cur.parts.length} part${cur.parts.length===1?'':'s'} · ${cur.finish.lead} week lead`;
+  /* "0 bay · 0 parts" — one is the plural of none. And they are towers
+     everywhere else on the page, so they are towers here too. */
+  $('#priceSub').textContent = built
+    ? `${nb} tower${nb===1?'':'s'} · ${cur.parts.length} part${cur.parts.length===1?'':'s'} · ${cur.finish.lead} week lead`
+    : 'Add a tower to the wall and it starts building here';
   /* The flags are behind the button at the top of the card, not stacked over
      the price. The button counts them so you can see there is something to
      read without the card growing a paragraph every time. */
@@ -2222,7 +2251,7 @@ function paintQuote(){
   const q = cur.quote, el = $('#quotebox');
   if(!el) return;
   if(!q || q.empty){
-    el.innerHTML = `<p class="qnone">Nothing in the design yet. Add a section on step 2 and the itemisation builds itself.</p>`;
+    el.innerHTML = `<p class="qnone">Nothing in the design yet. Add a tower on step 2 and the itemisation builds itself.</p>`;
     return;
   }
   const shape = S.type==='walk-in' ? ` (${SHAPES[S.shape].label})` : '';
@@ -2231,19 +2260,22 @@ function paintQuote(){
       <span><span class="ql">Your design</span><b>${TYPES[S.type].label} closet${shape}</b></span>
       <span class="qref">${designRef()}<br>${cur.finish.n}</span>
     </div>
+    ${/* The same card, with the money taken out of it. It was a quote; it is
+          a specification now, which is the thing a customer should be
+          checking anyway: that what is drawn is what they asked for. */''}
     <div class="qsec">
-      <span class="ql">Base system</span>
-      <div class="qrow"><i>${q.baseLabel}<small>${q.baseNote}</small></i><b>${money(q.base)}</b></div>
+      <span class="ql">The carcass</span>
+      <div class="qrow"><i>${q.baseLabel}<small>${q.baseNote}</small></i><b>&nbsp;</b></div>
     </div>
     <div class="qsec">
-      <span class="ql">Your options</span>
+      <span class="ql">What is in it</span>
       ${q.options.length
-        ? q.options.map(o=>`<div class="qrow"><i>${o.label}${o.note?`<small>${o.note}</small>`:''}</i><b>${money(o.price)}</b></div>`).join('')
-        : `<p class="qnone">No extras yet. Shelves, drawers, baskets and doors itemise here as you add them.</p>`}
+        ? q.options.map(o=>`<div class="qrow"><i>${o.label}${o.note?`<small>${o.note}</small>`:''}</i><b>&nbsp;</b></div>`).join('')
+        : `<p class="qnone">Nothing added yet. Shelves, drawers, baskets and doors list here as you put them in.</p>`}
     </div>
     <div class="qtot">
-      <span><span class="ql">Estimated total</span><em>Cabinetry only · installation quoted separately</em></span>
-      <b>${money(q.total)}</b>
+      <span><span class="ql">Your price</span><em>Joseph prices this design himself and comes back inside 24 hours</em></span>
+      <b>24 hrs</b>
     </div>
   </div>
   ${(S.door !== 'none' || S.fittings.some(f=>f.placed||f.note)) ? `<div class="qnotes">
@@ -2448,8 +2480,7 @@ $('#fitlist').addEventListener('change', e=>{
     if(h){ S.base.handling=h.dataset.bhand; rebuild(true); return; }
     const bk=e.target.closest('[data-backs]');
     if(bk){ S.backs = bk.dataset.backs === '1'; rebuild(true); return; }
-    const cn=e.target.closest('[data-corner]');
-    if(cn){ S.corner = cn.dataset.corner; rebuild(true); }
+
   });
 })();
 
@@ -2459,7 +2490,7 @@ $('#walls').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   /* keep the walls already chosen when stepping into Custom */
   applyShape(b.dataset.shape, SHAPES[b.dataset.shape]?.custom); rebuild(true)};
 $('#bays').onclick=e=>{
-  /* Open a wall by clicking its header. Selecting a section on it is what
+  /* Open a wall by clicking its header. Selecting a tower on it is what
      normally opens it, so this is for looking at a wall you are not editing. */
   const fold=e.target.closest('[data-fold]');
   if(fold){
@@ -2486,7 +2517,7 @@ $('#bays').onclick=e=>{
     const wall = bay.dataset.wall, r = S.runs[wall], act = bay.dataset.bay;
     if(act==='nofit') return;
     if(act==='addw' || act==='addfill' || act==='addgap'){
-      /* "addgap" is the empty stretch of wall drawn beside the sections that
+      /* "addgap" is the empty stretch of wall drawn beside the towers that
          are already there. Clicking it means "put one HERE, next to that one",
          which is what the gap looks like it should do. It fills the gap. */
       /* A section goes into a real stretch of bare wall. If the gap that was
@@ -2516,7 +2547,7 @@ $('#bays').onclick=e=>{
     }
     if(act==='even'){
       /* Spread evenly across the whole wall rather than squashing them into
-         the corner: equal sections, equal air between them. */
+         the corner: equal towers, equal air between them. */
       const n = r.bays.length;
       if(n){
         const len = wallLength(wall), each = clampBay(len / n);
@@ -2527,7 +2558,7 @@ $('#bays').onclick=e=>{
       }
     }
     if(act==='tidy'){
-      /* push every section back into the corner, shoulder to shoulder */
+      /* push every tower back into the corner, shoulder to shoulder */
       let run = 0;
       for(const b of layout(wall).map(s=>s.bay)){ b.at = run; run += b.w; }
       sortRun(wall);
@@ -2536,11 +2567,11 @@ $('#bays').onclick=e=>{
   const b=e.target.closest('.bay');
   if(b){ S.sel={wall:b.dataset.wall,i:+b.dataset.i}; S.pick=null; rebuild(false); }
 };
-/* ---- reorder sections along the wall -------------------------------------
-   A run is an ordered list, so moving a section is a splice. Dropping onto a
+/* ---- reorder towers along the wall -------------------------------------
+   A run is an ordered list, so moving a tower is a splice. Dropping onto a
    bay puts the dragged one in front of it; dropping past the end appends. */
 let DRAG = null;
-/* ---- dragging a section along the wall, on the strip --------------------
+/* ---- dragging a tower along the wall, on the strip --------------------
    Pointer events rather than HTML5 drag and drop: HTML5 drag can only tell
    you what you dropped ON, which is enough to swap two things over and no
    use at all for saying "put it 37 inches from the corner". This reads the
@@ -2618,7 +2649,7 @@ $('#stack').addEventListener('change', e => {
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;
-  /* "Remove last" was the only way to delete a section, so getting rid of the
+  /* "Remove last" was the only way to delete a tower, so getting rid of the
      second of four meant deleting three. This removes the selected one. */
   if(t.dataset.rmsec){
     const bays = S.runs[S.sel.wall].bays;
@@ -2654,7 +2685,7 @@ $('#stack').onclick=e=>{
   }
   if(t.dataset.bw){
     const d=+t.dataset.bw, r=S.runs[S.sel.wall];
-    /* the ±6" slack let a section be pushed to 18" or 42" — neither of which
+    /* the ±6" slack let a tower be pushed to 18" or 42" — neither of which
        he can build. 18" is under the narrowest drawer box he stocks, and a
        3/4" shelf bows past 36". Clamp to what the shop can actually cut. */
     const next = clampBay(bay.w + d);
@@ -2703,7 +2734,7 @@ $('#stack').onclick=e=>{
     setCounter(bay, t.checked);
   }
   /* ── the drawer bank, box by box ─────────────────────────────────────
-     A bank is the boxes it is made of, so adding one makes the section
+     A bank is the boxes it is made of, so adding one makes the tower
      taller rather than squeezing the fronts down to a size nothing fits. */
   else if(t.dataset.dsize !== undefined){
     const st = slots(bay.stack).bottom || slots(bay.stack).top;
@@ -2769,15 +2800,14 @@ $('#scene').onclick=e=>{const b=e.target.closest('button');if(!b)return;const a=
    goes on to ask who they are and where the room is. */
 function quotePackage(){
   return {
-    summary:`${TYPES[S.type].label} · ${S.room.w}"×${S.room.d}"×${S.room.h}" · ${cur.bays.length} section${cur.bays.length===1?'':'s'} · ${cur.finish.n}`,
-    price:Math.round(cur.price.price), type:S.type,
+    summary:`${TYPES[S.type].label} · ${S.room.w}"×${S.room.d}"×${S.room.h}" · ${cur.bays.length} tower${cur.bays.length===1?'':'s'} · ${cur.finish.n}`,
+    price:Math.round(cur.price.price), type:S.type,   // office only, never shown
     typeLabel: S.type==='reach-in'?'Reach-In Closets':S.type==='walk-in'?'Walk-In Closets':S.type==='pantry'?'Pantries':S.type==='garage'?'Garage Storage':'Laundry Rooms',
     room:S.room, mounting:S.mounting,
-    backs: S.backs ? 'A back panel on every section' : 'No backs, the wall is the back',
+    backs: S.backs ? 'A back panel on every tower' : 'No backs, the wall is the back',
     corner: Object.values(S.runs).filter(r=>r?.on).length > 1
-      ? (S.corner === 'into'
-          ? 'The back wall runs into the corner; the side run starts clear of it'
-          : 'Both runs stop at the corner and the corner square is left bare')
+      ? `The back wall runs the full width. The side wall stands ${SPEC.sideStandoff}" clear of it, `
+        + 'bridged with a top piece and a bottom piece on their own toe kick'
       : null,
     baseboard:{ height:S.base.h, thickness:S.base.t,
                 measuredFrom:S.base.measured,
@@ -2789,7 +2819,15 @@ function quotePackage(){
     pull:cur.pull.name, pullFinish:cur.pullFinish.name,
     bays:cur.bays.map(b=>({wall:b.wall,width:+b.w.toFixed(1),topShelf:b.top!==false,
       stack:b.stack.map(s=>({module:MODULES[s.m].label, height:s.h, options:s.o||{}}))})),
-    order:cur.order, warnings:cur.warnings,
+    order:cur.order,
+    /* EVERY SINGLE PIECE. The cut list above is what gets cut; this is what
+       holds it together, rolled up across the whole design from his own
+       ClosetPro hardware column. Between the two there is nothing in this
+       closet that is not written down. */
+    hardware: hardwareFor(cur.parts, HARDWARE_MAP),
+    pieceCount: cur.order.reduce((a,o)=>a+(+o.qty||0),0)
+              + hardwareFor(cur.parts, HARDWARE_MAP).reduce((a,h)=>a+(+h.qty||0),0),
+    warnings:cur.warnings,
     door: DOORS.find(d=>d.id===S.door)?.label || 'Open / no doors',
     /* Everything the customer told us about this thing travels: which wall,
        how far along it, how high off the floor, how big it is, and what they
@@ -2818,8 +2856,11 @@ $('#send').onclick=()=>{
   const line = (k,v) => `<div class="sl"><span>${k}</span><b>${v}</b></div>`;
   list.innerHTML =
       line('The room', `${q.room.w}" wide · ${q.room.d}" deep · ${q.room.h}" high`)
-    + line('The drawing', `${q.bays.length} section${q.bays.length===1?'':'s'}, wall by wall`)
-    + line('Every part', `${parts} panels, shelves, rods, boxes, glides and pulls`)
+    + line('The drawing', `${q.bays.length} tower${q.bays.length===1?'':'s'}, wall by wall, with every measurement`)
+    + line('Every piece', `${q.pieceCount} in all — ${parts} panels, shelves, rods, boxes, glides and pulls, `
+        + `plus ${(q.hardware||[]).reduce((a,h)=>a+(+h.qty||0),0)} cams, dowels, screws and shelf pins`)
+    + ((q.hardware||[]).length ? line('The hardware',
+        q.hardware.map(h=>`${h.qty} × ${h.item}`).join(' · ')) : '')
     + line('Color', q.finish === q.frontFinish ? q.finish : `${q.finish} carcass · ${q.frontFinish} fronts`)
     + line('Hardware', `${q.pull} in ${q.pullFinish}`)
     + line('Doors', q.door)
@@ -2833,7 +2874,7 @@ $('#send').onclick=()=>{
          f.heightOffFloor != null ? f.heightOffFloor + '" up' : null,
          f.where, f.note ? '“' + f.note + '”' : null
         ].filter(Boolean).join(' · ')).join('<br>')) : '')
-    + line('Estimate', money(q.price) + ' for the cabinetry')
+    + line('Price', 'to be confirmed by Joseph within 24 hours')
     + (q.warnings?.length ? `<div class="sl warn"><span>Worth saying</span><b>${q.warnings.join(' ')}</b></div>` : '');
   dl.showModal();
 };

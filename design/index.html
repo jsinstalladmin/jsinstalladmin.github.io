@@ -76,7 +76,7 @@
          used to live here reads under it. -->
     <div class="stage-top">
       <h1 class="stage-h1">Design your own closet in 3D</h1>
-      <span class="stage-ttl">Click any bay on the drawing to edit what goes in it</span>
+      <span class="stage-ttl">Click any tower on the drawing to edit what goes in it</span>
     </div>
     <div class="scene" id="scene">
       <button data-a="spin" aria-pressed="false" title="Turntable"><svg viewBox="0 0 20 20"><path d="M10 3a7 7 0 1 1-6.3 4M3 3v4h4"/></svg><span>360°</span></button>
@@ -114,7 +114,7 @@
             None of it changes the cabinetry price. It changes what the crew finds on the day.</p>
           <div id="fittings" class="fitgrid"></div>
           <div id="fitlist" class="fitlist"></div>
-          <div class="stepnext"><button type="button" class="btn btn-fill" data-goto="2">Lay out the sections<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></button></div>
+          <div class="stepnext"><button type="button" class="btn btn-fill" data-goto="2">Lay out the towers<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></button></div>
         </div>
       </section>
 <section class="tabpanel" id="tp2" role="tabpanel" aria-labelledby="tb2" hidden>
@@ -169,24 +169,46 @@
               aria-label="What this price covers"><span class="pinfoi">i</span><u id="pinfoN"></u></button>
       <div class="ptip" role="note">
         <div id="warn" class="warnbox" hidden></div>
-        <p class="ptipp"><b>Cabinetry only.</b>Installation is quoted once we have measured
-        the room. It depends on access, the shelving that has to come out and whether the
-        baseboard comes off.</p>
+        <p class="ptipp"><b>Your price comes back within 24 hours.</b>Send us the design
+        and Joseph works out the real figure on it, then comes back to you inside a day.
+        Installation is settled at the same time, once we know the access and what has to
+        come out.</p>
       </div>
-      <span class="plabel">Cabinetry only</span>
-      <div id="price">…</div><span id="priceSub"></span>
+      <span class="plabel">Your closet</span>
+      <div id="price">Ready when you are</div><span id="priceSub"></span>
       <div class="pacts">
         <button class="btn btn-accent btn-sm" id="send">Send this to us</button>
-        <button class="btn btn-ghost btn-sm" id="breakdown">See the itemisation</button>
+        <button class="btn btn-ghost btn-sm" id="breakdown">See every piece</button>
       </div>
     </div>
   </aside>
 </div>
 
 <section class="sec"><div class="shell"><div class="ed">
-  <h2 data-rv="up">About this estimate</h2>
-  <div class="faq"><details open><summary>Is this the real price?</summary><div class="ans">It is built from the same parts list and the same per-square-foot color costs we order from, so it is far closer than a range on a brochure. What it cannot know is your walls: baseboard, out-of-square corners, an air return in the way. The measure settles those and the figure moves a little either way.</div></details><details><summary>Does it include installation?</summary><div class="ans">No. The figure is the cabinetry itself. Installation is quoted after we measure, because it depends on access, the shelving that has to come out and whether the baseboard has to come off.</div></details><details><summary>Why can't a bay be wider than 36 inches?</summary><div class="ans">Because three-quarter-inch melamine sags past that under load. The builder will warn you rather than draw something we would not fit.</div></details><details><summary>What is the order list for?</summary><div class="ans">It is every panel, shelf, rod, drawer box, glide, basket and pull your design needs, with sizes and counts. Send it with your enquiry and we are already most of the way to a quote.</div></details><details><summary>My room isn't a rectangle.</summary><div class="ans">Build the closest rectangle to get the number, then tell us in the notes. Angled ceilings, bulkheads and returns are normal and there are parts for all of them.</div></details></div>
-</div></div></section>
+  <h2 data-rv="up">About this design</h2>
+  <div class="faq">
+    <details open><summary>When do I get a price?</summary><div class="ans">Within 24 hours.
+      Joseph prices every closet himself, against your real room and your real access, so he
+      works out the figure on the design you send and comes back inside a day. No deposit and
+      no obligation to get it.</div></details>
+    <details><summary>Why is there no price on the screen?</summary><div class="ans">Because a
+      number here would be a guess, and you would have to un-learn it the moment we measured.
+      What is on the screen instead is the thing worth checking: every piece that goes into
+      your closet, down to the shelf pins. Get that right and the price follows.</div></details>
+    <details><summary>Does it include installation?</summary><div class="ans">The price Joseph
+      sends covers the cabinetry and the fitting, settled together once we know the access,
+      what has to come out and whether the baseboard comes off.</div></details>
+    <details><summary>Why can&rsquo;t a tower be wider than 36 inches?</summary><div class="ans">A
+      three-quarter inch shelf sags under a normal load past about 36 inches. Wider than that
+      and a partition goes in instead, which is why those are the only widths offered.</div></details>
+    <details><summary>What is the piece list for?</summary><div class="ans">It is what gets
+      built. Every panel, shelf, rod, drawer box, glide, basket, hinge, cam and screw in your
+      design is on it, and it goes to Joseph with your drawing so nothing is guessed at
+      afterwards.</div></details>
+    <details><summary>My room isn&rsquo;t a rectangle.</summary><div class="ans">Build the walls
+      you do have and say so in the message. The measure sorts out the rest, and it is
+      free.</div></details>
+  </div></div></div></section>
 <dialog id="sendDlg" class="senddlg">
   <h2>What we are about to send</h2>
   <p class="dim">Everything below goes with your enquiry. The next screen asks who you are and where the room is, so the right crew picks it up.</p>
@@ -270,7 +292,7 @@
 
   /* A PHONE HAS NO CURSOR AND NO SCROLL WHEEL.
      Both hints over the drawing were telling a thumb to do things a thumb
-     cannot do: "scroll to zoom" and "Click any bay". */
+     cannot do: "scroll to zoom" and "Click any tower". */
   if(window.matchMedia('(pointer:coarse)').matches){
     document.body.setAttribute('data-touch','1');
     var bh = document.querySelector('.bhint');
@@ -279,8 +301,8 @@
        h1 and the control pill, and the long sentence ran to three lines */
     var st = document.querySelector('.stage-ttl');
     if(st) st.textContent = window.innerWidth <= 720
-      ? 'Tap a bay to edit it'
-      : 'Tap any bay on the drawing to edit what goes in it';
+      ? 'Tap a tower to edit it'
+      : 'Tap any tower on the drawing to edit what goes in it';
   }
   nav.addEventListener('click', function(e){
     var t = e.target.closest('[data-tab]');
@@ -299,7 +321,7 @@
     if(j < 0 || j >= tabs.length) return;
     e.preventDefault(); tabs[j].focus(); show(tabs[j].dataset.tab);
   });
-  /* clicking a section in the 3D jumps to "Fill the bay" */
+  /* clicking a tower in the 3D jumps to "Fill the tower" */
   var pi = document.getElementById('pinfo');
   if(pi) pi.addEventListener('click', function(){
     pi.setAttribute('aria-expanded', pi.getAttribute('aria-expanded') === 'true' ? 'false' : 'true');

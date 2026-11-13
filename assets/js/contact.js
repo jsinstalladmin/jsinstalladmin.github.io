@@ -23,7 +23,7 @@ if(design && note){
      <span class="refline">${design.summary}</span>
      <span class="refline">${sections} section${sections===1?'':'s'} · ${parts} parts and pieces`
      + (fittings ? ` · ${fittings} thing${fittings===1?'':'s'} on the wall to work around` : '')
-     + ` · estimated <b>${money(design.price)}</b> for the cabinetry</span>
+     + ` · <b>your price comes back within 24 hours</b></span>
      <span class="refline">We get the whole drawing, every panel, rod, drawer box, glide and pull, and your notes. Nothing is retyped.</span>
      <a class="lnk" href="${BASE}design/">Go back and change it</a>`;
   const sel = document.getElementById('t');
@@ -70,6 +70,13 @@ function gather(){
                     address: street, address2: v('address2'),
                     city: v('location'), state: v('state'), zip: v('zip'),
                     location: [town, v('zip')].filter(Boolean).join(' '),
+                    /* THE ADDRESS THE CREW ACTUALLY DRIVES TO.
+                       The office was being handed the street line and the
+                       town and nothing else: no apartment number, no state,
+                       no ZIP. One line, assembled the way it goes on an
+                       envelope, so the admin page shows the real address and
+                       the map link opens the right door. */
+                    fullAddress: [street, town, v('zip')].filter(Boolean).join(', '),
                     project:v('project'), message:v('message') };
   return {
     v: 1,
@@ -140,9 +147,38 @@ async function fileWithTheOffice(pkg){
   }catch(e){ return false; }
 }
 
+/* A PHONE NUMBER HAS TO BE A PHONE NUMBER.
+   type="tel" validates nothing at all -- "call me" and "123" both pass --
+   and a lead nobody can ring is a lead lost. Ten digits, or eleven
+   starting with a 1, which is every real US number and nothing else. */
+function phoneDigits(v){ return String(v||'').replace(/\D+/g,''); }
+function phoneLooksReal(v){
+  const d = phoneDigits(v);
+  if(d.length === 11 && d[0] === '1') return d.slice(1);
+  if(d.length !== 10) return null;
+  /* an area code cannot start with 0 or 1, and nor can an exchange */
+  if('01'.includes(d[0]) || '01'.includes(d[3])) return null;
+  if(/^(\d)\1{9}$/.test(d)) return null;              // 0000000000
+  return d;
+}
+const phoneField = f?.elements?.phone;
+phoneField?.addEventListener('input', () => phoneField.setCustomValidity(''));
+phoneField?.addEventListener('blur', () => {
+  const d = phoneLooksReal(phoneField.value);
+  if(d) phoneField.value = `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+});
+
 f?.addEventListener('submit', async ev => {
   ev.preventDefault();
   /* novalidate is on the form so this is the only validation gate */
+  const real = phoneLooksReal(f.elements.phone?.value);
+  if(!real){
+    f.elements.phone?.setCustomValidity('We need a real phone number so we can arrange the measure. Ten digits, like (561) 555-0142.');
+    f.elements.phone?.reportValidity();
+    f.elements.phone?.focus();
+    return;
+  }
+  f.elements.phone.setCustomValidity('');
   if(!f.checkValidity()){ f.reportValidity(); return; }
 
   const pkg = gather();

@@ -592,7 +592,11 @@ function inboxPreview(e){
       <tr><th>Name</th><td>${esc(ct.name||'—')}</td></tr>
       <tr><th>Phone</th><td>${esc(ct.phone||'—')}</td></tr>
       <tr><th>Email</th><td>${esc(ct.email||'—')}</td></tr>
-      <tr><th>Where</th><td>${esc([ct.address,ct.location].filter(Boolean).join(', ')||'—')}</td></tr>
+      ${/* the real address, as they typed it, with a map link on it */''}
+      <tr><th>Where</th><td>${(() => {
+        const full = ct.fullAddress || [ct.address, ct.location, ct.zip].filter(Boolean).join(', ');
+        return full ? `<a href="#" data-map="${esc(full)}">${esc(full)}</a>` : '&mdash;';
+      })()}</td></tr>
       <tr><th>State</th><td>${ev.state ? `<b>${esc(ev.state)}</b>` : '<span class="sub">They did not say</span>'}${ev.zip?` · ZIP ${esc(ev.zip)}`:''}</td></tr>
       <tr><th>Region</th><td>${rm
         ? `<b>${esc(rm.name)}</b>${ev.from?` <span class="sub">&mdash; from ${esc(ev.from)}</span>`:''}`
@@ -669,13 +673,15 @@ async function fileIt(e){
     isNew = true;
     client = DB.addClient({ region, name:ct.name || 'Website enquiry',
       phone:ct.phone||'', email:ct.email||'',
-      addr:[ct.address, ct.location].filter(Boolean).join(', '),
+      /* the whole address, not the street line and the town. The customer
+         gave an apartment number, a state and a ZIP; the crew needs them. */
+      addr: ct.fullAddress || [ct.address, ct.location, ct.zip].filter(Boolean).join(', '),
       source: e.source || 'Website', notes: ct.message || '', stage });
   } else {
     DB.updateClient(client.id, {
       phone: client.phone || ct.phone || '',
       email: client.email || ct.email || '',
-      addr:  client.addr  || [ct.address, ct.location].filter(Boolean).join(', ') });
+      addr:  client.addr  || ct.fullAddress || [ct.address, ct.location, ct.zip].filter(Boolean).join(', ') });
   }
   /* THE CLIENT HAS TO EXIST BEFORE ANYTHING POINTS AT IT.
 

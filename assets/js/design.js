@@ -21,9 +21,16 @@ export const SPEC = {
   /* How deep a run may be built. 12" is the shallowest that still takes a
      folded jumper and a shoe; 24" is a hanging depth and as deep as a closet
      gets before you cannot see the back of it. Anything in between is
-     buildable, and everything in a section -- shelves, rods, drawer boxes,
+     buildable, and everything in a tower -- shelves, rods, drawer boxes,
      baskets -- is cut to whatever is chosen, so the price follows it. */
   runDepthMin:12, runDepthMax:24,
+  /* HOW FAR A SIDE WALL STANDS OFF THE BACK WALL.
+     A side run that butts into the back run gives you a corner you cannot
+     reach into and a joint that has to be scribed on site. He builds them
+     apart, with a top piece and a bottom piece bridging the gap, and
+     twelve inches is the least that leaves. The builder will not let a
+     side tower be dragged closer than this. */
+  sideStandoff:12,
   shoeGap:8, toeKick:3.75, panel:0.75, pin:1.25, counter:36, wallHungBase:6
 };
 
@@ -161,10 +168,10 @@ export function bayCeiling(fittings, wall, a, b, bayTop){
     const sp = fitSpec(f), x0 = sp.at || 0, x1 = x0 + (sp.w || 0);
     const over = Math.min(b, x1) - Math.max(a, x0);
     if(over <= 0) continue;                                    // no overlap, no cap
-    /* A window clipping the last two inches of a section is not a reason to
+    /* A window clipping the last two inches of a tower is not a reason to
        cut that whole section down to the sill: you scribe the shelf to the
-       casing and carry on. It only governs the section once it is genuinely
-       in the way, which is a quarter of the section's width or six inches,
+       casing and carry on. It only governs the tower once it is genuinely
+       in the way, which is a quarter of the tower's width or six inches,
        whichever is less. Anything smaller is reported by buildDesign instead
        of silently costing the customer two feet of hanging space. */
     if(over < Math.min(6, (b - a) * 0.25)) continue;
@@ -189,15 +196,28 @@ export function bayClips(fittings, wall, a, b){
    ⚠ PLACEHOLDER PRICES. His ClosetPro catalogue prices construction
    hardware only (cams, dowels, Euro screws) — it has no decorative
    pulls at all. Replace `cost` below with his real supplier prices. */
+/* ══ THE HANDLE ════════════════════════════════════════════════════════
+   He sells the bar. That is the whole range.
+
+   The edge pull, the knob and the cup pull were on here because they are
+   common closet hardware, not because he stocks them, and a customer
+   choosing one would have picked something that cannot be ordered. They
+   are gone. The three bar lengths stay because they are the same handle
+   in the three sizes a front actually needs, and "push to open" stays
+   because a front with no handle on it is a real choice.
+
+   An older design that was saved with an edge, knob or cup pull still
+   draws and still prices -- see LEGACY_PULLS below -- it just resolves to
+   the bar, which is what would have been fitted anyway. */
 export const PULLS = [
   { id:'none',  name:'Push to open',   cost:0.00, len:0,  kind:'none',  note:'No pull. Press the front to open.' },
-  { id:'bar4',  name:'4" bar pull',    cost:4.50, len:4,  kind:'bar',   note:'Slim round bar. The default.' },
-  { id:'bar6',  name:'6" bar pull',    cost:5.80, len:6,  kind:'bar',   note:'Longer bar for wide drawers.' },
-  { id:'bar12', name:'12" bar pull',   cost:9.40, len:12, kind:'bar',   note:'Appliance-length, for tall fronts.' },
-  { id:'edge',  name:'Edge pull',      cost:7.20, len:0,  kind:'edge',  note:'Integrated into the top edge. Nothing protrudes.' },
-  { id:'knob',  name:'Round knob',     cost:3.40, len:1.2,kind:'knob',  note:'Traditional. One per front.' },
-  { id:'cup',   name:'Cup pull',       cost:6.10, len:3,  kind:'cup',   note:'Shaker style, opens from underneath.' }
+  { id:'bar4',  name:'4" bar pull',    cost:4.50, len:4,  kind:'bar',   note:'Slim round bar. The one he fits as standard.' },
+  { id:'bar6',  name:'6" bar pull',    cost:5.80, len:6,  kind:'bar',   note:'The same bar, longer, for wide drawers.' },
+  { id:'bar12', name:'12" bar pull',   cost:9.40, len:12, kind:'bar',   note:'The same bar, appliance length, for tall fronts.' }
 ];
+/* what a design saved before the range was cut back resolves to */
+export const LEGACY_PULLS = { edge:'bar4', knob:'bar4', cup:'bar4' };
+export const resolvePull = id => LEGACY_PULLS[id] || id;
 export const PULL_FINISHES = [
   { id:'nickel', name:'Brushed nickel', hex:0xC2C6C9, rough:0.26, mult:1.00 },
   { id:'black',  name:'Matte black',    hex:0x1E1E20, rough:0.52, mult:1.05 },
@@ -247,7 +267,17 @@ export const DRAWER_REVEAL = 1.0;
    price for one would put a SKU on an order sheet that the supplier cannot
    fill. The moment that price is known, a 5 goes in the array below and a 5
    goes into DRAWER_BOX.h, and nothing else has to change. */
-export const DRAWER_OFFERED = [7.5, 8.75, 10, 15];
+/* 10" IS THE TALLEST DRAWER HE SELLS.
+   The supplier stocks 7½, 8¾, 10, 15, 18¾ and 25, but a closet bank is
+   built from the small three: a 15" box is a dresser drawer and a 25" is
+   most of a bank in one. Joseph asked for everything over 10 taken off.
+
+   A 5" belongs at the bottom of this list -- socks and jewellery -- and is
+   not here because his supplier list has nothing under 7½" and a price
+   for it would be invented. Add the 5 here and in DRAWER_BOX.h the moment
+   that SKU and its price arrive, and nothing else has to change. */
+export const DRAWER_MAX = 10;
+export const DRAWER_OFFERED = [7.5, 8.75, 10];
 
 export const DRAWER_SIZES = DRAWER_BOX.h.map(h => ({
   h,                                   // the box, as he stocks it
@@ -293,7 +323,7 @@ const GROUP = { DOOR:'front', GLASS_DOOR:'front' };
    interchangeable. A drawer bank at eye level cannot be opened, a hamper
    tilts down to the floor, and a short hang only exists as the thing above
    something else. The picker used to offer all fourteen pieces for either
-   half of the section, so you could build a drawer bank over a rod and the
+   half of the tower, so you could build a drawer bank over a rod and the
    drawing would show it.
 
    SLOT says where each piece can actually go. It is a build rule, not a
@@ -330,7 +360,7 @@ export const SLOT = {
   DRAWERS    : { top:false, bottom:true,  whole:true,  over:false },
   BASKETS    : { top:false, bottom:true,  whole:true,  over:false },
   HAMPER     : { top:false, bottom:true,  whole:true,  over:false },
-  /* a worktop is not a piece of the section, it is the cap on the bottom
+  /* a worktop is not a piece of the tower, it is the cap on the bottom
      piece, so it is offered as a tick on that piece rather than as a slot */
   COUNTER    : { top:false, bottom:false, cap:true },
   /* A FRONT COVERS THE WHOLE SECTION. Offered in the top half it drew a door
@@ -344,7 +374,7 @@ export const SLOT = {
 export const canSit = (id, slot) => !!(SLOT[id] || { top:true, bottom:true })[slot];
 
 /* Should this piece be OFFERED in this half right now? `hasOther` is whether
-   the other half of the section is already filled, which is what decides
+   the other half of the tower is already filled, which is what decides
    whether this half is a whole opening or the short one left over. */
 export function canOffer(id, slot, hasOther){
   const r = SLOT[id];
@@ -366,7 +396,7 @@ export function slots(stack){
   const rest = st.map((x,i) => ({ x, i })).filter(e => e.x.m !== 'COUNTER');
   if(!rest.length) return { bottom:null, top:null, counter:ci >= 0, bi:-1, ti:-1 };
   if(rest.length === 1){
-    /* One piece on its own is the TOP of the section — it fills the whole
+    /* One piece on its own is the TOP of the tower — it fills the whole
        thing — unless it is something that can only sit on the floor, like a
        drawer bank or a hamper, in which case it is the bottom with nothing
        chosen above it yet. */
@@ -379,7 +409,7 @@ export function slots(stack){
            bi:rest[0].i, ti:rest[rest.length-1].i };
 }
 
-/* Put a piece in one half of a section and leave the other half alone. The
+/* Put a piece in one half of a tower and leave the other half alone. The
    heights follow from what the piece is: a drawer bank is as tall as its
    boxes, the top piece fills whatever is left, and a fixed-height piece at
    the bottom keeps its own height. */
@@ -420,7 +450,7 @@ export function setCounter(bay, on){
   const s = slots(bay.stack);
   return writeSlots(bay, s.bottom, s.top, !!on && !!s.bottom);
 }
-/* The one place a section's stack is written, so it can never come out in an
+/* The one place a tower's stack is written, so it can never come out in an
    order the rest of the engine does not expect: bottom, worktop, top. */
 export function writeSlots(bay, bottom, top, counter){
   const out = [];
@@ -448,32 +478,46 @@ export function writeSlots(bay, bottom, top, counter){
    in one bay, and then quietly build something that cannot exist.
    ══════════════════════════════════════════════════════════════════════ */
 
-/* A module that fills whatever height is left. Two of them in one section
+/* A module that fills whatever height is left. Two of them in one tower
    means neither is the height it is supposed to be, so: one. */
 const FILLS = id => !!MODULES[id]?.fill;
 
-/* Pull-out hardware that needs the front of the section to itself while it
+/* Pull-out hardware that needs the front of the tower to itself while it
    is open. A tilt-out hamper swings its whole front DOWN and OUT, straight
    through the path a basket above it would pull along. */
 const PULLS_OUT = new Set(['HAMPER','BASKETS','DRAWERS']);
 
-/* Pairs that genuinely cannot share one section, with the reason. */
+/* Pairs that genuinely cannot share one tower, with the reason. */
 const CLASH = [
   { a:'HAMPER', b:'BASKETS',
-    why:'A tilt-out hamper swings its front down and out, straight through where a pull-out basket would slide. One or the other in a section, not both.' },
+    why:'A tilt-out hamper swings its front down and out, straight through where a pull-out basket would slide. One or the other in a tower, not both.' },
   { a:'COUNTER', b:'HAMPER',
     why:'A counter top is a fixed work surface and a hamper has to tilt out from under it. They need separate sections.' },
 ];
 
 /* Modules with a front that opens: a drawer pulls out, a door swings. Put
-   one of these in the section at an inside corner and it opens straight into
+   one of these in the tower at an inside corner and it opens straight into
    the run returning along the next wall. This is the reason closet companies
    put shelving in a corner, never drawers. */
 export const OPENING_FRONT = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER','BASKETS']);
 
-/* Is this section the one sitting in an inside corner? A run on a side wall
+/* Is this tower the one sitting in an inside corner? A run on a side wall
    starts clear of the back run's depth, so the back run's FIRST section is
    the one the side run returns across. */
+/* WHERE A SIDE RUN HAS TO START.
+
+   There used to be a choice here: run the back wall into the corner, or
+   stop both runs short of it. The second one left a bare square nobody
+   could use and the first one made a tower a foot deep that you cannot
+   reach the back of. He builds neither. He builds wall to wall, with the
+   side run standing twelve inches clear of the back run, and a top piece
+   and a bottom piece bridging that gap.
+
+   So the question is gone and this is the answer: a side run starts at
+   the back run's depth plus the standoff. */
+export const sideRunStart = backDepth =>
+  (backDepth || SPEC.hangDepth) + SPEC.sideStandoff;
+
 export function cornerBlocked(cfg, wall, bayIndex, bayStart, bayWidth){
   if(!cfg || !cfg.runs) return null;
   const on = w => cfg.runs.some(r => r.wall === w && r.bays.length);
@@ -492,16 +536,16 @@ export function canAdd(stack, id, usableH, inCorner, slot){
   const def = MODULES[id];
   if(!def) return { ok:false, why:'Unknown part.' };
 
-  /* Filling one half of a section is a different question from adding to an
+  /* Filling one half of a tower is a different question from adding to an
      open-ended stack. The writer decides the heights — the bottom gets a
-     fixed one, the top fills what is left — so "this section already has
+     fixed one, the top fills what is left — so "this tower already has
      something filling the space" is not a reason to refuse, and neither is
      the per-section limit, because a half holds one piece by definition.
      What still applies: the corner, the pairs that physically clash, and
      whether the two halves fit between the toe kick and the top shelf. */
   if(slot){
     if(!canSit(id, slot))
-      return { ok:false, why:`${def.label} cannot go ${slot === 'top' ? 'at the top of' : 'under'} a section.` };
+      return { ok:false, why:`${def.label} cannot go ${slot === 'top' ? 'at the top of' : 'under'} a tower.` };
     if(inCorner && OPENING_FRONT.has(id))
       return { ok:false, why:`This section is in the corner where the ${inCorner} wall returns across its front, so ${def.label.toLowerCase()} here would open straight into that run and could not be used. A corner section takes shelving or hanging.` };
     for(const c of CLASH){
@@ -510,7 +554,7 @@ export function canAdd(stack, id, usableH, inCorner, slot){
     }
     const other = stack.reduce((a,st) => a + MODULES[st.m].minH, 0);
     if(def.minH + other > usableH + 0.5)
-      return { ok:false, why:`${def.label} needs ${def.minH}" and only ${Math.max(0, usableH - other).toFixed(0)}" is free in this section. Make the section taller or pick something shorter.` };
+      return { ok:false, why:`${def.label} needs ${def.minH}" and only ${Math.max(0, usableH - other).toFixed(0)}" is free in this tower. Make the tower taller or pick something shorter.` };
     return { ok:true };
   }
 
@@ -524,8 +568,8 @@ export function canAdd(stack, id, usableH, inCorner, slot){
   const lim = LIMIT[id] ?? 2;
   if(n >= lim)
     return { ok:false, why: lim === 1
-      ? `Only one ${def.label.toLowerCase()} per section.`
-      : `${lim} ${def.label.toLowerCase()} is the most that fits in one section.` };
+      ? `Only one ${def.label.toLowerCase()} per tower.`
+      : `${lim} ${def.label.toLowerCase()} is the most that fits in one tower.` };
 
   if(GROUP[id] && stack.some(s => GROUP[s.m] === GROUP[id]))
     return { ok:false, why:'This section already has a front on it.' };
@@ -539,15 +583,15 @@ export function canAdd(stack, id, usableH, inCorner, slot){
   if(FILLS(id) && stack.some(st => FILLS(st.m)) && !(id === 'HANG' && stack.every(st => st.m === 'HANG' || !FILLS(st.m))))
     return { ok:false, why:`This section already has ${MODULES[stack.find(st=>FILLS(st.m)).m].label.toLowerCase()} filling the space left. Take that out first, or pick a part with a fixed height.` };
 
-  /* pairs that cannot physically share a section */
+  /* pairs that cannot physically share a tower */
   for(const c of CLASH){
     if((id===c.a && stack.some(st=>st.m===c.b)) || (id===c.b && stack.some(st=>st.m===c.a)))
       return { ok:false, why:c.why };
   }
 
-  /* a section is not a chest of drawers with a hamper in it as well */
+  /* a tower is not a chest of drawers with a hamper in it as well */
   if(PULLS_OUT.has(id) && stack.filter(st => PULLS_OUT.has(st.m)).length >= 2)
-    return { ok:false, why:'Two runs of pull-out hardware is already as much as one section takes. A third would leave nothing to hang or fold on.' };
+    return { ok:false, why:'Two runs of pull-out hardware is already as much as one tower takes. A third would leave nothing to hang or fold on.' };
 
   const need = stack.reduce((a,s) => a + MODULES[s.m].minH, 0) + def.minH;
   if(need > usableH + 0.5)
@@ -563,7 +607,7 @@ export const MODULES = {
      "Long hang", "short hang" and "double hang" were sold to the customer as
      three different products, and they are not. They are ONE product — a rod
      — and the three names describe how much DROP it ended up with, which is
-     decided by what else is in the section:
+     decided by what else is in the tower:
 
        rod in the top, nothing under it     → the full drop. A long hang.
        rod in the top, drawers under it     → whatever is left. A short hang.
@@ -573,7 +617,7 @@ export const MODULES = {
      instead of a part, and then the engine quietly overrode them anyway: a
      "long hang" chosen over a drawer bank could not have 62" so it was
      resolved down to a short one. Now the rod is the choice and the drop
-     follows from the section, which is how the shop actually builds it.
+     follows from the tower, which is how the shop actually builds it.
      ══════════════════════════════════════════════════════════════════ */
   HANG: {
     label:'Hanging', img:'long-hang',
@@ -644,7 +688,7 @@ export const MODULES = {
     /* A rod on its own, with open air over it, is not a thing anybody builds
        and it did not read as one either. A short hang is a SHELF with a rod
        hung under it: the shelf is what the rod sockets screw into, and it is
-       where the folded stack goes. If the section's own top shelf is already
+       where the folded stack goes. If the tower's own top shelf is already
        capping this module, that shelf IS the one — so it does not get a
        second one 3/4" under the first. */
     build(c){
@@ -986,7 +1030,7 @@ export const MODULES = {
           G.push({k:'glide', p:[sx*(w/2-0.5), cy + 1.6, 0], s:[0.5, 0.9, d-2], m:'metal'});
       }
       /* same as the drawer bank: the runners mount to a fixed top, and the
-         carcass has already put one there unless nothing caps this section */
+         carcass has already put one there unless nothing caps this tower */
       if(!c.capped){
         G.push({k:'shelf', p:[0, y + h + SPEC.panel/2, 0], s:[w, SPEC.panel, d], m:'carcass'});
         parts.push(P('FIXED', 1, (w*d)/144, (w + d*2)/12, 'Fixed top over the basket run'));
@@ -1087,7 +1131,7 @@ export const MODULES = {
 /* ══════════════════════════════════════════════════════════════════════
    WHOLE-ROOM PLANS
 
-   A PRESET fills one section. A PLAN lays out a whole room: the type, the
+   A PRESET fills one tower. A PLAN lays out a whole room: the type, the
    dimensions and every section on every wall. The room pages each show three
    builds with "See the build" across the photograph, and until now that said
    nothing and went nowhere. Each one is a plan, so pressing it opens the
@@ -1229,8 +1273,8 @@ export const ROOM_PLANS = {
 
   'pantry-counter': { name:'Counter pantry', type:'pantry', shape:'straight',
     room:{w:72,d:16,h:96},
-    runs:{ back:[ {w:36,s:[m('DRAWERS',null,{sizes:[15,15]}), m('COUNTER',2), m('SHELVES',null,{n:2})]},
-                  {w:36,s:[m('DRAWERS',null,{sizes:[15,15]}), m('COUNTER',2), m('SHELVES',null,{n:2})]} ] } },
+    runs:{ back:[ {w:36,s:[m('DRAWERS',null,{sizes:[10,10,8.75]}), m('COUNTER',2), m('SHELVES',null,{n:2})]},
+                  {w:36,s:[m('DRAWERS',null,{sizes:[10,10,8.75]}), m('COUNTER',2), m('SHELVES',null,{n:2})]} ] } },
 
   /* ── linen ───────────────────────────────────────────────────────── */
   /* A linen closet is a shallow reach-in, so that is the type it opens as. */
@@ -1240,8 +1284,8 @@ export const ROOM_PLANS = {
 
   'linen-drawers': { name:'Linen closet with drawers', type:'reach-in', shape:'straight',
     room:{w:48,d:14,h:96},
-    runs:{ back:[ {w:24,s:[m('DRAWERS',null,{sizes:[15,10,8.75]}), m('SHELVES',null,{n:5})]},
-                  {w:24,s:[m('DRAWERS',null,{sizes:[15,10,8.75]}), m('SHELVES',null,{n:5})]} ] } },
+    runs:{ back:[ {w:24,s:[m('DRAWERS',null,{sizes:[10,10,8.75]}), m('SHELVES',null,{n:5})]},
+                  {w:24,s:[m('DRAWERS',null,{sizes:[10,10,8.75]}), m('SHELVES',null,{n:5})]} ] } },
 };
 
 /* ---- LAYOUT PRESETS ------------------------------------------------------
@@ -1260,8 +1304,8 @@ export const ROOM_PLANS = {
    shoe shelves or an open bay. Someone reading it could not tell what the
    actual choices were.
 
-   The list is the ELEVEN PIECES the builder will put in a section, which is
-   the same list canOffer() works from. Each one says which half of a section
+   The list is the ELEVEN PIECES the builder will put in a tower, which is
+   the same list canOffer() works from. Each one says which half of a tower
    it can go in, because that is the question the layout pages answer:
 
      either half   hanging · adjustable shelves · cubbies · shoe shelving ·
@@ -1332,9 +1376,9 @@ export const PRESET_ALIAS = {
 /* The open-top variant builds no top shelf, so it is genuinely cheaper. The
    card used to quote both at the same number because this only looked at the
    stack. */
-/* Does this ready-made layout physically fit the section it is being offered
+/* Does this ready-made layout physically fit the tower it is being offered
    for? Single parts were already checked by canAdd; the ready-made ones were
-   not, so one could be clicked into a section too short to hold it. */
+   not, so one could be clicked into a tower too short to hold it. */
 export function presetFits(preset, usableH, inCorner){
   /* A corner section has the next run returning across its front, so a layout
      with a drawer bank, a hamper or baskets in it cannot be opened there. */
@@ -1555,7 +1599,8 @@ export function buildDesign(cfg, cat){
   const bayTop = Math.max(SPEC.panel * 2 + 12,
                    Math.min(cfg.cabTop || SPEC.topShelf, cfg.room.h - 2));
   const usableH = bayTop - floorY;
-  const pull = PULLS.find(p=>p.id===cfg.pull) || PULLS[1];
+  const pull = PULLS.find(p=>p.id===cfg.pull)
+            || PULLS.find(p=>p.id===resolvePull(cfg.pull)) || PULLS[1];
   const pullFin = PULL_FINISHES.find(f=>f.id===cfg.pullFinish) || PULL_FINISHES[0];
 
   /* The baseboard. If the run stands in front of it, it stands off every wall
@@ -1648,9 +1693,9 @@ export function buildDesign(cfg, cat){
       const panelH = myTop - floorY + SPEC.panel;
       const bayH = myTop - floorY;
       if(myTop < bayTop - 0.01) warnings.push(
-        `Section ${bi+1} on the ${run.wall} wall stops at ${myTop.toFixed(0)}" instead of ${bayTop.toFixed(0)}" to clear what is on the wall there.`);
+        `Tower ${bi+1} on the ${run.wall} wall stops at ${myTop.toFixed(0)}" instead of ${bayTop.toFixed(0)}" to clear what is on the wall there.`);
       for(const { sp, over } of bayClips(fittings, run.wall, a, b)) warnings.push(
-        `Section ${bi+1} on the ${run.wall} wall clips the ${(sp.label||'').toLowerCase()} by ${over.toFixed(0)}". That is scribed to the casing on site rather than dropping the whole section, so it is built full height.`);
+        `Tower ${bi+1} on the ${run.wall} wall clips the ${(sp.label||'').toLowerCase()} by ${over.toFixed(0)}". That is scribed to the casing on site rather than dropping the whole tower, so it is built full height.`);
 
       // left panel of this bay — pushed inboard when it is the island's first,
       // for the same reason as the end panel above
@@ -1696,7 +1741,7 @@ export function buildDesign(cfg, cat){
          and NO bottom, which is not a box. The toe kick is set back under the
          deck; without the deck there is nothing for it to close in, the
          lowest drawer or basket sits over open floor, and the customer was
-         short one full panel of melamine and edgeband per section. On a
+         short one full panel of melamine and edgeband per tower. On a
          wall-hung run it matters even more: the deck is the underside you can
          see from across the room, so it is banded on the front edge either
          way. */
@@ -1712,21 +1757,21 @@ export function buildDesign(cfg, cat){
       if(corner){
         const blocked = bay.stack.filter(st => OPENING_FRONT.has(st.m));
         if(blocked.length) warnings.push(
-          `Section ${bi+1} is in the corner where the ${corner} wall returns, so ${blocked.map(st=>MODULES[st.m].label.toLowerCase()).join(' and ')} there would open straight into that run. A corner section wants shelving or hanging instead.`);
+          `Tower ${bi+1} is in the corner where the ${corner} wall returns, so ${blocked.map(st=>MODULES[st.m].label.toLowerCase()).join(' and ')} there would open straight into that run. A corner tower wants shelving or hanging instead.`);
       }
 
       /* access checks, all tied to this bay by number so the installer and the
          customer are reading the same sheet */
       const opens = bay.stack.some(st => OPENS.has(st.m));
       if(opens && block && (a < block || b > wallEnd - block)) warnings.push(
-        `Section ${bi+1} on the ${run.wall} wall has fronts in it but sits within ${block}" of the end of the opening, where the ${cfg.door === 'bifold' ? 'bi-fold leaves fold back' : 'door jamb sits'}. Those fronts will not open fully.`);
+        `Tower ${bi+1} on the ${run.wall} wall has fronts in it but sits within ${block}" of the end of the opening, where the ${cfg.door === 'bifold' ? 'bi-fold leaves fold back' : 'door jamb sits'}. Those fronts will not open fully.`);
       if(opens && DS.half && bi !== 0 && bi !== run.bays.length - 1) warnings.push(
-        `Sliding bypass doors only ever open half the closet. Section ${bi+1} has fronts in it, so one of the two leaves has to be slid across before it can be used.`);
+        `Sliding bypass doors only ever open half the closet. Tower ${bi+1} has fronts in it, so one of the two leaves has to be slid across before it can be used.`);
       for(const f of fitsOn(fittings, run.wall, 'keepClear')){
         const sp = fitSpec(f), x0 = sp.at || 0, x1 = x0 + sp.w;
         if(b <= x0 || a >= x1) continue;
         warnings.push(bay.stack.some(st => BLOCKS_WALL.has(st.m))
-          ? `There is ${(sp.label||f.k).toLowerCase()} at ${x0.toFixed(0)}" on the ${run.wall} wall, inside section ${bi+1}. ${sp.note} A drawer bank or hamper in that section covers it, so either move it a section along or we relocate the ${(sp.label||f.k).toLowerCase()}.`
+          ? `There is ${(sp.label||f.k).toLowerCase()} at ${x0.toFixed(0)}" on the ${run.wall} wall, inside section ${bi+1}. ${sp.note} A drawer bank or hamper in that section covers it, so either move it a tower along or we relocate the ${(sp.label||f.k).toLowerCase()}.`
           : `There is ${(sp.label||f.k).toLowerCase()} at ${x0.toFixed(0)}" on the ${run.wall} wall, inside section ${bi+1}. The back stays open there, so it keeps working.`);
       }
       for(const f of fitsOn(fittings, run.wall, 'floorClear')){
@@ -1737,7 +1782,7 @@ export function buildDesign(cfg, cat){
         warnings.push(`A floor vent runs under section ${bi+1} on the ${run.wall} wall, so that length of toe kick is cut for a grille.`);
       }
 
-      /* Without a shelf capping it, the section has the shelf's own thickness
+      /* Without a shelf capping it, the tower has the shelf's own thickness
          back to divide between its parts. */
       const mods = resolveHeights(bay.stack, wantsTop ? bayH : bayH + SPEC.panel);
 
@@ -1746,14 +1791,14 @@ export function buildDesign(cfg, cat){
          over the top, one on the floor of the box over the toe kick, and one
          across the middle. The middle one is what ties the two side panels
          together and stops a 70" span of three-quarter board bowing under
-         load, and it is what divides the section into the half above and the
+         load, and it is what divides the tower into the half above and the
          half below.
 
          It used to arrive by accident. Whichever piece happened to be in the
          bottom half capped itself -- "Shelf over the rod", "Fixed top over
          the drawer bank", "Fixed top over the basket run" -- so the shelf was
          there, but it was named after the piece, priced inside that piece,
-         and completely absent from a section built out of one tall piece.
+         and completely absent from a tower built out of one tall piece.
 
          It is a carcass part now. One per division, emitted here, named the
          same whatever is above or below it, and the pieces are told a shelf
@@ -1769,7 +1814,7 @@ export function buildDesign(cfg, cat){
           divisions.push(dy);
         }
         /* AN EMPTY SECTION IS STILL A BUILT BOX.
-           Adding a section used to give you two sides, a top, a deck and
+           Adding a tower used to give you two sides, a top, a deck and
            nothing in between: a 70" open span, which is not what gets
            delivered and not what gets charged for. A new section arrives
            divided, with the mid shelf at the same 44" the lower rod of a
@@ -1797,7 +1842,7 @@ export function buildDesign(cfg, cat){
            it has to be the only thing in an 80" section. Put one in on its
            own and the bank was built, the bay's top shelf went on at 84",
            and the 46" between them was a void: no shelf over the drawers, no
-           shelf anywhere in the middle of the section, and the two side
+           shelf anywhere in the middle of the tower, and the two side
            panels tied together only at the very top and the very bottom.
            Drawers, baskets, a hamper, cubbies, a shoe rack -- every one of
            them has a fixed height, so every one of them had this.
@@ -1831,7 +1876,7 @@ export function buildDesign(cfg, cat){
            panels. Parts pushed by the carcass code below carry no stamp and
            fall into the base system, which is how closet companies quote. */
         if(s.short > 0.5) warnings.push(
-          `Section ${bi+1} on the ${run.wall} wall: ${MODULES[s.m].label.toLowerCase()} needs ${MODULES[s.m].minH}" and only ${s.H.toFixed(0)}" is left after everything else in that section. Take something out, make the section taller, or pick a part that fits.`);
+          `Tower ${bi+1} on the ${run.wall} wall: ${MODULES[s.m].label.toLowerCase()} needs ${MODULES[s.m].minH}" and only ${s.H.toFixed(0)}" is left after everything else in that section. Take something out, make the tower taller, or pick a part that fits.`);
         const mark = parts.length;
         MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull, capped,
                               midAt: (mods.length === 1 ? soloMid : null),
@@ -1860,6 +1905,46 @@ export function buildDesign(cfg, cat){
     }
     run.width = x;
     for(const g of local) G.push(place(g, run, cfg.room, GAP));
+  }
+
+  /* ══ THE BRIDGE OVER THE CORNER ════════════════════════════════════════
+     The side wall stands SPEC.sideStandoff clear of the back wall so you
+     can reach into the corner. That gap is not left open: a top piece and
+     a bottom piece run across it, the bottom one on its own toe kick, and
+     they are what tie the two runs into one closet instead of two.
+
+     They were drawn by nobody and charged for by nobody, so a two-wall
+     closet was quoted missing two panels, two lengths of edge band and a
+     length of kick. They are carcass parts now, built here because they
+     belong to neither run. */
+  {
+    const backRun = cfg.runs.find(r => r.wall === 'back' && r.bays.length);
+    const sides   = cfg.runs.filter(r => r.wall !== 'back' && r.bays.length);
+    if(backRun && sides.length){
+      const bDep = Math.min(backRun.depth || SPEC.hangDepth, depthLimit(cfg.room, 'back', door, fittings));
+      for(const side of sides){
+        const sDep = Math.min(side.depth || SPEC.hangDepth, depthLimit(cfg.room, side.wall, door, fittings));
+        /* the span is the standoff itself: from the face of the back run to
+           where the side run begins */
+        const span = Math.max(0, (side.start ?? sideRunStart(bDep)) - bDep);
+        if(span < 1) continue;
+        const bridgeTop = bayTop;                       // level with the top shelf
+        const kickH = SPEC.toeKick;
+        const atX = side.wall === 'left' ? GAP + sDep / 2 : cfg.room.w - GAP - sDep / 2;
+        const atZ = GAP + bDep + span / 2;
+
+        for(const [label, yc] of [['Bridge top over the corner', bridgeTop - SPEC.panel/2],
+                                  ['Bridge deck over the corner', floorY + SPEC.panel/2]]){
+          parts.push(P('FIXED', 1, (span * sDep) / 144, (span + sDep * 2) / 12,
+                       `${label} — ${span.toFixed(0)}" between the ${side.wall} wall and the back`));
+          G.push({ k:'shelf', p:[atX, yc, atZ], s:[sDep, SPEC.panel, span], m:'carcass' });
+        }
+        parts.push(P('KICK', 1, (span * kickH) / 144, span / 12,
+                     `Toe kick under the corner bridge — ${span.toFixed(0)}"`));
+        G.push({ k:'toe', p:[atX, kickH/2, atZ], s:[sDep, kickH, span], m:'carcass' });
+        warnings.push(`The ${side.wall} wall stands ${span.toFixed(0)}" clear of the back wall, bridged top and bottom.`);
+      }
+    }
   }
 
   const F  = cat.finishes.find(f=>f.n===cfg.finish)       || cat.finishes[0];
@@ -2027,6 +2112,32 @@ export function quoteSummary(price, bays, runs){
    band are costed, the thing itself is not. Until those numbers come from him
    they are shown as missing rather than quietly summed as nothing. */
 export const NO_PRICE_IN_SHEET = new Set(['HANGROD', 'DOOR', 'GLASS']);
+
+/* ══ EVERY LOOSE PIECE, NOT JUST THE PANELS ════════════════════════════
+   The order sheet listed what gets cut: panels, shelves, drawer boxes,
+   rods. It never listed what holds them together, so a customer's
+   enquiry arrived with forty panels on it and not one cam, dowel, screw
+   or shelf pin -- and those are the parts that go missing on the van.
+
+   His ClosetPro export carries a `Hardware Needed` column against every
+   part: a fixed shelf takes two double dowels, four half dowels and six
+   cams; an adjustable shelf takes four pins. assets/data/hardware.json
+   is that column, and this rolls it up across the whole design. */
+export function hardwareFor(parts, hw){
+  if(!hw || !hw.parts) return [];
+  const tally = new Map();
+  for(const p of parts){
+    const needs = hw.parts[p.code];
+    if(!needs) continue;
+    const qty = p.qty || 1;
+    for(const [item, per] of Object.entries(needs))
+      tally.set(item, (tally.get(item) || 0) + per * qty);
+  }
+  return [...tally.entries()]
+    .sort((a,b) => a[0].localeCompare(b[0]))
+    .map(([item, qty]) => ({ item, qty: Math.round(qty),
+                             sku: hw.skus?.[item]?.sku || '' }));
+}
 
 function orderList(parts, cat, F, DF, pull, pullFin){
   const group = new Map();
