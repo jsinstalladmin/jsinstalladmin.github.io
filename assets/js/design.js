@@ -1844,16 +1844,23 @@ function foldedOn(G, cx, shelfY, w, d, seed){
   }
 }
 
+/* A ROW OF SHOES IS A ROW. One pitch, one depth, one height, every pair
+   on the line. Skipping random pairs and nudging each one about made a
+   shelf of shoes look like a shelf somebody had rummaged through, and
+   from any angle that caught the shelf edge-on they read as scattered
+   rather than placed. */
 function shoesOn(G, cx, shelfY, w, d, seed, tilt){
-  const n = Math.max(1, Math.min(4, Math.floor(w / 8)));
-  const step = w / n;
+  const PAIR = 7.2;                                  // a pair and its gap
+  const n = Math.max(1, Math.floor((w - 1) / PAIR));
+  const step = (w - 1) / n;
+  const z = Math.min(1.2, Math.max(0, (d - 11) / 2));  // same set-back for all
+  const depth = Math.min(d - 3.5, 10);
   for(let i = 0; i < n; i++){
-    if(((seed * 4 + i * 5) % 5) === 0) continue;
-    const x = cx - w/2 + step * (i + 0.5);
+    const x = cx - (w - 1) / 2 + step * (i + 0.5);
     for(const sx of [-1, 1])
       G.push({ k:'shoe', prop:true, tilt,
-               p:[x + sx * 1.7, shelfY + 1.7 + SPEC.panel/2, 1],
-               s:[3.0, 3.1, Math.min(d - 5, 10)], m:'shoe' });
+               p:[x + sx * 1.6, shelfY + 1.6 + SPEC.panel / 2, z],
+               s:[2.9, 3.0, depth], m:'shoe' });
   }
 }
 

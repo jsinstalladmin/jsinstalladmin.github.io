@@ -2041,3 +2041,70 @@ body[data-step="order"] .pfoot{display:block}
     margin:0 0 8px;backdrop-filter:none;-webkit-backdrop-filter:none}
   .ltools button{width:auto}
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   NO BOXES INSIDE BOXES
+
+   The panel is already a box. Every control inside it had its own
+   border, its own radius, its own tinted fill and its own padding, so a
+   single tower was a card inside a card inside a card, three sets of
+   rounded corners deep, and the gutters alone were eating a third of
+   the width. Controls are rows now: a label on the left, the control on
+   the right, a hairline between them. Same information, half the space.
+   ══════════════════════════════════════════════════════════════════════ */
+.runblk .stackslot > #stack{border:0;border-radius:0;padding:0;background:none;box-shadow:none}
+.runblk .stackslot > #stack::before{display:none}
+.stackslot{margin:1em 0 .2em;border-top:1px solid var(--line);padding-top:1em}
+
+.prow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:.45em .9em;padding:.62em 0;border-bottom:1px solid var(--line)}
+.prow.wrap{display:grid;gap:.5em}
+.prow .prowl{display:grid;gap:1px;min-width:0}
+.prow .prowl b{font-size:.78rem;font-weight:500;color:var(--ink)}
+.prow .prowl i{font-style:normal;font-size:.66rem;line-height:1.3;color:var(--ink-3)}
+.prow .prowc{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.prow .prowc.end{margin-left:auto}
+.prow .prowc input[type=range]{flex:1 1 110px;min-width:90px;accent-color:var(--ink)}
+.prow .prowc input[type=range]:disabled{opacity:.4}
+.prow .hval{font-size:.82rem;font-weight:500;color:var(--ink);min-width:52px;text-align:right;
+  font-variant-numeric:tabular-nums}
+.prow .hfill{display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--ink-2);cursor:pointer}
+.prow .hfill input{accent-color:var(--ink)}
+
+/* the old boxed versions, flattened */
+.twdepth,.hrow,.chrow{border:0;background:none;padding:.62em 0;margin:0;
+  border-bottom:1px solid var(--line);border-radius:0}
+.addrow2{border:0;background:none;padding:.7em 0 0;margin:.6em 0 0;border-top:1px solid var(--line)}
+.chpick{display:flex;flex-wrap:wrap;gap:5px}
+.chpick button{flex:1 1 auto;min-width:96px}
+
+/* component rows: a list, not a stack of cards */
+.comprowwrap{grid-template-columns:minmax(0,1fr) 24px;gap:4px;align-items:center;
+  border-bottom:1px solid var(--line)}
+.complist{gap:0}
+.comprow{border:0;border-radius:0;background:none;padding:.55em 0;
+  grid-template-columns:26px minmax(0,1fr) 16px}
+.comprow:hover{background:none;border:0}
+.comprow:hover .compname b{color:var(--accent-ink,#6A5536)}
+.compmove button{border:0;background:none}
+.compacts{margin:.9em 0 .4em}
+.ctop{display:flex;align-items:center;gap:7px;font-size:.73rem;color:var(--ink-2);
+  padding:.55em 0;border-bottom:1px solid var(--line)}
+
+/* the tower header stops being a card too */
+.selhd{padding:0 0 .7em;border-bottom:1px solid var(--line);margin:0 0 .2em}
+
+/* the depth control moved out of .twdepth into a plain row, so its own
+   styling has to stop depending on the box that used to be round it */
+.tdpick{display:flex;flex-wrap:wrap;gap:4px}
+.tdpick button{min-width:40px;padding:.34em .5em;font-size:.73rem;line-height:1;cursor:pointer;
+  border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink-2)}
+.tdpick button:hover{border-color:var(--ink);color:var(--ink)}
+.tdpick button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.tdnum{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto}
+.tdnum input{width:54px;height:30px;padding:0 .35em;text-align:right;font:inherit;font-size:.78rem;
+  border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);
+  appearance:textfield;-moz-appearance:textfield}
+.tdnum input::-webkit-outer-spin-button,
+.tdnum input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.tdnum i{font-style:normal;font-size:.68rem;color:var(--ink-3)}

@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=d616238c';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=d3a3996c';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=d616238c';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=d3a3996c';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=d616238c';
+         clothMaterials, clearCaches } from './materials.js?v=d3a3996c';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -760,6 +760,12 @@ const PERF = new URLSearchParams(location.search).has('perf')
 let MOVING = 0, shadowDirty = true;
 /* the room's four walls, with the direction each one faces into the room */
 const WALLS = [];
+/* Which way each run faces into the room, and every mesh standing on it,
+   so a run can be taken out of the way as one thing. */
+const RUN_N = { back:new THREE.Vector3(0,0,1), left:new THREE.Vector3(1,0,0),
+                right:new THREE.Vector3(-1,0,0) };
+const RUNMESH = { back:[], left:[], right:[] };
+const _look = new THREE.Vector3();
 const _camV = new THREE.Vector3();
 /* Up here with the others, not beside the drag code 750 lines down: the
    render loop below reads it on its very first frame, and a `let` further
@@ -794,14 +800,48 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
      the scene graph unrendered and the wall stayed on screen until something
      else happened to trigger a draw. Culling a wall IS a change to the
      picture, so it has to say so. */
-  for(const w of WALLS){
-    _camV.copy(cam.position).sub(w.p);
-    const vis = _camV.dot(w.n) > 0;
-    if(w.m.visible !== vis){
-      w.m.visible = vis;
-      /* its baseboard is part of the wall, not part of the room */
-      for(const b of w.base) b.visible = vis;
-      needsFrame = true;
+  /* ══════════════════════════════════════════════════════════════════
+     WHATEVER IS BETWEEN YOU AND THE CLOSET GETS OUT OF THE WAY
+
+     The old rule asked where the camera was STANDING: outside this
+     wall's plane or inside it. That only answers the head-on case. Swing
+     round to look at the right-hand run and the camera is usually still
+     inside the room, so the left-hand wall counted as "inside", stayed
+     drawn, and so did the whole run of cabinetry standing against it,
+     filling a third of the frame with the back of a tower you are not
+     working on.
+
+     The rule is now about where you are LOOKING. Take the direction from
+     the camera to what it is pointed at, and anything whose inward
+     normal agrees with that direction is a thing you are looking
+     through: it is between you and the room. Walls go first, and the
+     cabinetry standing against them goes with them, because a run seen
+     edge-on blocks just as much as a wall does.
+
+     The run you are actually editing never disappears, however you turn. */
+  _look.copy(ctl.target).sub(cam.position);
+  if(_look.lengthSq() > 1e-6){
+    _look.y = 0; _look.normalize();
+    for(const w of WALLS){
+      const vis = _look.dot(w.n) < 0.15;
+      if(w.m.visible !== vis){
+        w.m.visible = vis;
+        /* its baseboard is part of the wall, not part of the room */
+        for(const b of w.base) b.visible = vis;
+        needsFrame = true;
+      }
+    }
+    for(const wall of ['back','left','right']){
+      const list = RUNMESH[wall]; if(!list || !list.length) continue;
+      const n = RUN_N[wall];
+      /* 0.45 is about 63 degrees off the wall: square on to a run it is
+         1, square on to its neighbour 0, so a run only clears out once
+         you have genuinely swung behind it */
+      const vis = (S.sel?.wall === wall) || _look.dot(n) < 0.45;
+      if(list[0].visible !== vis){
+        for(const m of list) m.visible = vis;
+        needsFrame = true;
+      }
     }
   }
   if(!moving && shadowDirty){
@@ -1242,12 +1282,43 @@ function drawDoor(X0, W, D, H){
   const railMat = new THREE.MeshStandardMaterial({
     color: 0x8A8D90, roughness: 0.4, metalness: 0.8, envMapIntensity: 1 });
 
+  /* A LEAF IS NOT A WHITE SLAB.
+     A plain box reads as a panel somebody left leaning in the room. A
+     real door has a frame round the edge, a recessed panel inside it and
+     something to pull. Three extra boxes per leaf and it reads as a
+     door from across the room. */
+  const knobMat = new THREE.MeshStandardMaterial({
+    color: 0xB9BDC0, roughness: 0.3, metalness: 0.85, envMapIntensity: 1.2 });
   const leaf = (w, cx, cy, cz, yaw, mat) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.4), mat || leafMat);
-    m.position.set(cx, cy, cz); if(yaw) m.rotation.y = yaw;
-    m.castShadow = true; m.receiveShadow = true;
-    shell.add(m);
-    return m;
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.4), mat || leafMat);
+    body.castShadow = true; body.receiveShadow = true;
+    g.add(body);
+    /* the recessed panel, a shade darker so the frame round it reads */
+    if(w > 7){
+      const pw = Math.max(3, w - 5), ph = Math.max(6, h - 10);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0xE6E1DA, roughness: 0.6, metalness: 0 }));
+      panel.position.set(0, 0, 0.72);
+      g.add(panel);
+      const back = panel.clone(); back.position.z = -0.72; g.add(back);
+    }
+    /* something to pull it with, on the opening edge */
+    const k = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 4.2, 10), knobMat);
+    k.rotation.x = Math.PI / 2;
+    k.position.set(w / 2 - 1.6, -2, 1.1);
+    g.add(k);
+    g.position.set(cx, cy, cz); if(yaw) g.rotation.y = yaw;
+    shell.add(g);
+    return g;
+  };
+
+  /* THE OPENING ITSELF. Without a lining the leaves hang in a gap in a
+     flat wall and nothing says there is a doorway there at all. */
+  const jamb = (w, hh, cx, cy, cz) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, hh, 5.5),
+      new THREE.MeshStandardMaterial({ color: 0xF4F1EC, roughness: 0.7, metalness: 0 }));
+    m.position.set(cx, cy, cz); m.receiveShadow = true; shell.add(m); return m;
   };
   const rail = (w, cx, cy, cz) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, 1.2), railMat);
@@ -1257,6 +1328,11 @@ function drawDoor(X0, W, D, H){
   };
 
   const y = h / 2;
+  /* two posts and a head, lining the hole in the wall */
+  jamb(1.3, h + 1.3, x0 - 0.65,      y, D - 2.2);
+  jamb(1.3, h + 1.3, x0 + ow + 0.65, y, D - 2.2);
+  jamb(ow + 2.6, 1.3, x0 + ow / 2,   h + 0.65, D - 2.2);
+
   switch(S.door){
     case 'swing-r': case 'swing-l': {
       /* one leaf standing open at about 70 degrees off the opening */
@@ -1314,6 +1390,7 @@ function drawDoor(X0, W, D, H){
 
 function drawCloset(res){
   root.clear(); picks.clear();
+  RUNMESH.back.length = 0; RUNMESH.left.length = 0; RUNMESH.right.length = 0;
   const baseC=finishMaterial(res.finish,shared,'carcass');
   const baseF=finishMaterial(res.frontFinish,shared,'front');
   res.geo.forEach((g,i)=>{
@@ -1344,6 +1421,12 @@ function drawCloset(res){
        selectable, and it is not part of anything the workshop cuts. */
     if(!g.prop && g.wall && g.bay != null)
       m.userData = { wall:g.wall, i:g.bay, si:g.si, mod:g.mod, part:true };
+    /* The clothes, the folded stacks and the shoes belong to the run they
+       are standing in, so they leave with it. Culling the cabinetry and
+       leaving its shoes behind put a dozen pairs on the bare floor in the
+       middle of the room. An appliance carries no bay, so it stays: it
+       belongs to the room, not to a run. */
+    if(g.bay != null && RUNMESH[g.wall]) RUNMESH[g.wall].push(m);
     root.add(m);
   });
   // invisible pick volumes, one per bay, so you can click the closet to edit it
@@ -2795,12 +2878,14 @@ function paintStack(){
      Wall to the front of the panel. It is a property of the run rather
      than of one tower, because a run of cabinetry is one depth, and the
      control says so instead of pretending otherwise. */
-  const depthRow = `<div class="twdepth">
-    <span class="tdlbl"><b>Depth</b><i>Wall to the front of the panel, ${dLo}" to ${dHi}" here. Shelves, rods, drawer boxes and baskets are all cut to it.</i></span>
-    <span class="tdpick">${[12,14,16,20,24].filter(v => v >= dLo && v <= dHi).map(v =>
-      `<button type="button" class="${Math.abs(dNow-v)<0.26?'on':''}" data-rundepth-set="${S.sel.wall}" data-v="${v}">${v}"</button>`).join('')}</span>
-    <label class="tdnum"><input type="number" data-rundepth="${S.sel.wall}" min="${dLo}" max="${dHi}"
-      step="0.5" value="${+dNow.toFixed(1)}" aria-label="Run depth in inches"><i>in</i></label>
+  const depthRow = `<div class="prow">
+    <span class="prowl"><b>Depth</b><i>Wall to the front of the panel</i></span>
+    <span class="prowc">
+      <span class="tdpick">${[12,14,16,20,24].filter(v => v >= dLo && v <= dHi).map(v =>
+        `<button type="button" class="${Math.abs(dNow-v)<0.26?'on':''}" data-rundepth-set="${S.sel.wall}" data-v="${v}">${v}"</button>`).join('')}</span>
+      <label class="tdnum"><input type="number" data-rundepth="${S.sel.wall}" min="${dLo}" max="${dHi}"
+        step="0.5" value="${+dNow.toFixed(1)}" aria-label="Run depth in inches"><i>in</i></label>
+    </span>
   </div>`;
 
   /* ── what is standing in this tower, top to bottom ── */
@@ -2855,26 +2940,27 @@ function paintStack(){
     const fills = st.h == null;
     const lo = Math.max(4, d.minH ?? 6);
     const hi = Math.max(lo + 1, Math.min(d.maxH ?? usable, usable));
-    return `<div class="hrow">
-      <span class="hlbl"><b>Height</b><i>${fills ? 'Takes whatever the rest of the tower leaves' : 'Set by you'}</i></span>
-      <label class="hfill"><input type="checkbox" data-hfill="${si}" ${fills?'checked':''}>
-        <span>Fill the space</span></label>
-      <span class="hslide">
+    return `<div class="prow">
+      <span class="prowl"><b>Height</b><i>${fills ? 'Takes what the rest of the tower leaves' : 'Set by you'}</i></span>
+      <span class="prowc">
+        <label class="hfill"><input type="checkbox" data-hfill="${si}" ${fills?'checked':''}>
+          <span>Fill</span></label>
         <input type="range" data-hset="${si}" min="${lo}" max="${hi.toFixed(2)}" step="0.25"
                value="${Math.min(hi, Math.max(lo, now)).toFixed(2)}" ${fills?'disabled':''}
                aria-label="${d.label} height in inches">
-        <b data-hval="${si}">${inches(now)}</b>
+        <b class="hval" data-hval="${si}">${inches(now)}</b>
       </span>
     </div>`;
   };
 
   const countRow = (st, si, d, which = 'opt') => {
     const o = d[which]; if(!o) return '';
-    return `<div class="hrow">
-      <span class="hlbl"><b>${o.label || 'How many'}</b><i>${o.note || ''}</i></span>
-      <span class="sopt"><button data-optpart="-1" data-si="${si}" data-key="${which}" title="Fewer">−</button>
+    return `<div class="prow">
+      <span class="prowl"><b>${o.label || 'How many'}</b>${o.note ? `<i>${o.note}</i>` : ''}</span>
+      <span class="prowc end"><span class="sopt">
+        <button data-optpart="-1" data-si="${si}" data-key="${which}" title="Fewer">−</button>
         <i>${(st.o?.[o.key] ?? o.def)}</i>
-        <button data-optpart="1" data-si="${si}" data-key="${which}" title="More">+</button></span>
+        <button data-optpart="1" data-si="${si}" data-key="${which}" title="More">+</button></span></span>
     </div>`;
   };
 
@@ -2884,8 +2970,8 @@ function paintStack(){
   const choiceRow = (st, si, d) => {
     const ch = d.choice; if(!ch) return '';
     const now = +(st.o?.[ch.key] ?? ch.def);
-    return `<div class="chrow">
-      <span class="hlbl"><b>${ch.label}</b></span>
+    return `<div class="prow wrap">
+      <span class="prowl"><b>${ch.label}</b></span>
       <span class="chpick">${ch.options.map(op => {
         /* an answer that cannot be built on this tower is refused here and
            says why, rather than being accepted and quietly overruled */
@@ -4207,7 +4293,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=d616238c');
+  if(!DRAW) DRAW = await import('./drawing.js?v=d3a3996c');
   return DRAW;
 }
 
@@ -4651,7 +4737,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=d616238c');
+    const { downloadPdf } = await import('./drawing.js?v=d3a3996c');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -4674,7 +4760,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=d616238c');
+    const { downloadPdf } = await import('./drawing.js?v=d3a3996c');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
