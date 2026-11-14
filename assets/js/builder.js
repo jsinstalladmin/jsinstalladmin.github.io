@@ -41,7 +41,6 @@ const cat = await (window.__CAT || Promise.resolve(null))
 const HARDWARE_MAP = await fetch((window.BASE||"")+'assets/data/hardware.json')
   .then(r => r.ok ? r.json() : null).catch(() => null);
 const $ = s => document.querySelector(s);
-const money = n => '$'+Math.round(n||0).toLocaleString();
 
 /* ───────── types: which walls are available ───────── */
 /* Every one of these was a bare text pill. A customer picking a room type is
@@ -1732,7 +1731,7 @@ function paintPlan(){
                  aria-label="How high the cabinetry goes, in inches off the floor"><i>in</i></label>
         <p class="note">${ft}ft ${inch ? inch + '" ' : ''}off the floor, in a ${S.room.h}" room.
           ${S.cabTop >= r.max ? 'That is as high as this ceiling allows.'
-            : `Anything up to ${r.max}" fits. Taller towers are more board and more edge banding, so the price moves with it.`}</p>
+            : `Anything up to ${r.max}" fits. Taller towers are more board and more edge banding.`}</p>
       </div>`;
     })()}
     <div class="basebox">
@@ -1767,7 +1766,7 @@ function paintPlan(){
       <em class="baseq">Do the towers need a back?</em>
       <div class="segrow col">
         <button type="button" data-backs="0" class="${S.backs?'':'on'}">
-          <b>No back &mdash; the wall is the back</b><span>How a built-in closet normally goes in. Nothing to pay for.</span></button>
+          <b>No back, the wall is the back</b><span>How a built-in closet normally goes in.</span></button>
         <button type="button" data-backs="1" class="${S.backs?'on':''}">
           <b>Build a back on every tower</b><span>For a block wall, a garage, or plaster you would rather not look at. Adds board and hardware to every tower.</span></button>
       </div>
@@ -1857,7 +1856,7 @@ function paintDoors(){
           <em class="fwhat">${(x.spot === 'floor' ? (sp.noteFloor || sp.note) : sp.note) || ''}</em>
         </div>`;
       }).join('')
-    : `<p class="note">Nothing marked yet. Add whatever is on your walls, say where it is in your own words, and it goes on the drawing, into the price and onto the job sheet. A window caps the partitions under it at the sill, baseboard heat takes the run off the floor, a column takes its width off the wall.</p>`;
+    : `<p class="note">Nothing marked yet. Add whatever is on your walls, say where it is in your own words, and it goes on the drawing and onto the job sheet. A window caps the partitions under it at the sill, baseboard heat takes the run off the floor, a column takes its width off the wall.</p>`;
 }
 
 /* ───────── step 2: bays ───────── */
@@ -3350,7 +3349,7 @@ $('#send').onclick=()=>{
   list.innerHTML =
       line('The room', `${q.room.w}" wide · ${q.room.d}" deep · ${q.room.h}" high`)
     + line('The drawing', `${q.bays.length} tower${q.bays.length===1?'':'s'}, wall by wall, with every measurement`)
-    + line('Every piece', `${q.pieceCount} in all — ${parts} panels, shelves, rods, boxes, glides and pulls, `
+    + line('Every piece', `${q.pieceCount} in all: ${parts} panels, shelves, rods, boxes, glides and pulls, `
         + `plus ${(q.hardware||[]).reduce((a,h)=>a+(+h.qty||0),0)} cams, dowels, screws and shelf pins`)
     + ((q.hardware||[]).length ? line('The hardware',
         q.hardware.map(h=>`${h.qty} × ${h.item}`).join(' · ')) : '')

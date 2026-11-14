@@ -7,7 +7,6 @@ const note = document.getElementById('quoteNote');
 const out  = document.getElementById('refbox');
 
 const BASE = window.BASE || '';
-const money = n => '$' + Math.round(n||0).toLocaleString();
 
 /* ── the design carried across from the 3D builder ───────────────────── */
 let design = null;

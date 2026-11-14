@@ -23,7 +23,7 @@ const STEPS = [
     text:  'Drag to turn it, scroll to zoom. Click any section of the closet and the panel jumps to that section, so you can work on the thing you are looking at.' },
   { sel: '#bays', tab: '2',
     title: 'A section is a top and a bottom',
-    text:  'Sections sit anywhere along the wall — drag them, and the bare wall between them is real. Inside each one you choose what goes on top and what goes underneath, and only what can actually go there is offered.' },
+    text:  'Sections sit anywhere along the wall. Drag them, and the bare wall between them is real. Inside each one you choose what goes on top and what goes underneath, and only what can actually go there is offered.' },
   { sel: '.pfoot',
     title: 'The design checks itself',
     text:  'Every change is measured against the real parts we build from, so the closet on screen is one that can actually be made. Anything the design wants you to know is behind the button in the corner.' },

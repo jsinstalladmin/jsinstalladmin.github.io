@@ -263,7 +263,7 @@ $('#pend').addEventListener('click',e=>{
 async function send(text){
   const s=DB.settings();
   if(!s.anthropicKey){
-    bubble('e','No API key yet. Open Settings and paste your own Anthropic key — the assistant runs on your account and the key stays in this browser.');
+    bubble('e','No API key yet. Open Settings and paste your own Anthropic key. The assistant runs on your account and the key stays in this browser.');
     return;
   }
   const imgs = pending.slice(); pending=[]; paintPending();
@@ -289,7 +289,7 @@ async function send(text){
       if(!res.ok){
         const t=await res.text(); thinking.remove();
         bubble('e', res.status===401 ? 'Anthropic rejected that key. Check it in Settings.'
-              : res.status===429 ? 'Rate limited by Anthropic — wait a moment and try again.'
+              : res.status===429 ? 'Rate limited by Anthropic. Wait a moment and try again.'
               : `Anthropic returned ${res.status}.\n${t.slice(0,280)}`);
         history.pop(); return;
       }

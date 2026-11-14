@@ -1147,7 +1147,7 @@ export const MODULES = {
          it matters more here than anywhere else in the build. */
       buildInside(c, c.o?.inside, 0.75);
       parts.push(P('DOOR',1,(w*h)/144*0.35,((w+h)*2)/12,'Glass door frame'));
-      parts.push({code:'GLASS_LITE',qty:1,w:w-4,h:h-4,note:'Glass lite — supplied locally'});
+      parts.push({code:'GLASS_LITE',qty:1,w:w-4,h:h-4,note:'Glass lite, supplied locally'});
       const t=1.6;
       G.push({k:'front', p:[0, y+t/2, d/2-0.3], s:[w-0.2,t,0.75], m:'front'});
       G.push({k:'front', p:[0, y+h-t/2, d/2-0.3], s:[w-0.2,t,0.75], m:'front'});
@@ -1697,7 +1697,7 @@ export function buildDesign(cfg, cat){
       const span = x - islandStart;
       if(span > 0.01){
         const endH = lastTop - floorY + SPEC.panel;
-        parts.push(P(code,1,(endH*depth)/144,(endH+depth)/12,`End panel — ${run.wall}`));
+        parts.push(P(code,1,(endH*depth)/144,(endH+depth)/12,`End panel · ${run.wall}`));
         /* Drawn INSIDE the island, not centred on its edge. A panel centred on
            x spans x±0.375, so the end panel of a run that reached the corner
            had 0.375" of itself standing inside the wall. You could see it
@@ -1705,9 +1705,9 @@ export function buildDesign(cfg, cat){
            the measurement, which is also what gets built. */
         local.push({k:'panel', p:[x - SPEC.panel/2, floorY+endH/2, 0],
                     s:[SPEC.panel,endH,depth], m:'carcass'});
-        parts.push(P('CLEAT',1,(span*4)/144,span/12,`Hang cleat — ${run.wall}`));
+        parts.push(P('CLEAT',1,(span*4)/144,span/12,`Hang cleat · ${run.wall}`));
         if(cfg.mounting!=='wall' && !liftedByHeat){
-          parts.push(P('TK',1,(span*SPEC.toeKick)/144,span/12,`Toe kick — ${run.wall}`));
+          parts.push(P('TK',1,(span*SPEC.toeKick)/144,span/12,`Toe kick · ${run.wall}`));
           local.push({k:'toe', p:[islandStart + span/2, SPEC.toeKick/2, -1.5],
                       s:[span, SPEC.toeKick, depth-3], m:'carcass'});
         }
@@ -1741,7 +1741,7 @@ export function buildDesign(cfg, cat){
 
       // left panel of this bay — pushed inboard when it is the island's first,
       // for the same reason as the end panel above
-      parts.push(P(code,1,(panelH*depth)/144,(panelH+depth)/12,`Partition ${bi+1} — ${run.wall}`));
+      parts.push(P(code,1,(panelH*depth)/144,(panelH+depth)/12,`Partition ${bi+1} · ${run.wall}`));
       const firstOfIsland = Math.abs(x - islandStart) < 0.01;
       local.push({k:'panel', p:[x + (firstOfIsland ? SPEC.panel/2 : 0), floorY+panelH/2, 0],
                   s:[SPEC.panel,panelH,depth], m:'carcass'});
@@ -1762,7 +1762,7 @@ export function buildDesign(cfg, cat){
          time and a default nobody asked for is a default that overcharges. */
       if(cfg.backs){
         parts.push(P('BACK', 1, (bay.w * panelH) / 144, 0,
-          `Back panel ${bi+1} — ${run.wall}`));
+          `Back panel ${bi+1} · ${run.wall}`));
         local.push({ k:'back', p:[cx, floorY + panelH/2, -depth/2 + SPEC.panel/2],
                      s:[bay.w, panelH, SPEC.panel], m:'carcass' });
       }
@@ -1820,7 +1820,7 @@ export function buildDesign(cfg, cat){
         const sp = fitSpec(f), x0 = sp.at || 0, x1 = x0 + sp.w;
         if(b <= x0 || a >= x1) continue;
         if(cfg.mounting === 'wall') continue;             // nothing on the floor to block it
-        parts.push(P('TK', 1, (sp.w * SPEC.toeKick)/144, sp.w/12, `Toe kick vent cut-out — ${run.wall}`));
+        parts.push(P('TK', 1, (sp.w * SPEC.toeKick)/144, sp.w/12, `Toe kick vent cut-out · ${run.wall}`));
         warnings.push(`A floor vent runs under section ${bi+1} on the ${run.wall} wall, so that length of toe kick is cut for a grille.`);
       }
 
@@ -1970,7 +1970,7 @@ export function buildDesign(cfg, cat){
        real edge band. */
     if(block > 0.01 && run.wall === 'back'){
       const fh = lastTop - floorY + SPEC.panel;
-      parts.push(P(code,2,(block*fh)/144,(block+fh)/12,`Scribe filler at the door jamb — ${run.wall}`));
+      parts.push(P(code,2,(block*fh)/144,(block+fh)/12,`Scribe filler at the door jamb · ${run.wall}`));
     }
     run.width = x;
     for(const g of local) G.push(place(g, run, cfg.room, GAP));
@@ -2005,14 +2005,14 @@ export function buildDesign(cfg, cat){
         for(const [label, yc] of [['Bridge top over the corner', bridgeTop - SPEC.panel/2],
                                   ['Bridge deck over the corner', floorY + SPEC.panel/2]]){
           parts.push(P('FIXED', 1, (span * sDep) / 144, (span + sDep * 2) / 12,
-                       `${label} — ${span.toFixed(0)}" between the ${side.wall} wall and the back`));
+                       `${label} · ${span.toFixed(0)}" between the ${side.wall} wall and the back`));
           G.push({ k:'shelf', p:[atX, yc, atZ], s:[sDep, SPEC.panel, span], m:'carcass', wall:side.wall, bridge:true });
         }
         /* 'TK' is the toe kick in his own parts list. This line was written
            with a made-up code, so the order printed the code itself as the
            item name and the piece was priced off nothing. */
         parts.push(P('TK', 1, (span * kickH) / 144, span / 12,
-                     `Toe kick under the corner bridge — ${span.toFixed(0)}"`));
+                     `Toe kick under the corner bridge · ${span.toFixed(0)}"`));
         G.push({ k:'toe', p:[atX, kickH/2, atZ], s:[sDep, kickH, span], m:'carcass', wall:side.wall, bridge:true });
         warnings.push(`The ${side.wall} wall stands ${span.toFixed(0)}" clear of the back wall, bridged top and bottom.`);
       }
@@ -2078,7 +2078,7 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
       const gl  = pickGlide(cat, p.d, box);
       const front = (p.w*p.h)/144 * DF.sq + ((p.w+p.h)*2)/12 * DF.eb;
       c = ((box?.cost || 0) + gl.cost*2 + front) * p.qty;
-      label = `${p.qty} × drawer ${p.h.toFixed(1)}" ${box?.ctor.name || ''} — box ${(box?.cost||0).toFixed(2)}, `
+      label = `${p.qty} × drawer ${p.h.toFixed(1)}" ${box?.ctor.name || ''} · box ${(box?.cost||0).toFixed(2)}, `
             + `glides ${(gl.cost*2).toFixed(2)} (${gl.l}" ${gl.s}), front ${front.toFixed(2)}`;
     }
     else if(p.code === 'PULL'){ c = pull.cost * pullFin.mult * p.qty; label = p.note + ` (${pullFin.name})`; }
@@ -2249,7 +2249,7 @@ function orderList(parts, cat, F, DF, pull, pullFin){
       : (def?.n || p.code);
     const finish = (p.code==='DRAWER'||p.code==='DOOR') ? DF.n
       : (p.code==='PULL'||p.code==='BASKET'||p.code==='HAMPER_BASKET'||p.code==='HAMPER'||
-         p.code==='HANGROD'||p.code==='GLASS_LITE'||p.code==='GLIDE') ? '—' : F.n;
+         p.code==='HANGROD'||p.code==='GLASS_LITE'||p.code==='GLIDE') ? 'n/a' : F.n;
     const key = name+'|'+finish;
     const g = group.get(key) || { item:name, finish, code:p.code, qty:0, sqft:0, edge_ft:0, notes:new Set() };
     g.qty += p.qty || 1;

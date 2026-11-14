@@ -188,7 +188,7 @@ export function fullText(e){
   L.push(''); L.push('ON THE WALLS');
   if(!(d.fittings || []).length) L.push('  Nothing marked.');
   (d.fittings || []).forEach(f => {
-    L.push(`  ${f.item} — ${f.wall}`);
+    L.push(`  ${f.item} · ${f.wall}`);
     row('       Along the wall', f.inchesAlong + '" from the left corner');
     if(f.heightOffFloor  != null) row('       Height off the floor', f.heightOffFloor + '"');
     if(f.widthInches     != null) row('       Width', f.widthInches + '"');

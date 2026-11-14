@@ -526,7 +526,7 @@ V.inbox = () => {
   const when = leadWhen;
 
   return head('Incoming leads',
-      `${fresh.length} waiting${fresh.length?'':' — all clear'} · ${filed.length} filed${DB.region()==='all'?' across every region':' in '+DB.regionMeta().name}`,
+      `${fresh.length} waiting${fresh.length?'':', all clear'} · ${filed.length} filed${DB.region()==='all'?' across every region':' in '+DB.regionMeta().name}`,
       `<button class="btn btn-sm" data-act="inbox-sync">Check for new ones</button>`)
 
   + panel('Waiting on you', fresh.length ? `${fresh.length} new` : '', fresh.length
@@ -599,7 +599,7 @@ function inboxPreview(e){
       })()}</td></tr>
       <tr><th>State</th><td>${ev.state ? `<b>${esc(ev.state)}</b>` : '<span class="sub">They did not say</span>'}${ev.zip?` · ZIP ${esc(ev.zip)}`:''}</td></tr>
       <tr><th>Region</th><td>${rm
-        ? `<b>${esc(rm.name)}</b>${ev.from?` <span class="sub">&mdash; from ${esc(ev.from)}</span>`:''}`
+        ? `<b>${esc(rm.name)}</b>${ev.from?` <span class="sub">from ${esc(ev.from)}</span>`:''}`
         : '<b>Nothing on the form said where they are.</b>'}</td></tr>
       ${ev.conflict?`<tr><th></th><td><span class="note warn" style="display:block">Their ZIP is in
         ${esc(DB.regionMeta(ev.byZip).name)} but they picked <b>${esc(ev.state)}</b>. One of the two is a
@@ -620,7 +620,7 @@ function inboxPreview(e){
     <div class="f2">
       ${mustAsk
         ? `<div class="f"><label>Which region</label><select id="inbox-region">
-             <option value="">&mdash; pick one &mdash;</option>
+             <option value="">Pick one</option>
              ${REGIONS.map(r=>`<option value="${r.id}"${r.id===ev.byState?' selected':''}>${esc(r.name)}</option>`).join('')}
            </select></div>`
         : `<div class="f"><label>Which region</label>
@@ -708,7 +708,7 @@ async function fileIt(e){
     type: d?.typeLabel || ct.project || 'Walk-In Closets',
     stage:'lead', value:0, date:today(), kind:'measure',
     finish: d?.finish || 'n/a', crew:'', crewIds:[],
-    notes:[describe(e), ct.message].filter(Boolean).join(' — ') });
+    notes:[describe(e), ct.message].filter(Boolean).join(' · ') });
   let quote = null;
   /* A DRAFT QUOTE OPENS AT NOTHING.
 
@@ -776,7 +776,7 @@ V.settings = () => {
   + panel('Still to connect', 'Three accounts, all free to start', `<div class="bd">
       <div class="f"><label>Where website enquiries are emailed</label>
         <input id="s-mailto" placeholder="jsinstalladmin@gmail.com" value="${esc(s.officeEmail||'')}">
-        <small>Both emails — yours and the customer's confirmation — are sent by our own
+        <small>Both emails, yours and the customer's confirmation, are sent by our own
           mail function. There is no third-party form service any more. Changing this address
           here is a note to yourself; the live one is the <b>OFFICE_TO</b> secret in Supabase.</small></div>
       <div class="f"><label>Resend API key, for sending quotes from your own address</label><input id="s-resend" type="password" placeholder="re_..." value="${esc(s.resendKey)}"></div>
@@ -1222,7 +1222,7 @@ async function redrawPdf(btn, d, title){
       ref: `${title || 'Closet'} · ${new Date().toLocaleDateString()}`,
       order: d.order, hardware: d.hardware, notes: d.warnings,
       finish: d.finish, frontFinish: d.frontFinish, pull: d.pull,
-      pullFinish: d.pullFinish, door: d.door,
+      pullFinish: d.pullFinish, door: d.door, doorOpening: d.doorOpening,
       filename: `${String(title || 'closet').replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-drawing.pdf`
     });
     btn.textContent = was;
@@ -1385,7 +1385,7 @@ function openQuote(id){
       '', s2.business || 'JS Installations & Closets', s2.phone || '', s2.email || ''
     ].filter(Boolean).join('\n');
     location.href = `mailto:${encodeURIComponent(c.email)}?subject=${
-      encodeURIComponent(`Your quote from ${s2.business||'JS Closets'} — ${q.title}`)}&body=${encodeURIComponent(body)}`;
+      encodeURIComponent(`Your quote from ${s2.business||'JS Closets'}: ${q.title}`)}&body=${encodeURIComponent(body)}`;
     DB.updateQuote(q.id, { status:'sent' });
     close(); render(); toast('Quote marked as sent.');
   };
@@ -1514,9 +1514,9 @@ function openWeekLink(empId){
     const booked = new Set(DB.jobs('all').map(j=>j.client));
     const fresh  = all.filter(c=>!booked.has(c.id));
     const older  = all.filter(c=> booked.has(c.id));
-    const opt = c => `<option value="${c.id}">${esc(c.name)}${c.addr?' — '+esc(c.addr.split(',')[0]):''}</option>`;
+    const opt = c => `<option value="${c.id}">${esc(c.name)}${c.addr?' · '+esc(c.addr.split(',')[0]):''}</option>`;
     const clientOpts = !all.length ? '<option value="">No clients yet</option>'
-      : (fresh.length ? `<optgroup label="New — nothing booked yet">${fresh.map(opt).join('')}</optgroup>` : '')
+      : (fresh.length ? `<optgroup label="New, nothing booked yet">${fresh.map(opt).join('')}</optgroup>` : '')
       + (older.length ? `<optgroup label="Everyone else">${older.map(opt).join('')}</optgroup>` : '');
 
     /* keep the open day inside the week being looked at */
@@ -1703,12 +1703,12 @@ function openWeekLink(empId){
         if(!cid){ toast('Pick a client first, or add one.', true); return; }
         const c = DB.client(cid);
         DB.addJob({ region:c?.region || DB.region(), client:cid,
-                    title:`${kind[0].toUpperCase()+kind.slice(1)} — ${c?.name||''}`.trim(),
+                    title:`${kind[0].toUpperCase()+kind.slice(1)} · ${c?.name||''}`.trim(),
                     kind, date:iso, stage:'lead', crewIds:[empId] });
         /* a booked measure means the client has moved along the board */
         if(kind === 'measure' && c && ['new','contacted'].includes(c.stage)) DB.setClientStage(cid, 'measure');
         openDay = null; paint(); render();
-        toast(`${c?.name || 'Booked'} on ${fmtD(iso)} — it is on the schedule.`);
+        toast(`${c?.name || 'Booked'} on ${fmtD(iso)}, it is on the schedule.`);
         return;
       }
 

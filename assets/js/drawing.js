@@ -347,10 +347,15 @@ export function plan(design, opt = {}){
         width="${(sd*k).toFixed(1)}" height="${((firstAlong-bd)*k).toFixed(1)}"
         fill="none" stroke="${LINE}" stroke-width="0.7" stroke-dasharray="3 2"/>`;
       const atX = X(dx0 + sd / 2);
+      /* On the right-hand wall this label used to run outward off the edge of
+         the drawing, with its own leader line struck through the middle of
+         it. Each side reads back into the room now. */
+      const outward = wall === 'right';
       dims += `<g><line x1="${atX}" y1="${Z(bd)}" x2="${atX}" y2="${Z(firstAlong)}"
           stroke="${DIM}" stroke-width="0.8"/>
-        <text x="${atX + 5}" y="${Z((bd + firstAlong) / 2)}" fill="${DIM}" font-size="9"
-              font-family="${FONT}">${esc(inch(firstAlong - bd))} clear · bridged</text></g>`;
+        <text x="${(outward ? atX - 5 : atX + 5).toFixed(1)}" y="${Z((bd + firstAlong) / 2)}"
+              fill="${DIM}" font-size="9" font-family="${FONT}"
+              text-anchor="${outward ? 'end' : 'start'}">${esc(inch(firstAlong - bd))} clear · bridged</text></g>`;
     }
   }
   body += bridges;
@@ -687,8 +692,11 @@ export async function buildPdf(design, meta = {}){
     say('Fronts', design.frontFinish?.n || meta.frontFinish);
   say('Handles', [design.pull?.name || meta.pull,
                   design.pullFinish?.name || meta.pullFinish].filter(Boolean).join(' · '));
-  say('Doors', meta.door
-    + (meta.doorOpening ? ` · ${inch(meta.doorOpening)} opening` : ''));
+  /* meta.door is missing on a design saved before doors were a field, and
+     `undefined + ' · ...'` printed the word "undefined" on the sheet that
+     goes to the customer. Each half stands on its own now. */
+  say('Doors', [meta.door, meta.doorOpening ? `${inch(meta.doorOpening)} opening` : '']
+    .filter(Boolean).join(' · '));
   /* WHERE each tower is, not only how big. A list of widths tells you what
      to cut; it does not tell you which order they go in or how far along the
      wall the first one starts, and that is what gets set out on site. */

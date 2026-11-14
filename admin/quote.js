@@ -64,7 +64,7 @@ export function quoteDoc(quote, client, settings, opts = {}){
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Quote ${esc(quote.title)} — ${esc(client?.name||'')}</title>
+<title>Quote ${esc(quote.title)} · ${esc(client?.name||'')}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Archivo:wght@300..600&display=swap">
@@ -266,7 +266,7 @@ export function orderSheet(quote, client, settings = {}){
     <td>${b.topShelf === false ? 'No top shelf' : 'Top shelf'}</td></tr>`).join('');
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<title>Order sheet — ${esc(quote.title||'')}</title>
+<title>Order sheet · ${esc(quote.title||'')}</title>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#F2EFEA;color:#17120E;
@@ -316,16 +316,16 @@ export function orderSheet(quote, client, settings = {}){
   <h2>Every panel</h2>
   <table><thead><tr><th>Item</th><th>Finish</th><th class="n">Qty</th>
     <th class="n">Sq ft</th><th class="n">Band ft</th><th>Where it goes</th></tr></thead>
-    <tbody>${boardRows || '<tr><td colspan="6" class="dim">—</td></tr>'}</tbody></table>
+    <tbody>${boardRows || '<tr><td colspan="6" class="dim">No panels on this design</td></tr>'}</tbody></table>
 
   <h2>Hardware and fittings</h2>
   <table><thead><tr><th>Item</th><th>Finish</th><th class="n">Qty</th><th colspan="3">Detail</th></tr></thead>
-    <tbody>${hwRows || '<tr><td colspan="6" class="dim">—</td></tr>'}</tbody></table>
+    <tbody>${hwRows || '<tr><td colspan="6" class="dim">No hardware on this design</td></tr>'}</tbody></table>
 
   <h2>What goes where</h2>
   <table><thead><tr><th class="n">#</th><th>Wall</th><th class="n">Width</th>
     <th>Section, bottom to top</th><th>Top</th></tr></thead>
-    <tbody>${secRows || '<tr><td colspan="5" class="dim">—</td></tr>'}</tbody></table>
+    <tbody>${secRows || '<tr><td colspan="5" class="dim">No sections on this design</td></tr>'}</tbody></table>
 
   ${(d?.warnings||[]).length ? `<h2>Read before ordering</h2>
     <ul class="dim" style="margin:0;padding-left:1.1em;line-height:1.7">
