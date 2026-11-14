@@ -686,7 +686,7 @@ export const MODULES = {
       G.push({k:'rod', p:[0, rodY, 0], s:[w-1, 1.4, 1.4], m:'metal'});
       /* the garments drop as far as the space allows and no further, which is
          the whole point: the same piece reads long or short on its own */
-      hang(G, 0, rodY, Math.max(10, Math.min(rodY - y - 2, 74)), w, d);
+      if(c.styled) hang(G, 0, rodY, Math.max(10, Math.min(rodY - y - 2, 74)), w, d);
     }
   },
   LONG_HANG: {
@@ -698,7 +698,7 @@ export const MODULES = {
       const {w,d,y,h,G,parts} = c;
       parts.push(P('HANGROD',1,0,0,'Hang rod'));
       G.push({k:'rod', p:[0, y+h-6, 0], s:[w-1, 1.4, 1.4], m:'metal'});
-      hang(G, 0, y+h-6, Math.min(h-10, 52), w, d);
+      if(c.styled) hang(G, 0, y+h-6, Math.min(h-10, 52), w, d);
     }
   },
   DOUBLE_HANG: {
@@ -714,8 +714,8 @@ export const MODULES = {
       parts.push(P('HANGROD',2,0,0,'Hang rods ×2'));
       G.push({k:'rod', p:[0, y+h-5, 0], s:[w-1,1.4,1.4], m:'metal'});
       G.push({k:'rod', p:[0, mid-5, 0], s:[w-1,1.4,1.4], m:'metal'});
-      hang(G, 0, y+h-5, Math.min(h/2-8, 34), w, d);
-      hang(G, 0, mid-5,  Math.min(h/2-8, 32), w, d);
+      if(c.styled){ hang(G, 0, y+h-5, Math.min(h/2-8, 34), w, d);
+                    hang(G, 0, mid-5,  Math.min(h/2-8, 32), w, d); }
     }
   },
   /* A hamper is 28" tall and a closet is 80" of usable height, which leaves
@@ -746,7 +746,7 @@ export const MODULES = {
       const rodY = rodTop - 2.5;                           // where the sockets go
       parts.push(P('HANGROD',1,0,0,'Hang rod'));
       G.push({k:'rod', p:[0, rodY, 0], s:[w-1,1.4,1.4], m:'metal'});
-      hang(G, 0, rodY, Math.min(rodY - y - 2, 34), w, d);
+      if(c.styled) hang(G, 0, rodY, Math.min(rodY - y - 2, 34), w, d);
     }
   },
 
@@ -797,6 +797,7 @@ export const MODULES = {
         for(let i = 1; i <= k; i++){
           const sY = sy + (sh/(k+1))*i;
           G.push({k:'shelf', p:[0, sY, 0], s:[w, SPEC.panel, d], m:'carcass'});
+          if(c.styled) foldedOn(G, 0, sY, w - 1, d, si * 3 + i);
           /* a divider stands ON the shelf, so it is drawn above it */
           for(let j = 1; j <= divs; j++)
             G.push({k:'divider', p:[-w/2 + (w/(divs+1))*j, sY + 5 + SPEC.panel/2, 0],
@@ -873,7 +874,11 @@ export const MODULES = {
       const {w,d,y,h,G,parts} = c;
       const n = Math.max(2, Math.floor(h/SPEC.shoeGap));
       parts.push(P('SHOE',n,(w*d)/144*n,(w/12)*n,`${n} shoe shelves at 8"`));
-      for(let i=1;i<=n;i++) G.push({k:'shelf', p:[0, y + SPEC.shoeGap*i, 0], s:[w, SPEC.panel, d], m:'carcass'});
+      for(let i=1;i<=n;i++){
+        const sY = y + SPEC.shoeGap*i;
+        G.push({k:'shelf', p:[0, sY, 0], s:[w, SPEC.panel, d], m:'carcass'});
+        if(c.styled) shoesOn(G, 0, sY, w - 1, d, i, 0);
+      }
     }
   },
   SHOE_SLANT: {
@@ -898,6 +903,9 @@ export const MODULES = {
         G.push({k:'rail',
                 p:[0, yS - (d/2)*Math.sin(T) + 1.05, (d/2)*Math.cos(T) - 0.45],
                 s:[w, 0.5, 0.5], m:'metal'});
+        /* on the slant the shoes lie back with the shelf, which is the
+           whole point of a slanted shelf */
+        if(c.styled) shoesOn(G, 0, yS - 0.6, w - 1, d, i, T);
       }
     }
   },
@@ -1812,6 +1820,43 @@ function hang(G, cx, rodY, len, w, d){
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   WHAT IS ON THE SHELVES
+
+   Clothes on the rails were drawn from the start, and nothing else was,
+   so a tower of shelves read as an empty bookcase and a shoe tower read
+   as a ladder. These put a few folded stacks on the shelving and a few
+   pairs on the shoe shelves: enough to give the cabinetry scale and say
+   what each part is for, and not so much that it buries the thing being
+   sold. Nothing here is a part, nothing here is priced, and none of it
+   can be selected. The toolbar turns it all off.
+   ══════════════════════════════════════════════════════════════════════ */
+function foldedOn(G, cx, shelfY, w, d, seed){
+  const n = Math.max(1, Math.min(3, Math.floor(w / 11)));
+  const step = w / n;
+  for(let i = 0; i < n; i++){
+    /* not every space on every shelf, or it reads as a warehouse */
+    if(((seed * 5 + i * 3) % 7) < 2) continue;
+    const sh = 3 + ((seed + i * 3) % 3);
+    G.push({ k:'cloth', prop:true,
+             p:[cx - w/2 + step * (i + 0.5), shelfY + sh/2 + SPEC.panel/2, 0.5],
+             s:[step * 0.74, sh, Math.min(d - 3, 12)], m:'cloth' });
+  }
+}
+
+function shoesOn(G, cx, shelfY, w, d, seed, tilt){
+  const n = Math.max(1, Math.min(4, Math.floor(w / 8)));
+  const step = w / n;
+  for(let i = 0; i < n; i++){
+    if(((seed * 4 + i * 5) % 5) === 0) continue;
+    const x = cx - w/2 + step * (i + 0.5);
+    for(const sx of [-1, 1])
+      G.push({ k:'shoe', prop:true, tilt,
+               p:[x + sx * 1.7, shelfY + 1.7 + SPEC.panel/2, 1],
+               s:[3.0, 3.1, Math.min(d - 5, 10)], m:'shoe' });
+  }
+}
+
 /* draw the chosen pull onto a front */
 function addPull(G, pull, cx, cy, faceZ, w, h, vertical){
   if(!pull || pull.id==='none') return;
@@ -2197,6 +2242,7 @@ export function buildDesign(cfg, cat){
           `Tower ${bi+1} on the ${run.wall} wall: ${MODULES[s.m].label.toLowerCase()} needs ${MODULES[s.m].minH}" and only ${s.H.toFixed(0)}" is left after everything else in that section. Take something out, make the tower taller, or pick a part that fits.`);
         const mark = parts.length;
         MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull, capped,
+                              styled: cfg.styled !== false,
                               midAt: (mods.length === 1 ? soloMid : null),
                               boxStyle: cfg.boxStyle || DEFAULT_BOX_STYLE,
                               basketFinish: BASKET_FINISH[cfg.pullFinish] || 'Chrome',

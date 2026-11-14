@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=95c7ee44';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=959d3070';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=95c7ee44';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=959d3070';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=95c7ee44';
+         clothMaterials, clearCaches } from './materials.js?v=959d3070';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -135,6 +135,10 @@ const S = {
   finish: cat.finishes.find(f=>f.x>=0)?.n || cat.finishes[0].n,
   frontFinish:null, pull:'bar4', pullFinish:'nickel',
   runs:{}, sel:null, spin:false, evening:false,
+  /* clothes, folded stacks and shoes in the drawing. On by default: an
+     empty closet does not say what any of it is for. The toolbar turns
+     it off, which is what a fitter checking a measurement wants. */
+  styled:true,
   door:'none',
   /* How wide the opening is. Nothing is built from it, so it does not touch
      the engine; it travels with the enquiry because the crew needs to know
@@ -575,7 +579,7 @@ function cfg(){
   return { room:S.room, mounting:S.mounting, cabTop:S.cabTop, finish:S.finish,
            frontFinish:S.frontFinish||S.finish, pull:S.pull, pullFinish:S.pullFinish,
            door:S.door, doorW:S.doorW, base:S.base, backs:S.backs, corner:'wall-to-wall',
-           fittings:S.fittings.filter(f=>f.placed), runs };
+           fittings:S.fittings.filter(f=>f.placed), runs, styled:S.styled !== false };
 }
 
 /* ───────── scene ───────── */
@@ -611,6 +615,11 @@ let PULLMAT=hardwareMaterial();
    material for every appliance body so the pair reads as a pair. */
 const APPLIANCE = new THREE.MeshStandardMaterial({
   color:0xE6E7E6, roughness:0.38, metalness:0.12, envMapIntensity:0.9 });
+/* Shoes on a shelf. Dark and slightly sheened, so a pair reads as a pair
+   rather than as two more blocks of melamine. */
+const SHOEMAT = [0x3A3630, 0x55504A, 0x2B2A2A, 0x7A6F60]
+  .map(c => new THREE.MeshStandardMaterial({ color:c, roughness:0.52, metalness:0,
+                                             envMapIntensity:0.8 }));
 let composer=null, ao=null;
 
 /* declared before resize() touches it — a `let` below its first use is a
@@ -1170,6 +1179,7 @@ function drawCloset(res){
     const [sx,sy,sz]=g.s.map(v=>Math.max(0.1,v));
     let mat;
     if(g.prop && g.m==='pullmat') mat=APPLIANCE;
+    else if(g.m==='shoe') mat=SHOEMAT[(Math.abs(Math.round(g.p[0]*3+g.p[1]))|0)%SHOEMAT.length];
     else if(g.m==='metal') mat=HW;
     else if(g.m==='pullmat') mat=PULLMAT;
     else if(g.m==='glass') mat=GLASS;
@@ -3708,7 +3718,11 @@ $('#scene').onclick=e=>{const b=e.target.closest('button');if(!b)return;const a=
   if(a==='reset') frame();
   if(a==='evening'){S.evening=!S.evening;b.setAttribute('aria-pressed',S.evening);
     scene.environmentIntensity=S.evening?.34:1; key.intensity=S.evening?.55:1.25;
-    key.color.setHex(S.evening?0xffd9a8:0xfffdfa)}};
+    key.color.setHex(S.evening?0xffd9a8:0xfffdfa)}
+  /* Clothes, folded stacks and shoes off, so the cabinetry can be read
+     and a measurement checked against nothing but panels. */
+  if(a==='styled'){S.styled=!S.styled;b.setAttribute('aria-pressed',String(!S.styled));
+    rebuild(false);}};
 /* the ResizeObserver above covers this now */
 /* ══════════════════════════════════════════════════════════════════════
    THE OPENING QUESTION
@@ -3975,7 +3989,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=95c7ee44');
+  if(!DRAW) DRAW = await import('./drawing.js?v=959d3070');
   return DRAW;
 }
 
@@ -4419,7 +4433,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=95c7ee44');
+    const { downloadPdf } = await import('./drawing.js?v=959d3070');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -4442,7 +4456,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=95c7ee44');
+    const { downloadPdf } = await import('./drawing.js?v=959d3070');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
