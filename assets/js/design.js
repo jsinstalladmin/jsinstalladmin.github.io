@@ -1403,6 +1403,71 @@ export const PRESETS = [
     stack:[{m:'GLASS_DOOR',h:null,o:{}}] },
 ];
 
+/* ══════════════════════════════════════════════════════════════════════
+   READY-MADE TOWERS
+
+   PRESETS above are single PIECES: one rod, one bank of drawers. A tower
+   is almost never one piece, so building a closet out of them means
+   placing a tower, then stacking it, then doing it again for every tower
+   on the wall.
+
+   These are whole towers, the way a closet company's own software offers
+   them: pick the tower on the wall, pick the one you want from a grid of
+   little drawings, done. Every one is built from the same modules, obeys
+   the same rules, and can be taken apart piece by piece afterwards.
+   ══════════════════════════════════════════════════════════════════════ */
+const d = (...h) => ({ m:'DRAWERS', h:null, o:{ sizes:h } });
+export const TOWER_PRESETS = [
+  { id:'long-hang',    label:'Long hang',        group:'Hanging',
+    stack:[m('HANG')] },
+  { id:'double-hang',  label:'Double hang',      group:'Hanging',
+    stack:[m('HANG',40), m('HANG')] },
+  { id:'hang-shelves', label:'Hang over shelves',group:'Hanging',
+    stack:[m('SHELVES',null,{n:3}), m('HANG',44)] },
+  { id:'hang-shoes',   label:'Hang over shoes',  group:'Hanging',
+    stack:[m('SHOES',32), m('HANG',44)] },
+
+  { id:'shelves-4',    label:'4 shelves',        group:'Shelving',
+    stack:[m('SHELVES',null,{n:4})] },
+  { id:'shelves-6',    label:'6 shelves',        group:'Shelving',
+    stack:[m('SHELVES',null,{n:6})] },
+  { id:'shelves-8',    label:'8 shelves',        group:'Shelving',
+    stack:[m('SHELVES',null,{n:8})] },
+  { id:'cubbies',      label:'Cubbies',          group:'Shelving',
+    stack:[m('CUBBIES',null,{n:4})] },
+
+  { id:'drawers-4',    label:'4 drawers, hang',  group:'Drawers',
+    stack:[d(7.5,7.5,7.5,7.5), m('HANG')] },
+  { id:'drawers-3-10', label:'3 deep drawers, hang', group:'Drawers',
+    stack:[d(10,10,10), m('HANG')] },
+  { id:'drawers-shelves', label:'4 drawers, shelves', group:'Drawers',
+    stack:[d(7.5,7.5,7.5,7.5), m('SHELVES',null,{n:3})] },
+  { id:'drawers-6',    label:'6 drawers',        group:'Drawers',
+    stack:[d(7.5,7.5,7.5,7.5,7.5,7.5), m('SHELVES',null,{n:2})] },
+
+  { id:'shoes',        label:'Shoe shelves',     group:'Shoes',
+    stack:[m('SHOES')] },
+  { id:'shoes-slant',  label:'Slanted shoe',     group:'Shoes',
+    stack:[m('SHOE_SLANT')] },
+  { id:'shoes-hang',   label:'Slanted shoe, hang', group:'Shoes',
+    stack:[m('SHOE_SLANT',40), m('HANG')] },
+
+  { id:'hamper-hang',  label:'Hamper, hang',     group:'Pull-outs',
+    stack:[m('HAMPER',28), m('HANG')] },
+  { id:'baskets-hang', label:'Baskets, hang',    group:'Pull-outs',
+    stack:[m('BASKETS',30), m('HANG')] },
+  { id:'pullout-shelves', label:'Pull-outs, shelves', group:'Pull-outs',
+    stack:[m('PULLOUT',34), m('SHELVES',null,{n:3})] },
+
+  { id:'closed-door',  label:'Closed door',      group:'Fronts',
+    stack:[m('DOOR')] },
+  { id:'glass-door',   label:'Glass door',       group:'Fronts',
+    stack:[m('GLASS_DOOR')] },
+  { id:'open',         label:'Leave it open',    group:'Fronts',
+    stack:[m('OPEN')] },
+];
+export const TOWER_GROUPS = ['Hanging','Shelving','Drawers','Shoes','Pull-outs','Fronts'];
+
 /* The ten combination ids the old layout pages linked with. Each one points
    at the piece that page was really about, so an old link still opens
    something sensible instead of an empty room. */

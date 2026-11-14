@@ -1773,3 +1773,35 @@ body:has(.gate:not([hidden])){overflow:hidden}
 .v2dwalls button[data-flatback]{border-color:var(--ink);color:var(--ink)}
 /* dragging a tower must not select the figures printed next to it */
 .v2dcanvas svg{user-select:none;-webkit-user-select:none}
+
+
+/* ════════ Ready-made towers ════════
+   A grid of whole towers drawn as thin elevations, the first thing under a
+   selected tower. Picking a closet by pointing at a picture of it is how
+   anybody who has used a closet configurator expects this to work; picking
+   one module at a time is how a joiner thinks. Both are here, this first. */
+.twpick{margin:0 0 18px;padding:14px 14px 10px;border:1px solid var(--line-2);
+  border-radius:14px;background:var(--paper)}
+.twhd{display:flex;flex-direction:column;gap:.15em;margin-bottom:.85em}
+.twhd b{font-size:.95rem;color:var(--ink)}
+.twhd span{font-size:.76rem;color:var(--muted);line-height:1.4}
+.twgrp + .twgrp{margin-top:.9em}
+.twgrp h6{margin:0 0 .5em;font-size:.65rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);font-weight:600}
+.twrow{display:grid;gap:7px;grid-template-columns:repeat(auto-fill,minmax(78px,1fr))}
+.twcard{display:flex;flex-direction:column;align-items:center;gap:.35em;
+  padding:8px 5px 7px;border:1px solid var(--line-2);border-radius:10px;
+  background:var(--paper);cursor:pointer;font:inherit;color:var(--ink);
+  transition:border-color .14s, background .14s}
+.twcard:hover{border-color:var(--ink)}
+.twcard:focus-visible{outline:2px solid var(--accent,#A8824C);outline-offset:2px}
+.twcard.on{border-color:var(--ink);background:color-mix(in srgb, var(--ink) 6%, transparent)}
+.twcard span{font-size:.62rem;line-height:1.2;text-align:center;color:var(--muted);
+  letter-spacing:.01em}
+.twcard.on span{color:var(--ink)}
+.twthumb{width:100%;max-width:46px;height:auto;color:var(--ink);opacity:.78}
+.twcard.on .twthumb{opacity:1}
+@media(max-width:560px){
+  .twrow{grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:6px}
+  .twthumb{max-width:40px}
+}

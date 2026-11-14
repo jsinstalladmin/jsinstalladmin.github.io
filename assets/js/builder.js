@@ -20,7 +20,7 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop } from './design.js';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
          panelGeo, garmentGeo, makeComposer } from './render.js';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
@@ -493,6 +493,14 @@ function cfg(){
 const canvas=$('#c3d');
 const renderer=makeRenderer(canvas);
 const scene=new THREE.Scene();
+/* THE ROOM HAS TO READ AS A ROOM.
+   Walls at 0xE4E4E3 and a baseboard at pure white, on a cream page, over a
+   cream canvas background: an empty room came out at a mean brightness of
+   228 out of 255 and was, on a real screen, invisible. People reported the
+   3D as broken when it was rendering perfectly. The surround is a definite
+   tone darker than anything in the room now, so the room sits on it as an
+   object rather than dissolving into it. */
+scene.background = new THREE.Color(0xDCD8D2);
 const cam=new THREE.PerspectiveCamera(40,1,20,1500);
 const ctl=new OrbitControls(cam,canvas);
 ctl.enableDamping=true; ctl.dampingFactor=.075;
@@ -908,8 +916,11 @@ function drawRoom(){
      the 360 work: orbit round the back and the near wall simply is not drawn,
      so you look straight through it at the back of the closet instead of at a
      flat grey panel. Double-sided walls were boxing the camera in. */
+  /* Paint, not paper: a hair warmer and a shade down from the old near
+     white, so the wall separates from the surround and the baseboard
+     separates from the wall. */
   const wallMat = () => new THREE.MeshStandardMaterial({
-    map: T.wall, color: 0xE4E4E3, roughness: .95, metalness: 0,
+    map: T.wall, color: 0xDBD7D1, roughness: .95, metalness: 0,
     envMapIntensity: .45, side: THREE.FrontSide });
 
   const plane = (w, h, px, py, pz, rx, ry, mat) => {
@@ -1318,6 +1329,15 @@ function view(step){
       /* Layout. With a tower selected, go in on it. With nothing selected
          yet, show the wall straight on so the widths read true. */
       if(!S.sel || !cur?.bays?.length){
+        /* With nothing in the room this fitted the back wall almost
+           exactly, so step two opened on a flat rectangle of paint: the
+           same shot a broken renderer gives. An empty room gets the room
+           shot, both returns and the floor in frame, and only once there
+           is something on the wall is the wall worth filling. */
+        if(!cur?.bays?.length){
+          const r = fitDist(H * 1.5, (W + D * 0.5) * 1.02);
+          return { t:[W/2, H*0.44, D*0.28], p:[W/2 + W*0.06, H*0.60, D*0.28 + r] };
+        }
         const d = fitDist(H * 1.12, (W + 10) * 1.02);
         return { t:[W/2, H*0.46, 0], p:[W/2, H*0.48, d] };
       }
@@ -1404,12 +1424,15 @@ function view(step){
                   c[2] + r*Math.cos(el)*Math.cos(az)] };
     }
     default: {             // 1 and 6: the whole room
-      /* The room used to be drawn with 46" of padding on each side, so the
-         framing had to allow for scenery that is no longer there. Fitting the
-         real room leaves it swimming in empty canvas, so the margins came in
-         with it. */
-      const dist = fitDist(H * 1.14, (W + 14) * 1.02);
-      return { t:[W/2, H*0.46, D*0.30], p:[W/2 + W*0.04, H*0.54, D*0.30 + dist] };
+      /* THE OPENING SHOT HAS TO READ AS A ROOM.
+         This fitted the back wall almost exactly, so an empty closet opened
+         on a flat rectangle of paint with a sliver of floor: correct, and
+         indistinguishable from a broken renderer. Fitting half again on the
+         height and a share of the depth on the width brings both returns,
+         the floor and the ceiling line into frame, so you can see at a
+         glance that you are standing in a room with nothing in it. */
+      const dist = fitDist(H * 1.5, (W + D * 0.5) * 1.02);
+      return { t:[W/2, H*0.44, D*0.28], p:[W/2 + W*0.06, H*0.60, D*0.28 + dist] };
     }
   }
 }
@@ -1478,7 +1501,7 @@ function rebuild(reframe){
        photograph of an empty room with a closet in it. */
     window.__bare = on => {
       shell.visible = !on;
-      scene.background = new THREE.Color(on ? 0xFFFFFF : 0xEDEDEC);
+      scene.background = new THREE.Color(on ? 0xFFFFFF : 0xDCD8D2);
       needsFrame = true;
     };
     /* And the two handles a frame grabber needs: put a whole design in, and
@@ -2054,6 +2077,98 @@ window.__artGone = n => ART_GONE.add(n);
    rather than being repeated in all of them. */
 let PICK_FOR = null;
 
+/* ══════════════════════════════════════════════════════════════════════
+   READY-MADE TOWERS, AS LITTLE DRAWINGS
+
+   Building a closet one piece at a time is how a joiner thinks, not how a
+   customer does. A customer looks at a wall, points at a tower and says
+   "that one, with drawers". So the first thing under a selected tower is
+   a grid of whole towers drawn as thin line elevations: press one and
+   that is what the tower becomes. Everything underneath still takes it
+   apart piece by piece for anybody who wants to.
+
+   The drawing is generated from the stack itself, not drawn by hand, so a
+   tower added to the list cannot end up with the wrong picture. */
+function towerThumb(stack, usable = 80){
+  const W = 44, H = 74, PAD = 3, TK = 3;
+  const inner = H - PAD * 2 - TK;
+  /* resolve the heights the way the engine does: fixed ones keep theirs,
+     the open-ended one takes what is left */
+  let fixed = 0, fillers = 0;
+  const hs = stack.map(st => {
+    if(st.m === 'DRAWERS'){
+      const sizes = st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n);
+      const h = drawerBankHeight(sizes); fixed += h; return { st, h, sizes };
+    }
+    if(st.h != null){ fixed += st.h; return { st, h:st.h }; }
+    fillers++; return { st, h:null };
+  });
+  const left = Math.max(8, usable - fixed);
+  for(const r of hs) if(r.h == null) r.h = left / Math.max(1, fillers);
+  const total = hs.reduce((a, r) => a + r.h, 0) || 1;
+
+  let y = H - PAD - TK, out = '';
+  const ln = (x1, yy, x2, w = 1) => `<path d="M${x1} ${yy.toFixed(1)}H${x2}" stroke-width="${w}"/>`;
+  for(const r of hs){
+    const h = (r.h / total) * inner, y0 = y - h;
+    const m = r.st.m;
+    if(m === 'HANG'){
+      out += ln(PAD + 4, y0 + 5, W - PAD - 4, 1.4);                    // the rod
+      for(let i = 0; i < 4; i++)
+        out += `<path d="M${PAD + 8 + i * 7} ${(y0 + 6).toFixed(1)}v${Math.max(4, h * .45).toFixed(1)}" stroke-width=".8"/>`;
+    } else if(m === 'SHELVES' || m === 'SHOES' || m === 'PULLOUT'){
+      const n = m === 'SHOES' ? Math.max(3, Math.round(h / 7)) : (r.st.o?.n || 4);
+      for(let i = 1; i <= n; i++) out += ln(PAD + 2, y0 + (h / n) * i, W - PAD - 2, m === 'PULLOUT' ? 1.3 : .9);
+    } else if(m === 'SHOE_SLANT'){
+      const n = Math.max(3, Math.round(h / 7));
+      for(let i = 1; i <= n; i++){ const yy = y0 + (h / n) * i;
+        out += `<path d="M${PAD + 2} ${yy.toFixed(1)}L${W - PAD - 2} ${(yy - 2.4).toFixed(1)}" stroke-width=".9"/>`; }
+    } else if(m === 'DRAWERS'){
+      const sizes = r.sizes || [], sum = sizes.reduce((a, b) => a + b, 0) || 1;
+      let yy = y;
+      for(const sz of sizes){ const dh = (sz / sum) * h; yy -= dh;
+        out += `<rect x="${PAD + 2}" y="${yy.toFixed(1)}" width="${W - PAD * 2 - 4}" height="${Math.max(2, dh - .8).toFixed(1)}" stroke-width=".9" fill="none"/>`
+             + ln(PAD + 13, yy + dh / 2, W - PAD - 13, .9); }
+    } else if(m === 'BASKETS'){
+      const n = r.st.o?.n || 3;
+      for(let i = 0; i < n; i++){ const bh = h / n, yy = y - bh * (i + 1);
+        out += `<rect x="${PAD + 3}" y="${(yy + 1).toFixed(1)}" width="${W - PAD * 2 - 6}" height="${Math.max(2, bh - 2.4).toFixed(1)}" stroke-width=".7" stroke-dasharray="1.6 1.4" fill="none"/>`; }
+    } else if(m === 'HAMPER'){
+      out += `<path d="M${PAD + 2} ${y.toFixed(1)}L${PAD + 5} ${y0.toFixed(1)}H${W - PAD - 5}L${W - PAD - 2} ${y.toFixed(1)}Z" stroke-width=".9" fill="none"/>`;
+    } else if(m === 'CUBBIES'){
+      const n = r.st.o?.n || 4;
+      for(let i = 1; i < n; i++) out += ln(PAD + 2, y0 + (h / n) * i, W - PAD - 2, .8);
+      out += `<path d="M${W / 2} ${y0.toFixed(1)}V${y.toFixed(1)}" stroke-width=".8"/>`;
+    } else if(m === 'DOOR' || m === 'GLASS_DOOR'){
+      out += `<rect x="${PAD + 1.5}" y="${y0.toFixed(1)}" width="${W - PAD * 2 - 3}" height="${h.toFixed(1)}" stroke-width="1"
+               ${m === 'GLASS_DOOR' ? 'stroke-dasharray="2.4 2"' : ''} fill="none"/>`
+           + `<path d="M${W - PAD - 7} ${(y0 + h / 2 - 3).toFixed(1)}v6" stroke-width="1.4"/>`;
+    }
+    y = y0;
+  }
+  return `<svg class="twthumb" viewBox="0 0 ${W} ${H}" aria-hidden="true" fill="none"
+    stroke="currentColor" stroke-linecap="round">
+    <rect x="${PAD}" y="${PAD}" width="${W - PAD * 2}" height="${H - PAD * 2}" stroke-width="1.2"/>
+    <path d="M${PAD} ${H - PAD - TK}H${W - PAD}" stroke-width="1.2"/>
+    ${out}</svg>`;
+}
+
+/* The grid, grouped the way somebody shops for one. */
+function towerGrid(bay, usable){
+  const now = JSON.stringify((bay.stack || []).map(x => [x.m, x.h, x.o?.n, x.o?.sizes]));
+  const same = p => JSON.stringify(p.stack.map(x => [x.m, x.h, x.o?.n, x.o?.sizes])) === now;
+  const groups = TOWER_GROUPS.map(g => {
+    const items = TOWER_PRESETS.filter(p => p.group === g);
+    if(!items.length) return '';
+    return `<div class="twgrp"><h6>${g}</h6><div class="twrow">${items.map(p => `
+      <button type="button" class="twcard${same(p) ? ' on' : ''}" data-tower="${p.id}"
+              title="${p.label}">${towerThumb(p.stack, usable)}<span>${p.label}</span></button>`).join('')}</div></div>`;
+  }).join('');
+  return `<div class="twpick">
+    <div class="twhd"><b>Ready-made towers</b><span>Press one and this tower becomes it</span></div>
+    ${groups}</div>`;
+}
+
 function paintStack(){
   const box = $('#stack');
   if(S.pick && PICK_FOR !== (S.sel ? S.sel.wall + '|' + S.sel.i : null)){
@@ -2229,7 +2344,7 @@ function paintStack(){
       ${chk.ok ? '' : `<u class="full">${/corner/.test(chk.why) ? 'Not in a corner' : 'No room'}</u>`}</button>`;
   }).join('');
 
-  box.innerHTML = `
+  box.innerHTML = towerGrid(bay, usable) + `
     <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · tower ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
       <span class="selacts">
         <span class="wadj"><button data-bw="-2" title="Narrower">−</button><i>${bay.w.toFixed(0)}" wide</i><button data-bw="2" title="Wider">+</button></span>
@@ -2806,6 +2921,12 @@ $('#stack').addEventListener('change', e => {
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;
+  /* a ready-made tower replaces the whole stack in one press */
+  if(t.dataset.tower){
+    const p = TOWER_PRESETS.find(x => x.id === t.dataset.tower);
+    if(p){ bay.stack = structuredClone(p.stack); S.pick = null; rebuild(true); }
+    return;
+  }
   /* "Remove last" was the only way to delete a tower, so getting rid of the
      second of four meant deleting three. This removes the selected one. */
   if(t.dataset.rmsec){
