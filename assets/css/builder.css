@@ -3,7 +3,9 @@
   border-top:1px solid var(--line);margin-top:68px}
 @media(max-width:1060px){.bwrap{grid-template-columns:1fr}}
 
-.bstage{position:relative;background:linear-gradient(170deg,var(--paper-2),var(--paper-3));
+/* The stage matches the 3D surround, so the canvas does not sit on a
+   pale rectangle inside a darker one with a seam between them. */
+.bstage{position:relative;background:#9C968E;
   min-height:64svh;overflow:hidden}
 @media(max-width:1060px){.bstage{min-height:54svh}}
 .bstage canvas{width:100%;height:100%;display:block;cursor:grab}

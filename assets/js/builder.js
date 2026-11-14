@@ -495,12 +495,14 @@ const renderer=makeRenderer(canvas);
 const scene=new THREE.Scene();
 /* THE ROOM HAS TO READ AS A ROOM.
    Walls at 0xE4E4E3 and a baseboard at pure white, on a cream page, over a
-   cream canvas background: an empty room came out at a mean brightness of
-   228 out of 255 and was, on a real screen, invisible. People reported the
-   3D as broken when it was rendering perfectly. The surround is a definite
-   tone darker than anything in the room now, so the room sits on it as an
-   object rather than dissolving into it. */
-scene.background = new THREE.Color(0xDCD8D2);
+   cream canvas background: an empty room came back at a mean brightness of
+   228 out of 255, and on a real screen that is nothing at all. It was
+   reported as a broken renderer three times while rendering perfectly.
+   Nudging it to 0xDCD8D2 took the mean to 210, which was still inside the
+   page's own tone. The surround is now decisively darker than any surface
+   in the room, the way every configurator that works does it, so the room
+   is an object sitting on a backdrop and not a pale shape on pale paper. */
+scene.background = new THREE.Color(0x9C968E);
 const cam=new THREE.PerspectiveCamera(40,1,20,1500);
 const ctl=new OrbitControls(cam,canvas);
 ctl.enableDamping=true; ctl.dampingFactor=.075;
@@ -916,11 +918,16 @@ function drawRoom(){
      the 360 work: orbit round the back and the near wall simply is not drawn,
      so you look straight through it at the back of the closet instead of at a
      flat grey panel. Double-sided walls were boxing the camera in. */
-  /* Paint, not paper: a hair warmer and a shade down from the old near
-     white, so the wall separates from the surround and the baseboard
-     separates from the wall. */
+  /* PAINT, NOT PAPER.
+     The walls were 0xE4E4E3 and the baseboard pure white, which on a cream
+     page gave an empty room a mean brightness of 228 out of 255: a correct
+     render of a room nobody could see. Darkening the surround alone did
+     almost nothing, because the room fills the canvas and the surround is
+     a sliver at the corners. It is the walls themselves that had to come
+     down. At this tone the back wall, the returns, the baseboard and the
+     floor all separate from each other and from the page. */
   const wallMat = () => new THREE.MeshStandardMaterial({
-    map: T.wall, color: 0xDBD7D1, roughness: .95, metalness: 0,
+    map: T.wall, color: 0xC3BDB4, roughness: .95, metalness: 0,
     envMapIntensity: .45, side: THREE.FrontSide });
 
   const plane = (w, h, px, py, pz, rx, ry, mat) => {
@@ -1501,7 +1508,7 @@ function rebuild(reframe){
        photograph of an empty room with a closet in it. */
     window.__bare = on => {
       shell.visible = !on;
-      scene.background = new THREE.Color(on ? 0xFFFFFF : 0xDCD8D2);
+      scene.background = new THREE.Color(on ? 0xFFFFFF : 0x9C968E);
       needsFrame = true;
     };
     /* And the two handles a frame grabber needs: put a whole design in, and
