@@ -52,7 +52,7 @@ fs.mkdirSync(path.join(OUT, 'parts'), { recursive: true });
 
 const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
 const ids = ONLY ? [ONLY] : Object.keys(PART_KEY);
-const done = [];
+const done = [], failed = [];
 
 for (const id of ids) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 1000 }, deviceScaleFactor: 2 });
@@ -85,7 +85,9 @@ for (const id of ids) {
     await new Promise(r => setTimeout(r, 1100));
     return window.__shot(true);
   });
-  if (errs.length) throw new Error(`${id}: ${errs.join(' | ')}`);
+  /* A page error is worth knowing about but not worth losing the other
+     eleven renders over, so it is held and reported at the end. */
+  if (errs.length) failed.push(`${id}: ${errs.join(' | ')}`);
 
   const raw = path.join(OUT, id + '.png');
   fs.writeFileSync(raw, Buffer.from(shot.split(',')[1], 'base64'));
@@ -120,4 +122,9 @@ if (WRITE) {
   console.log(`\n  ${done.length} pieces written into img/nav/ and img/parts/`);
 } else {
   console.log(`\n  ${done.length} pieces in ${OUT}. Look at them, then run again with --write.`);
+}
+if (failed.length) {
+  console.error('\n  page errors, the pictures above were still written:');
+  for (const f of failed) console.error('    ' + f);
+  process.exitCode = 1;
 }
