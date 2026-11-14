@@ -132,12 +132,17 @@
 
 /* sticky footer total */
 .pfoot{border-top:1px solid var(--line);background:var(--ink);color:var(--paper);
-  padding:clamp(14px,1.8vw,20px) clamp(16px,2vw,24px)}
+  padding:clamp(11px,1.3vw,15px) clamp(14px,1.7vw,20px)}
 .plabel{font-size:.66rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(248,245,240,.5)}
-#price{font-family:'Archivo',system-ui,sans-serif;font-weight:600;font-size:2.3rem;
-  line-height:1.02;letter-spacing:-.03em;color:var(--paper);font-variant-numeric:tabular-nums}
-#priceSub{display:block;font-size:.75rem;color:rgba(248,245,240,.58);margin-top:.3em}
-.pacts{display:flex;gap:.5em;margin-top:1em;flex-wrap:wrap}
+/* THE FOOTER IS A STATUS LINE, NOT A BILLBOARD.
+   "Price back within 24 hours" at 2.3rem wrapped onto three lines and took
+   a fifth of the panel, pushing the thing people are actually working on
+   off the screen. It says the same thing at a size that belongs on a
+   control panel. */
+#price{font-family:'Archivo',system-ui,sans-serif;font-weight:600;font-size:1.02rem;
+  line-height:1.25;letter-spacing:-.01em;color:var(--paper);font-variant-numeric:tabular-nums}
+#priceSub{display:block;font-size:.72rem;color:rgba(248,245,240,.58);margin-top:.2em}
+.pacts{display:flex;gap:.45em;margin-top:.7em;flex-wrap:wrap}
 .pfoot .btn-ghost{border-color:rgba(248,245,240,.28);color:var(--paper)}
 .pfoot .btn-ghost:hover{background:var(--paper);color:var(--ink);border-color:var(--paper)}
 

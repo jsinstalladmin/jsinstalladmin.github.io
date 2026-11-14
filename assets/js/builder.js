@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=39ee1de6';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=19035fa4';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer } from './render.js?v=39ee1de6';
+         panelGeo, garmentGeo, makeComposer } from './render.js?v=19035fa4';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=39ee1de6';
+         clothMaterials, clearCaches } from './materials.js?v=19035fa4';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -1913,11 +1913,13 @@ function paintBays(){
     const len  = wallLength(wall);
     const used = r.bays.reduce((a,b)=>a+b.w,0);
     const left = len - used;
-    /* One wall is open at a time: the one being worked on. The others fold to
-       a single line so you can jump between them without scrolling past
-       everything on the first. A wall with nothing on it stays open, because
-       there is nothing to fold. */
-    const open = (S.sel?.wall === wall) || walls.length === 1 || !r.bays.length;
+    /* ONE WALL OPEN AT A TIME, ALWAYS.
+       An empty wall used to stay open "because there is nothing to fold",
+       which meant a fresh three-wall room opened with all three unfolded,
+       three sets of widths and depths on screen, and no clue which one you
+       were supposed to start on. The back wall is open, the others are a
+       line you press. */
+    const open = (S.sel?.wall || 'back') === wall || walls.length === 1;
     const d=document.createElement('div');
     d.className='runblk' + (open ? '' : ' folded');
     d.dataset.wall=wall;
@@ -2377,16 +2379,17 @@ function paintStack(){
     </div>`;
   };
 
-  /* one half of the tower */
+  /* ONE PART OF THE TOWER.
+     There used to be two empty cards here, "Nothing at the top yet" and
+     "Nothing underneath yet", and the way to fill a tower was to decide
+     which HALF you were filling before you knew what you wanted in it.
+     Nobody thinks about a closet in halves. The ready-made grid above
+     fills the whole tower in one press; these cards are what the tower
+     turned out to be, and each one can be changed on its own. An empty
+     half is not a card any more, it is just nothing. */
   const half = (slot, st) => {
     const open = pick === slot;
-    if(!st) return `<button class="slotcard empty ${open?'on':''}" type="button" data-pickslot="${slot}">
-      <span class="sico"><svg viewBox="0 0 24 32"><path d="M2 7h20M4 7v3M20 7v3"/></svg></span>
-      <span class="sname"><b>${slot === 'top' ? 'Nothing at the top yet' : 'Nothing underneath yet'}</b>
-        <i>${slot === 'top'
-            ? 'Pick what fills the tower'
-            : 'Optional. Drawers, a hamper, baskets, shoes or shelving'}</i></span>
-      <span class="slotgo">${slot === 'top' ? 'Choose' : 'Add'}</span></button>`;
+    if(!st) return '';
     const d = MODULES[st.m];
     const isDrawers = !!d.sizes;
     const hText = isDrawers
@@ -3116,6 +3119,35 @@ $('#stack').onclick=e=>{
         if(rightRoom + leftRoom >= delta - 0.01){
           bay.at = +(at - (delta - rightRoom)).toFixed(1);
           bay.w = next;
+        } else {
+          /* THE WALL IS FULL, SO TAKE IT OFF A NEIGHBOUR.
+             Pressing + on a wall with no bare wall left did nothing at all,
+             silently, which reads as a broken button. On a full wall the
+             inches have to come from somewhere, so they come from the tower
+             next door, the right one first and then the left, and only as
+             far as each can give without going under the narrowest tower he
+             builds. Everything after it slides along to close the gap. */
+          const bays = r.bays;
+          let need = delta - rightRoom - leftRoom;
+          const give = j => {
+            if(need <= 0.01 || !bays[j]) return;
+            const can = Math.min(need, bays[j].w - SPEC.bayMin);
+            if(can <= 0.01) return;
+            bays[j].w = +(bays[j].w - can).toFixed(1);
+            need = +(need - can).toFixed(2);
+          };
+          give(i + 1); give(i - 1);
+          for(let k = i + 2; need > 0.01 && k < bays.length; k++) give(k);
+          for(let k = i - 2; need > 0.01 && k >= 0; k--) give(k);
+          if(need <= 0.01){
+            bay.at = +Math.max(lo, at - Math.max(0, delta - rightRoom)).toFixed(1);
+            bay.w = next;
+            /* re-lay the run from the start so no tower overlaps another */
+            let run = 0;
+            for(const bb of [...bays].sort((x, y) => (x.at ?? 0) - (y.at ?? 0))){
+              bb.at = +run.toFixed(1); run += bb.w;
+            }
+          }
         }
       }
     }
@@ -3470,7 +3502,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=39ee1de6');
+  if(!DRAW) DRAW = await import('./drawing.js?v=19035fa4');
   return DRAW;
 }
 
@@ -3832,7 +3864,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=39ee1de6');
+    const { downloadPdf } = await import('./drawing.js?v=19035fa4');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -3855,7 +3887,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=39ee1de6');
+    const { downloadPdf } = await import('./drawing.js?v=19035fa4');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
