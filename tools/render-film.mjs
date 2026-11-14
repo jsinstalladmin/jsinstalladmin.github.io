@@ -33,11 +33,15 @@ const chromium = pw.chromium || pw.default.chromium;
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const argv = process.argv.slice(2);
 const arg  = (k, d) => { const i = argv.indexOf(k); return i < 0 ? d : argv[i + 1]; };
 const PORT = +arg('--port', 8777);
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+/* fileURLToPath, not url.pathname: a path with a space in it comes back
+   percent encoded, so on a drive called "Site Builder" every path handed
+   to ffmpeg had %20 in it and ffmpeg could not find a single frame. */
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT  = path.join(ROOT, '.film-frames');
 const W = 1600, H = 900, FPS = 25, PER_STAGE = 20;
 
