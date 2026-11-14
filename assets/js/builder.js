@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=d55b93d0';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=39ee1de6';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer } from './render.js?v=d55b93d0';
+         panelGeo, garmentGeo, makeComposer } from './render.js?v=39ee1de6';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=d55b93d0';
+         clothMaterials, clearCaches } from './materials.js?v=39ee1de6';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -2085,6 +2085,116 @@ window.__artGone = n => ART_GONE.add(n);
 let PICK_FOR = null;
 
 /* ══════════════════════════════════════════════════════════════════════
+   BUILD IT FOR ME
+
+   Nobody wants to place eight towers one at a time to find out what their
+   room can hold. Say roughly how much hanging, how many shoes and how many
+   drawers, press the button, and every wall being built on fills with whole
+   towers in sensible widths.
+
+   Nothing happens until the button is pressed. A closet that builds itself
+   the moment somebody arrives is not their closet, and on a walk-in it
+   packs the room so tightly the camera opens inside a panel.
+   ══════════════════════════════════════════════════════════════════════ */
+const MIX_LEVELS = ['None', 'A little', 'Some', 'Lots'];
+const MIX = [
+  { k:'hang',  label:'Hanging',  v:2, note:'Rods for shirts, coats and dresses' },
+  { k:'shoe',  label:'Shoes',    v:1, note:'Flat or slanted shoe shelving' },
+  { k:'draw',  label:'Drawers',  v:1, note:'Banks of soft close drawers' },
+];
+/* which ready-made tower answers each appetite, best first */
+const MIX_PICK = {
+  hang : ['double-hang','long-hang','hang-shelves','hang-shoes'],
+  shoe : ['shoes-hang','shoes-slant','shoes'],
+  draw : ['drawers-4','drawers-shelves','drawers-3-10','drawers-6'],
+  rest : ['shelves-6','shelves-4','cubbies','shelves-8'],
+};
+
+function paintMix(){
+  const host = $('#mix'); if(!host) return;
+  host.innerHTML = MIX.map(m => `
+    <label class="mixrow" data-mix="${m.k}">
+      <span class="mixlbl">${m.label}<i>${m.note}</i></span>
+      <input type="range" min="0" max="3" step="1" value="${m.v}" aria-label="${m.label}">
+      <b>${MIX_LEVELS[m.v]}</b>
+    </label>`).join('');
+}
+
+/* Share the towers out in the ratio asked for, then lay them along the wall
+   in an order that looks like a closet: hanging at the ends where long
+   clothes want the height, drawers in the middle at waist height, shoes
+   next to them. */
+function buildForMe(){
+  const want = Object.fromEntries(MIX.map(m => [m.k, m.v]));
+  const walls = Object.keys(S.runs).filter(w => S.runs[w]?.on);
+  if(!walls.length) return;
+
+  for(const wall of walls){
+    const len = wallLength(wall);
+    const r = S.runs[wall];
+    r.bays = [];
+    if(len < SPEC.bayMin) continue;
+    /* the fewest towers that are all a width he builds */
+    let n = Math.max(1, Math.round(len / 30));
+    if(len / n > SPEC.bayMax) n = Math.ceil(len / SPEC.bayMax);
+    if(len / n < SPEC.bayMin) n = Math.max(1, Math.floor(len / SPEC.bayMin));
+    const w = +(len / n).toFixed(1);
+    if(w < SPEC.bayMin) continue;
+
+    /* how many of the n towers each appetite earns */
+    const total = want.hang + want.shoe + want.draw;
+    const share = k => total ? Math.round(n * want[k] / total) : 0;
+    let counts = { hang:share('hang'), shoe:share('shoe'), draw:share('draw') };
+    let used = counts.hang + counts.shoe + counts.draw;
+    /* whatever is left over is shelving, and if the shares overshot, the
+       biggest appetite gives one back */
+    while(used > n){ const big = ['hang','draw','shoe'].sort((a,b)=>counts[b]-counts[a])[0];
+      counts[big]--; used--; }
+    counts.rest = n - used;
+
+    /* ends first, then the middle, so a wall reads hanging | drawers | hanging */
+    const slots = new Array(n).fill(null);
+    const order = [];
+    for(let i = 0; i < n; i++) order.push(i % 2 ? n - 1 - ((i - 1) / 2 | 0) : (i / 2 | 0));
+    const queue = [];
+    for(let i = 0; i < counts.hang; i++) queue.push('hang');
+    for(let i = 0; i < counts.shoe; i++) queue.push('shoe');
+    for(let i = 0; i < counts.draw; i++) queue.push('draw');
+    for(let i = 0; i < counts.rest; i++) queue.push('rest');
+    /* hanging claims the ends, drawers the centre, everything else fills in */
+    const ends = order.slice(0, counts.hang);
+    const mid  = [];
+    for(let i = 0; i < n; i++) if(!ends.includes(i)) mid.push(i);
+    mid.sort((a, b) => Math.abs(a - (n - 1) / 2) - Math.abs(b - (n - 1) / 2));
+    const place = (idxs, kind, howMany) => {
+      let put = 0, seen = 0;
+      for(const i of idxs){ if(put >= howMany) break;
+        if(slots[i] != null) continue;
+        slots[i] = MIX_PICK[kind][seen++ % MIX_PICK[kind].length]; put++; }
+    };
+    place(ends, 'hang', counts.hang);
+    place(mid,  'draw', counts.draw);
+    place(mid,  'shoe', counts.shoe);
+    place(mid,  'rest', counts.rest);
+    for(let i = 0; i < n; i++) if(slots[i] == null) slots[i] = MIX_PICK.rest[0];
+
+    let at = 0;
+    for(let i = 0; i < n; i++){
+      const p = TOWER_PRESETS.find(x => x.id === slots[i]) || TOWER_PRESETS[0];
+      /* a front across a tower in the inside corner could never be opened */
+      const safe = (wall !== 'back' && i === 0 && /door/.test(p.id))
+        ? TOWER_PRESETS.find(x => x.id === 'shelves-6') : p;
+      const b = makeBay(w, structuredClone(safe.stack), true);
+      b.at = at; at += w;
+      r.bays.push(b);
+    }
+  }
+  S.sel = { wall:walls.find(w => S.runs[w].bays.length) || walls[0], i:0 };
+  rebuild(true);
+  if(typeof window.gotoStep === 'function') window.gotoStep('2');
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    READY-MADE TOWERS, AS LITTLE DRAWINGS
 
    Building a closet one piece at a time is how a joiner thinks, not how a
@@ -2925,6 +3035,19 @@ $('#stack').addEventListener('change', e => {
   rebuild(false);
 });
 
+paintMix();
+$('#mix')?.addEventListener('input', e => {
+  const row = e.target.closest('[data-mix]'); if(!row) return;
+  const m = MIX.find(x => x.k === row.dataset.mix); if(!m) return;
+  m.v = Math.max(0, Math.min(3, +e.target.value || 0));
+  const b = row.querySelector('b'); if(b) b.textContent = MIX_LEVELS[m.v];
+});
+$('#mixgo')?.addEventListener('click', buildForMe);
+$('#mixclear')?.addEventListener('click', () => {
+  for(const w of Object.keys(S.runs)) if(S.runs[w]) S.runs[w].bays = [];
+  S.sel = null; S.pick = null; rebuild(true);
+});
+
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;
@@ -3347,7 +3470,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=d55b93d0');
+  if(!DRAW) DRAW = await import('./drawing.js?v=39ee1de6');
   return DRAW;
 }
 
@@ -3709,7 +3832,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=d55b93d0');
+    const { downloadPdf } = await import('./drawing.js?v=39ee1de6');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -3732,7 +3855,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=d55b93d0');
+    const { downloadPdf } = await import('./drawing.js?v=39ee1de6');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -3760,7 +3883,7 @@ $('#dlOrder').onclick=()=>{
   setTimeout(()=>URL.revokeObjectURL(u),1500);
 };
 $('#breakdown').onclick=()=>{
-  if(window.gotoStep) window.gotoStep('5');
+  if(window.gotoStep) window.gotoStep('order');
   const el=$('#quotebox');
   if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
 };

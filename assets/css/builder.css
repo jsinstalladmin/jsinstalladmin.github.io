@@ -319,7 +319,8 @@
    corner. The previous pills wrapped onto two lines at panel width and gave
    no sense of progress. These sit on one row, the current one filled, the
    ones you have been through marked done. */
-.steptabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;
+/* three tabs, not five steps */
+.steptabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;
   padding:10px 10px 11px;border-bottom:1px solid var(--line);
   background:var(--paper);position:sticky;top:0;z-index:6}
 .steptabs button{position:relative;display:flex;flex-direction:column;align-items:center;
@@ -1807,3 +1808,18 @@ body:has(.gate:not([hidden])){overflow:hidden}
   .twrow{grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:6px}
   .twthumb{max-width:40px}
 }
+
+
+/* ════════ Build it for me ════════
+   Three appetites and a button. The slider is the control everybody already
+   knows for "roughly this much", and the word beside it says what the
+   number means so nobody has to guess what notch two is. */
+.mixrows{display:flex;flex-direction:column;gap:14px;margin:0 0 16px}
+.mixrow{display:grid;grid-template-columns:1fr;gap:.45em}
+.mixlbl{display:flex;flex-direction:column;gap:.1em;font-size:.92rem;color:var(--ink)}
+.mixlbl i{font-style:normal;font-size:.74rem;color:var(--muted);line-height:1.35}
+.mixrow input[type="range"]{width:100%;accent-color:var(--accent,#A8824C);margin:0}
+.mixrow b{font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  font-weight:600}
+.mixacts{display:flex;gap:.6em;flex-wrap:wrap;margin:0 0 6px}
+.mixacts .btn{flex:1 1 auto;justify-content:center}
