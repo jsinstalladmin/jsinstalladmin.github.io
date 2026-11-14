@@ -29,8 +29,9 @@ export function makeRenderer(canvas){
        canvas blanks the moment the compositor needs a frame we did not draw. */
     preserveDrawingBuffer:true});
   /* 2x on a retina Mac is FOUR times the pixels to shade every frame, for a
-     difference you cannot see on bevels this small. 1.5 is the honest cap. */
-  r.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+     difference you cannot see on bevels this small. 1.5 is the honest cap,
+     and pixelRatioFor caps it again by total pixels. */
+  r.setPixelRatio(1);
   r.outputColorSpace = THREE.SRGBColorSpace;
   /* The single highest-value line here. three.js defaults to NoToneMapping, which
      hard-clips every specular highlight to flat white — most of the cartoon look.
@@ -45,6 +46,24 @@ export function makeRenderer(canvas){
   r.shadowMap.autoUpdate = false;       // geometry only changes on user input
   THREE.Texture.DEFAULT_ANISOTROPY = Math.min(8, r.capabilities.getMaxAnisotropy());
   return r;
+}
+
+/* A ratio cap is not enough on its own. The stage on a wide desktop is about
+   1900 x 1130 CSS pixels; at 1.5x that is a 2865 x 1692 drawing buffer, and
+   the post chain allocates its own full-size targets on top of it: a render
+   target, a GTAO depth and normal pass, its blur, and SMAA's two. Six or
+   seven buffers of 4.8 megapixels is most of a Mac's WebGL budget spent
+   before a single panel is drawn, and when those allocations start failing
+   the whole scene comes back as nothing but the clear colour.
+
+   Budget the total instead. 2.3 megapixels is sharper than a 1080p display
+   and the chain fits with room to spare. */
+const PIXEL_BUDGET = 2300000;
+export function pixelRatioFor(w, h){
+  const dpr = Math.min(typeof devicePixelRatio === 'number' ? devicePixelRatio : 1, 1.5);
+  const area = Math.max(1, w * h);
+  if(area * dpr * dpr <= PIXEL_BUDGET) return dpr;
+  return Math.max(0.75, Math.min(dpr, Math.sqrt(PIXEL_BUDGET / area)));
 }
 
 /* ---------- lighting: IBL does the ambient, one key gives direction ---------- */
@@ -130,9 +149,29 @@ export function fitShadowCamera(key, root){
 }
 
 /* ---------- shared PBR maps: one grain topography, 78 albedos ---------- */
+/* These two arrive over the network, so for the first second or so every
+   material built from them holds a texture whose image is still null. three
+   notices that on every single frame, warns, and retries: several hundred
+   warnings per load, and the panels carry no roughness or occlusion until it
+   settles. A one pixel stand-in means the texture is always valid, and the
+   event lets the scaled copies re-upload the moment the real image lands. */
+const STANDIN = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 1;
+  const g = c.getContext('2d'); g.fillStyle = '#808080'; g.fillRect(0, 0, 1, 1);
+  return c;
+})();
+
 export function loadSharedMaps(){
   const L = new THREE.TextureLoader();
-  const data = u => { const t=L.load(u); t.wrapS=t.wrapT=THREE.RepeatWrapping; return t; }; // NoColorSpace
+  const data = u => {
+    const t = new THREE.CanvasTexture(STANDIN);   // never null
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;     // NoColorSpace
+    L.load(u, img => {
+      t.image = img.image; t.needsUpdate = true;
+      dispatchEvent(new CustomEvent('sharedmap', { detail:t }));
+    });
+    return t;
+  };
   return { nor:data((window.BASE||"")+'assets/tex/oak_nor.jpg'), arm:data((window.BASE||"")+'assets/tex/oak_arm.jpg') };
 }
 

@@ -5,7 +5,7 @@
      normal / roughness / AO -> leave default NoColorSpace (vectors + scalars)
    ============================================================ */
 import * as THREE from 'three';
-import { SWATCH_TILE_IN } from './render.js?v=19035fa4';
+import { SWATCH_TILE_IN } from './render.js?v=629b5c4c';
 
 let SHEET = null, COLS = 8, ROWS = 7, TILE = 160;
 const sliced = new Map();     // finish name -> CanvasTexture (sliced ONCE, not cloned)
@@ -77,17 +77,57 @@ export function finishMaterial(f, shared, kind='carcass'){
 /* Scale the grain to the REAL panel size so a tall panel and a short shelf share
    one grain scale. Tiling every panel 1:1 regardless of size is what makes a
    configurator look like a diagram. */
+/* Every fitted texture is a FULL second copy on the GPU. three keys its GPU
+   state off the texture instance, not off the shared image, so a clone per
+   panel uploads the whole bitmap again. A closet with 60 panels was asking
+   for 122 separate 512px uploads — 200MB of texture memory for 24k
+   triangles. Chromium on a desktop GPU swallows that; Safari on a Mac hits
+   its per-context budget, the allocations start failing, and the scene
+   renders as nothing but the clear colour. That is the blank 3D stage.
+
+   The repeat and offset are quantised onto a coarse grid so a tall panel and
+   a slightly taller panel land on the same texture. Six uploads instead of a
+   hundred and twenty, and the grain still changes size with the panel. */
+const fitCache = new Map();
+/* The shared normal and roughness maps load over the network. A scaled copy
+   made before the real image lands shares the source but keeps its own GPU
+   upload, so it has to be told to upload again once the image is there. */
+if(typeof addEventListener === 'function')
+  addEventListener('sharedmap', () => { fitCache.forEach(t => { t.needsUpdate = true; }); });
+
+/* A ladder, not a continuous scale. A 14" panel and a 15" panel do not need
+   their own copy of the grain. Nearest rung wins, and the offset is derived
+   from the rungs rather than from the panel index, so two panels of the same
+   size always land on the same texture instead of two copies of it. */
+const RUNGS = [0.25, 0.4, 0.6, 0.85, 1.2, 1.7, 2.4, 3.4, 5, 7.5, 11];
+function rung(v){
+  let best = RUNGS[0], bd = Infinity;
+  for(const r of RUNGS){ const d = Math.abs(Math.log(v / r)); if(d < bd){ bd = d; best = r; } }
+  return best;
+}
+
+function fitTexture(src, tileIn, w, h){
+  if(!src) return null;
+  const rx = rung(Math.max(0.1, w / tileIn));
+  const ry = rung(Math.max(0.1, h / tileIn));
+  const key = src.uuid + '|' + rx + '|' + ry;
+  const hit = fitCache.get(key);
+  if(hit) return hit;
+  const t = src.clone(); t.needsUpdate = true;
+  t.wrapS = src.wrapS; t.wrapT = src.wrapT;
+  t.colorSpace = src.colorSpace;
+  t.repeat.set(rx, ry);
+  /* break the marching grain pattern without costing a texture: the offset
+     falls out of the rung pair, so it varies across sizes and repeats within
+     a size. */
+  t.offset.set((rx * 0.37) % 1, (ry * 0.61) % 1);
+  fitCache.set(key, t);
+  return t;
+}
+
 export function scaledMaterial(base, w, h, shared, seed=0){
   const m = base.clone();
-  const fit = (src, tileIn) => {
-    if(!src) return null;
-    const t = src.clone(); t.needsUpdate = true;
-    t.wrapS = src.wrapS; t.wrapT = src.wrapT;
-    t.colorSpace = src.colorSpace;
-    t.repeat.set(Math.max(0.08, w/tileIn), Math.max(0.08, h/tileIn));
-    t.offset.set((seed*0.137)%1, (seed*0.419)%1);   // break the marching grain pattern
-    return t;
-  };
+  const fit = (src, tileIn) => fitTexture(src, tileIn, w, h);
   if(base.map)       m.map       = fit(base.map, SWATCH_TILE_IN);
   if(base.normalMap) m.normalMap = fit(base.normalMap, 72.05);
   if(base.roughnessMap){

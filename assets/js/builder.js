@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=19035fa4';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=629b5c4c';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer } from './render.js?v=19035fa4';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=629b5c4c';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=19035fa4';
+         clothMaterials, clearCaches } from './materials.js?v=629b5c4c';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -535,12 +535,45 @@ let built = false;
 let fly = null;
 const _cp = new THREE.Vector3(), _ct = new THREE.Vector3();
 
+/* A lost context is the other way the stage goes grey and stays grey: the
+   browser drops the GPU resources, every later draw is a no-op, and nothing
+   on the page says so. Ask for it back, rebuild on the way in, and say what
+   happened while it is gone. */
+canvas.addEventListener('webglcontextlost', e => {
+  e.preventDefault();
+  console.warn('[render] WebGL context lost');
+  document.getElementById('bload')?.classList.remove('gone');
+}, false);
+canvas.addEventListener('webglcontextrestored', () => {
+  console.warn('[render] WebGL context restored, rebuilding');
+  postDead = false;
+  try { renderer.shadowMap.needsUpdate = true; } catch(e){}
+  needsFrame = true;
+  document.getElementById('bload')?.classList.add('gone');
+}, false);
+
+/* One place that actually draws, so a post chain that throws can never leave
+   the stage as nothing but the clear colour. If the composer fails once it is
+   dropped for the rest of the session and every later frame goes straight to
+   the renderer. A customer gets a closet without ambient occlusion instead of
+   a grey rectangle, and the reason lands in the console. */
+let postDead = false;
+function paint(usePost){
+  if(usePost && composer && !postDead){
+    try { composer.render(); return; }
+    catch(e){ postDead = true; composer = null;
+      console.warn('[render] post-processing failed, drawing direct from here on', e); }
+  }
+  renderer.render(scene, cam);
+}
+
 function sizeNow(){ const r=canvas.parentElement.getBoundingClientRect();
   return {w:Math.max(320,r.width|0), h:Math.max(260,r.height|0)}; }
 let lastW = 0, lastH = 0;
 function resize(){ const {w,h}=sizeNow();
   if(w === lastW && h === lastH) return;
   lastW = w; lastH = h;
+  renderer.setPixelRatio(pixelRatioFor(w,h));
   renderer.setSize(w,h,false);
   cam.aspect=w/h; cam.updateProjectionMatrix(); if(composer) composer.setSize(w,h);
   needsFrame = true; }
@@ -618,7 +651,7 @@ const PERF = new URLSearchParams(location.search).has('perf')
   ? (window.__perf = { frames:0, get calls(){ return renderer.info.render.calls; },
       get tris(){ return renderer.info.render.triangles; },
       plain(){ renderer.render(scene, cam); },
-      composed(){ composer ? composer.render() : renderer.render(scene, cam); } })
+      composed(){ paint(true); } })
   : null;
 let MOVING = 0, shadowDirty = true;
 /* the room's four walls, with the direction each one faces into the room */
@@ -684,7 +717,7 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
 
   if(!needsFrame) return;
   needsFrame = false;
-  if(composer && !moving) composer.render(); else renderer.render(scene, cam);
+  paint(composer && !moving);
   /* a hook for measuring, off unless ?perf=1 is on the URL */
   if(PERF) PERF.frames++;
 
@@ -786,7 +819,10 @@ function roomTextures(){
        roughness  grain and joints are duller than the board face, which is
                   what actually sells wood under a moving light
      --------------------------------------------------------------------- */
-  const S = 2048, ROWS = 6, ph = S / ROWS;
+  /* 1024, not 2048. The albedo plus its derived normal and roughness were
+     33MB of the scene's texture budget on their own, and a floor seen from
+     eye height at eight feet cannot resolve 2048. */
+  const S = 1024, ROWS = 6, ph = S / ROWS;
   const fc = document.createElement('canvas'); fc.width = fc.height = S;
   const f = fc.getContext('2d');
   const rnd = (a, b) => a + Math.random() * (b - a);
@@ -864,8 +900,8 @@ function roomTextures(){
   floor.anisotropy = 16;
 
   /* Derive relief and sheen from the albedo so the three always agree.
-     Derived at half resolution: the Sobel pass is per pixel, so 1024 is four
-     times cheaper than 2048, and a normal map carrying grain this fine is
+     Derived at half resolution: the Sobel pass is per pixel, so half is four
+     times cheaper, and a normal map carrying grain this fine is
      indistinguishable at any camera distance you can actually reach. */
   const half = document.createElement('canvas'); half.width = half.height = S / 2;
   half.getContext('2d').drawImage(fc, 0, 0, S / 2, S / 2);
@@ -1498,6 +1534,7 @@ function rebuild(reframe){
      unless asked for, so nothing is exposed to an ordinary visitor. */
   if(AUDIT){
     window.__cur = cur;
+    window.__scene = scene; window.__cam = cam; window.__renderer = renderer;
     /* ?audit=1 also exposes the documentation shot, so the pictures of a
        layout used on the site can be rendered from the engine itself rather
        than drawn by somebody who then has to remember the twelve inch
@@ -3502,7 +3539,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=19035fa4');
+  if(!DRAW) DRAW = await import('./drawing.js?v=629b5c4c');
   return DRAW;
 }
 
@@ -3740,7 +3777,7 @@ function snapshot(keepCamera){
       cam.position.set(...v.p); ctl.target.set(...v.t); ctl.update();
     }
     if(canvas.clientWidth > 0 && canvas.clientHeight > 0){
-      if(composer) composer.render(); else renderer.render(scene, cam);
+      paint(true);
     }
     return renderer.domElement.toDataURL('image/png');
   }catch(e){
@@ -3864,7 +3901,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=19035fa4');
+    const { downloadPdf } = await import('./drawing.js?v=629b5c4c');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -3887,7 +3924,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=19035fa4');
+    const { downloadPdf } = await import('./drawing.js?v=629b5c4c');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
