@@ -1540,3 +1540,21 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
 /* display:grid beats the hidden attribute, so without this the layout grid
    stays on screen underneath the piece grid and the chips look broken. */
 .laygrid[hidden],.designs[hidden],.dcard[hidden]{display:none !important}
+
+/* ══ WALKTHROUGHS IN THE GALLERY ═════════════════════════════════════════
+   A clip sits in the grid as its own still frame with a play badge over it,
+   so the row reads as one thing and not as photographs with holes in it.
+   In the lightbox the player takes the place the photograph had, at the
+   same size, so moving between a clip and a photograph does not jump. */
+.gcell.gvid{cursor:pointer}
+.gplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:52px;height:52px;border-radius:50%;z-index:2;pointer-events:none;
+  background:rgba(12,9,6,.46);border:1px solid rgba(248,245,240,.5);
+  backdrop-filter:blur(3px);transition:transform .4s var(--ease),background .4s var(--ease)}
+.gplay::before{content:'';position:absolute;left:52%;top:50%;
+  transform:translate(-50%,-50%);border-style:solid;border-width:9px 0 9px 15px;
+  border-color:transparent transparent transparent #F8F5F0}
+.gcell.gvid:hover .gplay{transform:translate(-50%,-50%) scale(1.08);background:rgba(12,9,6,.62)}
+.glight video{max-width:100%;max-height:88svh;border-radius:var(--r-sm);background:#000}
+.glight video[hidden],.glight img[hidden]{display:none}
+@media(max-width:600px){ .gplay{width:44px;height:44px} }

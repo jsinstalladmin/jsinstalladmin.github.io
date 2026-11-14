@@ -739,8 +739,8 @@ export const MODULES = {
     }
   },
   DRAWERS: {
-    label:'Drawers', hint:'Soft-close undermount glides. Nine box sizes.',
-    spec:'Boxes 7½\"–25\" tall · bank 10\"–48\"',
+    label:'Drawers', hint:'Soft-close undermount glides. Three box sizes.',
+    spec:'Boxes 7½\"–10\" tall · bank 10\"–48\"',
     icon:'M2 3h20v6H2zM2 12h20v6H2zM2 21h20v6H2z',
     defH:34, minH:8.5, maxH:48,
     /* `sizes` is the bank, bottom to top, in real box heights. It used to be a
@@ -964,6 +964,44 @@ export const MODULES = {
               fcZ + pOff*sT + 0.45*cT, w, fh);
 
       if(pull && pull.id!=='none') parts.push({code:'PULL',qty:1,note:`1 × ${pull.name}`});
+    }
+  },
+  /* PULL-OUT SHELVES.
+
+     "Sliding Shelf" is on his own parts list with its own price, and the
+     builder has never offered it. It is the shelf that comes out to you:
+     folded knitwear you do not want to lift a stack off, handbags at the
+     back of a deep run, anything on a shelf above shoulder height. It is a
+     shelf on a pair of full-extension glides, so it is priced as the
+     sliding shelf part plus the same glides a drawer of that depth uses,
+     and nothing about it is invented. */
+  PULLOUT: {
+    label:'Pull-out shelves', hint:'Shelves on full-extension glides. They come out to you.',
+    spec:'Sliding shelves on full extension · 12"–60"',
+    icon:'M3 6h18v4H3zM3 14h18v4H3zM9 8h6M9 16h6',
+    defH:30, minH:12, maxH:60, opt:{key:'n',label:'Shelves',min:1,max:6,def:3},
+    build(c){
+      const {w,d,y,h,G,parts,o} = c;
+      const n = clamp(o.n ?? 3, 1, 6);
+      parts.push(P('SLIDE', n, (w*d)/144*n, (w/12)*n, `${n} pull-out shelves`));
+      /* The glide is the same part a drawer of this depth runs on, so it is
+         ordered off the same table rather than guessed at. */
+      parts.push({ code:'GLIDE', qty:n, len:Math.max(11, Math.round(d - 2)),
+                   style:'828 Series 5/8 SC undermount',
+                   note:`${n} pairs of full extension glides` });
+      const gap = h / n;
+      for(let i=0;i<n;i++){
+        const yS = y + gap*i + gap/2;
+        /* the shelf itself, set back a little so the front edge is not
+           flush with the face of the tower */
+        G.push({k:'shelf', p:[0, yS, 0.4], s:[w - 1.2, SPEC.panel, d - 1.6], m:'carcass'});
+        /* A glide down each side, which is the only thing that tells a
+           pull-out shelf from a fixed one at a glance, so it is drawn at
+           the size the runner actually is rather than as a hairline. */
+        for(const sx of [-1, 1])
+          G.push({k:'glide', p:[sx*(w/2 - 0.6), yS - 0.45, 0.4],
+                  s:[0.8, 0.9, d - 2.4], m:'metal'});
+      }
     }
   },
   BASKETS: {
@@ -1341,12 +1379,16 @@ export const PRESETS = [
     stack:[{m:'OPEN',h:null,o:{}}] },
 
   { id:'drawers', name:'Drawers', img:'drawers', slot:'bottom',
-    desc:'Soft-close undermount glides, nine stocked box heights from 7½ to 25 inches.',
+    desc:'Soft-close undermount glides, three stocked box heights from 7½ to 10 inches.',
     stack:[{m:'DRAWERS',h:34,o:{n:4}}] },
 
   { id:'pull-out-baskets', name:'Pull-out baskets', img:'baskets', slot:'bottom',
     desc:'Chrome wire on full extension, so you see the back without unloading the front.',
     stack:[{m:'BASKETS',h:30,o:{n:3}}] },
+
+  { id:'pull-out-shelves', name:'Pull-out shelves', img:'pullout', slot:'bottom',
+    desc:'Solid shelves on full extension glides. For folded stacks you do not want to lift, and for the back of a deep run.',
+    stack:[{m:'PULLOUT',h:34,o:{n:4}}] },
 
   { id:'tilt-out-hamper', name:'Tilt-out hamper', img:'hamper', slot:'bottom',
     desc:'A basket on a flap stay. Laundry off the floor and out of sight.',
@@ -1443,7 +1485,7 @@ const MID_WHEN_ALONE = new Set(['SHELVES','OPEN','DOOR','GLASS_DOOR']);
    tilt-out hamper cannot tilt out through a closed door. What is left is
    the list of things people actually put in a cupboard. */
 export const DOOR_INSIDE = ['SHELVES','HANG','DOUBLE_HANG','SHORT_HANG','LONG_HANG',
-                            'DRAWERS','BASKETS','CUBBIES','SHOES','SHOE_SLANT','OPEN'];
+                            'DRAWERS','BASKETS','PULLOUT','CUBBIES','SHOES','SHOE_SLANT','OPEN'];
 export const DOOR_INSIDE_DEF = 'SHELVES';
 
 /* Build the chosen inside into the same section, set back far enough that
@@ -1893,7 +1935,28 @@ export function buildDesign(cfg, cat){
          tower is drawn a foot too far forward. */
       bayIndex.push({ wall:run.wall, bay:bi, x:cx, w:bay.w, h:bayH, top:myTop, depth,
                       start: run.start || 0, alongRoom: (run.start || 0) + cx,
-                      stack:bay.stack });
+                      /* The stack as the customer sees it: the drawing on the
+                         page labels each band of a tower, and a module id is
+                         not a label. The raw entry travels too, so nothing
+                         that was reading it has changed. */
+                      stack:bay.stack.map(st => ({ ...st,
+                        label: MODULES[st.m]?.label || st.m })),
+                      /* WHERE EACH PART OF THE STACK ACTUALLY ENDED UP.
+
+                         A stack entry does not know its own height: most of
+                         them are sized by the engine from what is left after
+                         the fixed ones have taken theirs. These are the
+                         resolved bands, floor upwards, which is what a
+                         drawing of one tower writes its labels against. */
+                      bands: (() => {
+                        let by = floorY;
+                        return mods.map(m => {
+                          const band = { label: MODULES[m.m]?.label || m.m,
+                                         y0: by, y1: by + m.H };
+                          by += m.H;
+                          return band;
+                        });
+                      })() });
       lastTop = myTop;
       x += bay.w;
     });
@@ -2019,6 +2082,14 @@ export function priceParts(parts, cat, F, DF, pull, pullFin){
             + `glides ${(gl.cost*2).toFixed(2)} (${gl.l}" ${gl.s}), front ${front.toFixed(2)}`;
     }
     else if(p.code === 'PULL'){ c = pull.cost * pullFin.mult * p.qty; label = p.note + ` (${pullFin.name})`; }
+    /* A pull-out shelf runs on the same glides a drawer of that depth does,
+       so it is ordered and priced off the same table rather than carrying a
+       number nobody can trace. Two per shelf, same as a drawer. */
+    else if(p.code === 'GLIDE'){
+      const gl = pickGlide(cat, p.len, { ctor:{ meta:{ gt:p.style } } });
+      c = gl.cost * 2 * p.qty;
+      label = `${p.qty} × pair of ${gl.l}" ${gl.s}`;
+    }
     else if(p.code === 'BASKET'){
       const b = pickBasket(cat, p.w, p.d, p.finish, p.bh);
       c = b.cost * p.qty;
@@ -2075,6 +2146,7 @@ const OPT_NAME = {
   LONG_HANG:'Long hanging', DOUBLE_HANG:'Double hanging', SHORT_HANG:'Short hanging',
   SHELVES:'Adjustable shelves', DRAWERS:'Drawer bank', BASKETS:'Pull-out baskets',
   SHOES:'Shoe shelving', SHOE_SLANT:'Slanted shoe gallery', CUBBIES:'Cubbies',
+  PULLOUT:'Pull-out shelves',
   COUNTER:'Counter top', DOOR:'Closed doors', GLASS_DOOR:'Glass doors',
   HAMPER:'Tilt-out hamper'
 };
@@ -2173,10 +2245,11 @@ function orderList(parts, cat, F, DF, pull, pullFin){
       : p.code==='HAMPER_BASKET' ? 'Tilt-out hamper basket'
       : p.code==='HANGROD' ? 'Hang rod'
       : p.code==='GLASS_LITE' ? `Glass lite ${p.w?.toFixed(1)}" × ${p.h?.toFixed(1)}"`
+      : p.code==='GLIDE' ? 'Drawer glides, pair'
       : (def?.n || p.code);
     const finish = (p.code==='DRAWER'||p.code==='DOOR') ? DF.n
       : (p.code==='PULL'||p.code==='BASKET'||p.code==='HAMPER_BASKET'||p.code==='HAMPER'||
-         p.code==='HANGROD'||p.code==='GLASS_LITE') ? '—' : F.n;
+         p.code==='HANGROD'||p.code==='GLASS_LITE'||p.code==='GLIDE') ? '—' : F.n;
     const key = name+'|'+finish;
     const g = group.get(key) || { item:name, finish, code:p.code, qty:0, sqft:0, edge_ft:0, notes:new Set() };
     g.qty += p.qty || 1;

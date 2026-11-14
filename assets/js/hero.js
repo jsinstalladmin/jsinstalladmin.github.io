@@ -28,45 +28,40 @@ const hero  = document.getElementById('hero');
 const DEBUG = new URLSearchParams(location.search).has('debug');
 
 if (video && cap && hero) {
-  const CAPS = {
-    dark:[
-      ['An empty room is <em>the cheapest it will ever be</em>.',
-       'Nothing is cut until we have the real numbers: wall length, ceiling height, baseboard depth and how far out of square the corners run.'],
-      ['Then <em>the structure</em> goes in.',
-       'Vertical panels every 24 to 36 inches, hung on a rail screwed into the studs. Past 36 inches a three-quarter-inch shelf starts to sag.'],
-      ['Hanging gets <em>assigned</em>, not guessed.',
-       'Long hang on a rod at 66 inches for coats and dresses. Double hang at 80 and 40 for shirts and folded trousers. Top shelf at 84.'],
-      ['Drawers run on <em>soft-close undermount</em> glides.',
-       'Full extension, hidden runners, nine box heights from 7.5 to 25 inches. The box is sized to the opening, not the other way round.'],
-      ['And then <em>it is yours</em>.',
-       'Measured, drawn, built and fitted by the same crew. Most closets go in inside a day and we take the packaging with us.']
-    ],
-    light:[
-      ['Daylight version, <em>same build</em>.',
-       'Some rooms want the drama, some want to disappear into the house. Underneath it is the same cabinetry and the same hardware.'],
-      ['<em>Structure</em> first.',
-       'Three-quarter-inch thermally fused laminate, the same board used in commercial casework. Every exposed edge is banded so it cannot swell.'],
-      ['Hanging assigned by <em>garment length</em>.',
-       'Coats and dresses at 66 inches. Shirts and folded trousers double-hung at 80 and 40. Nothing is left to a catalogue default.'],
-      ['Shelving on <em>32mm centres</em>.',
-       'Every adjustable shelf moves later without drilling anything new. Fixed shelves carry the loads and the wired lighting.'],
-      ['Finished, <em>in one day</em>.',
-       'We patch what we drilled, take the offcuts away, and leave you the parts list for what is on your wall.']
-    ]
-  };
+  /* THE CAPTIONS ARE THE BUILD.
 
-  let mode = 'light', ready = false, scrubWorks = false, fellBack = false;
+     Five of them, one per stage of the sequence behind them, and the
+     sequence is rendered by the same engine that draws the builder: the
+     closet in it is one this company actually builds, down to the twelve
+     inch gap where the side run stops short of the back run and the pieces
+     that bridge it. There used to be a daylight and an evening version of
+     all this, two videos and two sets of words for the same cabinetry. One
+     version, and it is the bright one. */
+  const CAPS = [
+    ['An empty room is <em>the cheapest it will ever be</em>.',
+     'Nothing is cut until we have the real numbers: wall length, ceiling height, baseboard depth and how far out of square the corners run.'],
+    ['Then <em>the structure</em> goes in.',
+     'Vertical panels every 24 to 36 inches on a rail screwed into the studs. The back wall runs corner to corner; the side wall stops twelve inches short of it and a top piece, a bottom piece and their own toe kick bridge the gap.'],
+    ['Hanging gets <em>assigned</em>, not guessed.',
+     'Long hang on a rod at 66 inches for coats and dresses. Double hang at 80 and 40 for shirts and folded trousers. Top shelf at 84.'],
+    ['Drawers and baskets on <em>full-extension glides</em>.',
+     'Soft-close undermount runners, three stocked box heights up to ten inches. The box is sized to the opening, not the other way round.'],
+    ['And then <em>it is yours</em>.',
+     'Measured, drawn, built and fitted by the same crew. Most closets go in inside a day and we take the packaging with us.']
+  ];
+
+  let ready = false, scrubWorks = false, fellBack = false;
   document.body.dataset.hero = 'light';
 
   /* ---- captions ---- */
   const render = i => {
-    const n = CAPS[mode].length;
-    const [h, p] = CAPS[mode][Math.max(0, Math.min(n - 1, i))];
+    const n = CAPS.length;
+    const [h, p] = CAPS[Math.max(0, Math.min(n - 1, i))];
     if (cap.dataset.i == i) return;
     cap.dataset.i = i;
     cap.innerHTML = `<h1>${h}</h1><p>${p}</p>`;
   };
-  const setCaps = prog => render(Math.floor(prog * CAPS[mode].length * 0.999));
+  const setCaps = prog => render(Math.floor(prog * CAPS.length * 0.999));
   render(0);
 
   /* ---- debug readout: /?debug=1 ---- */
@@ -226,27 +221,4 @@ if (video && cap && hero) {
   };
   start();
 
-  /* ---- daylight / evening ---- */
-  const swap = document.getElementById('heroswap');
-  swap?.addEventListener('click', e => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    const h = b.dataset.h;
-    if (h === mode) return;
-    mode = h;
-    [...swap.children].forEach(c => c.setAttribute('aria-pressed', c === b));
-    document.body.dataset.hero = h;
-    ready = false;
-    video.poster = h === 'dark' ? (window.BASE||"")+'img/poster.jpg' : (window.BASE||"")+'img/poster-light.jpg';
-    video.src    = h === 'dark' ? (window.BASE||"")+'video/hero.mp4' : (window.BASE||"")+'video/hero-light.mp4';
-    video.load();                 // prime() re-fires on the new loadedmetadata
-    if (PHONE) {
-      cap.innerHTML = phoneCap();
-      cap.dataset.i = 'phone';
-      video.play().catch(() => {});
-    } else {
-      cap.dataset.i = -1;
-      render(0);
-    }
-  });
 }

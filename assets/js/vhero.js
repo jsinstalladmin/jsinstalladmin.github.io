@@ -11,12 +11,18 @@
    quicker, and the hold on the finished closet comes sooner. */
 const RATE = 1.0;            // 20s source → 20s build.
 const v = document.getElementById('hv');
-const swap = document.getElementById('heroswap');
 
 if(v){
-  const src = h => h==='dark' ? (window.BASE||"")+'video/loop.mp4' : (window.BASE||"")+'video/loop-light.mp4';
-  const poster = h => h==='dark' ? (window.BASE||"")+'img/poster.jpg' : (window.BASE||"")+'img/poster-light.jpg';
-  let mode = 'light', played = false;
+  /* ONE FILM, AND IT IS THE BRIGHT ONE.
+
+     This used to carry a daylight clip and an evening clip of the same
+     closet with a toggle between them, and both of them showed two runs
+     meeting in the corner, which is not what this company builds. It is
+     one sequence now, rendered by the builder's own engine, so the closet
+     in it has the twelve inch return and the pieces that bridge it. */
+  const src = () => (window.BASE||"") + 'video/build-loop.mp4';
+  const poster = () => (window.BASE||"") + 'img/poster-build.jpg';
+  let played = false;
 
   /* load() resets playbackRate to 1, and the reset lands at different moments
      in different browsers — so pin it on every event that could follow a load. */
@@ -30,27 +36,22 @@ if(v){
     if(p && p.catch) p.catch(()=>{ /* autoplay blocked — the poster still reads */ });
     pin();
   };
-  const load = h => {
-    v.poster = poster(h);
-    v.querySelector('source').src = src(h);
+  const load = () => {
+    v.poster = poster();
+    v.querySelector('source').src = src();
     v.load(); played = false;
     v.currentTime = 0;
     pin();
   };
 
   v.addEventListener('loadeddata', () => { pin(); if(!played) start(); });
-  v.addEventListener('ended', () => { played = true; });   // hold on the last frame
-  load('light');
+  /* The sequence runs forwards and then backwards, so it meets itself and
+     can loop without a jump cut. It used to stop on the last frame because
+     looping made the clothes flicker in and out. */
+  v.loop = true;
+  v.setAttribute('loop', '');
+  load();
   document.body.dataset.hero = 'light';
-
-  swap?.addEventListener('click', e => {
-    const b = e.target.closest('button'); if(!b) return;
-    const h = b.dataset.h; if(h === mode) return;
-    mode = h;
-    [...swap.children].forEach(c => c.setAttribute('aria-pressed', String(c === b)));
-    document.body.dataset.hero = h;
-    load(h);
-  });
 
   /* replay when it comes back into view; pause when it leaves so a
      hero video never burns battery further down the page */

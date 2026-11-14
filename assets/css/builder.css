@@ -1693,3 +1693,14 @@ body[data-step="6"] .pacts{margin-top:0}
 }
 .v2dwalls .v2dname{font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;
   color:var(--muted);align-self:center}
+
+/* A tower in a flat view is dragged, so the drawing must not pan or scroll
+   the page under the finger while it is being dragged. */
+.v2dcanvas svg{touch-action:none}
+.v2dcanvas .pick{cursor:grab}
+.v2dcanvas.dragging{cursor:grabbing}
+.v2dcanvas.dragging .pick{cursor:grabbing}
+.v2dwalls button[data-flattower],
+.v2dwalls button[data-flatback]{border-color:var(--ink);color:var(--ink)}
+/* dragging a tower must not select the figures printed next to it */
+.v2dcanvas svg{user-select:none;-webkit-user-select:none}

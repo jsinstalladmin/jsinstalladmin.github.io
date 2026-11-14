@@ -9,6 +9,4 @@ _batch_tmp*/
 _b[0-9]*/
 _t/
 *.zip
-_bdraw/
-_server/*.md5
-_bviews/
+_bf/

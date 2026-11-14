@@ -8,12 +8,94 @@
   "alt": "White walk-in closet with glass-front upper cabinets, a deep drawer bank and long hanging down the far side"
  },
  {
-  "id": "work-02",
+  "id": "work-51",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-21.jpg",
+  "alt": "Long white walk-in with shelving and hanging running the full length of both walls"
+ },
+ {
+  "id": "work-06",
   "w": 1920,
   "h": 1280,
   "portrait": false,
-  "src": "JSIC-15-1920w.jpg",
-  "alt": "Light woodgrain walk-in closet behind a black-framed sliding glass door, with open shelving and a drawer bank"
+  "src": "JSIC-38-1920w.jpg",
+  "alt": "Dark walnut walk-in closet with open shelving down both walls and a pale wood floor"
+ },
+ {
+  "id": "work-63",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-33.jpg",
+  "alt": "Long grey walk-in with floor-to-ceiling shelving down one wall and hanging down the other"
+ },
+ {
+  "id": "work-64",
+  "w": 1600,
+  "h": 1200,
+  "portrait": false,
+  "src": "wa-34.jpg",
+  "alt": "Grey closet wall with glass-front cabinets, open shelving and drawers, fitted under a sloped ceiling"
+ },
+ {
+  "id": "clip-01",
+  "w": 464,
+  "h": 832,
+  "portrait": true,
+  "video": true,
+  "src": "clip-01.mp4",
+  "alt": "Walking into a finished white walk-in with hanging and shoe shelving down both sides"
+ },
+ {
+  "id": "work-60",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-30.jpg",
+  "alt": "Pale woodgrain walk-in, wall of open shelving over drawers with hanging above"
+ },
+ {
+  "id": "work-38",
+  "w": 899,
+  "h": 1599,
+  "portrait": true,
+  "src": "wa-08.jpg",
+  "alt": "Slanted shoe shelving in white running floor to ceiling beside a drawer bank"
+ },
+ {
+  "id": "work-09",
+  "w": 1920,
+  "h": 1280,
+  "portrait": false,
+  "src": "JSIC-42-1920w.jpg",
+  "alt": "Light oak walk-in closet built around a centre island, lit by a skylight, with a bench along one wall"
+ },
+ {
+  "id": "work-68",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-38.jpg",
+  "alt": "Grey walk-in with shelving down both sides and hanging under a window at the end"
+ },
+ {
+  "id": "work-20",
+  "w": 1920,
+  "h": 1440,
+  "portrait": false,
+  "src": "JSIC-74-1920w.jpg",
+  "alt": "Walnut walk-in closet with a drawer island, storage bins on the top shelf and a window at the end"
+ },
+ {
+  "id": "clip-02",
+  "w": 576,
+  "h": 1024,
+  "portrait": true,
+  "video": true,
+  "src": "clip-02.mp4",
+  "alt": "Walking through a white walk-in with hanging, shelving and a drawer bank"
  },
  {
   "id": "work-03",
@@ -24,12 +106,53 @@
   "alt": "Floor-to-ceiling white wardrobe wall with glass-front uppers, brass bar pulls and a run of drawers"
  },
  {
-  "id": "work-04",
+  "id": "work-58",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-28.jpg",
+  "alt": "Pale woodgrain walk-in with shelving, hanging and cabinets, under a chandelier"
+ },
+ {
+  "id": "work-42",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-12.jpg",
+  "alt": "White reach-in with a long hanging rail, a shelf over it and open shelving at the end"
+ },
+ {
+  "id": "work-13",
   "w": 1920,
   "h": 1280,
   "portrait": false,
-  "src": "JSIC-28-1920w.jpg",
-  "alt": "White corner walk-in closet with radius corner shelves, a drawer bank and double hanging"
+  "src": "JSIC-48-1920w.jpg",
+  "alt": "Grey woodgrain reach-in closet holding robes and folded towels, open to the bedroom"
+ },
+ {
+  "id": "work-47",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-17.jpg",
+  "alt": "White walk-in with shoe shelves and drawers on the left and double hanging on the right"
+ },
+ {
+  "id": "work-21",
+  "w": 1920,
+  "h": 1280,
+  "portrait": false,
+  "src": "JSIC-75-1920w.jpg",
+  "alt": "Light oak wardrobe wall holding folded linens, shoes and hanging shirts"
+ },
+ {
+  "id": "clip-03",
+  "w": 576,
+  "h": 1024,
+  "portrait": true,
+  "video": true,
+  "src": "clip-03.mp4",
+  "alt": "Walking into a white walk-in with a drawer bank and open shelving"
  },
  {
   "id": "work-05",
@@ -38,14 +161,6 @@
   "portrait": false,
   "src": "JSIC-30-1920w.jpg",
   "alt": "Full-wall wardrobe in black-framed glass, lit inside, with hanging and shoe shelving behind the doors"
- },
- {
-  "id": "work-06",
-  "w": 1920,
-  "h": 1280,
-  "portrait": false,
-  "src": "JSIC-38-1920w.jpg",
-  "alt": "Dark walnut walk-in closet with open shelving down both walls and a pale wood floor"
  },
  {
   "id": "work-07",
@@ -64,14 +179,6 @@
   "alt": "Greige woodgrain walk-in closet with long hanging, adjustable shelving and a window at the end of the run"
  },
  {
-  "id": "work-09",
-  "w": 1920,
-  "h": 1280,
-  "portrait": false,
-  "src": "JSIC-42-1920w.jpg",
-  "alt": "Light oak walk-in closet built around a centre island, lit by a skylight, with a bench along one wall"
- },
- {
   "id": "work-10",
   "w": 1920,
   "h": 1280,
@@ -80,36 +187,13 @@
   "alt": "Walnut walk-in closet under a pendant light, opening through to the bathroom"
  },
  {
-  "id": "work-11",
-  "w": 1920,
-  "h": 1280,
-  "portrait": false,
-  "src": "JSIC-45-1920w.jpg",
-  "alt": "Large light oak walk-in closet with a cushioned bench, a chandelier and hanging down both walls"
- },
- {
-  "id": "work-12",
-  "w": 1920,
-  "h": 1280,
-  "portrait": false,
-  "src": "JSIC-46-1920w.jpg",
-  "alt": "Light oak corner walk-in closet with deep adjustable shelving and three drawers in the return"
- },
- {
-  "id": "work-13",
-  "w": 1920,
-  "h": 1280,
-  "portrait": false,
-  "src": "JSIC-48-1920w.jpg",
-  "alt": "Grey woodgrain reach-in closet holding robes and folded towels, open to the bedroom"
- },
- {
-  "id": "work-14",
-  "w": 1920,
-  "h": 1280,
-  "portrait": false,
-  "src": "JSIC-52-1920w.jpg",
-  "alt": "Light oak reach-in closet with radius corner shelves either side and a drawer stack in the middle"
+  "id": "clip-04",
+  "w": 576,
+  "h": 1024,
+  "portrait": true,
+  "video": true,
+  "src": "clip-04.mp4",
+  "alt": "Walking down a woodgrain walk-in with tall doors one side and shelving the other"
  },
  {
   "id": "work-15",
@@ -152,91 +236,231 @@
   "alt": "White closet mid-install against a dark accent wall, with the drawer boxes fitted and fronts still to come"
  },
  {
-  "id": "work-20",
-  "w": 1920,
-  "h": 1440,
+  "id": "clip-05",
+  "w": 480,
+  "h": 848,
+  "portrait": true,
+  "video": true,
+  "src": "clip-05.mp4",
+  "alt": "Walking into a white walk-in with drawers open and shelving down both walls"
+ },
+ {
+  "id": "clip-06",
+  "w": 480,
+  "h": 848,
+  "portrait": true,
+  "video": true,
+  "src": "clip-06.mp4",
+  "alt": "Walking along a white closet wall, drawers pulled open to show the glides"
+ },
+ {
+  "id": "work-31",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-01.jpg",
+  "alt": "Light woodgrain wall unit with full-height doors and a run of deep drawers, fitted beside a kitchen"
+ },
+ {
+  "id": "work-33",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-03.jpg",
+  "alt": "Woodgrain bench with drawers under it and a wall cabinet above, built into a hallway nook"
+ },
+ {
+  "id": "work-34",
+  "w": 576,
+  "h": 1024,
+  "portrait": true,
+  "src": "wa-04.jpg",
+  "alt": "Close-up of a white drawer bank with a glass top shelf over it and long bar pulls"
+ },
+ {
+  "id": "clip-07",
+  "w": 480,
+  "h": 848,
+  "portrait": true,
+  "video": true,
+  "src": "clip-07.mp4",
+  "alt": "Walking into a narrow closet with hanging and shelving built around the door"
+ },
+ {
+  "id": "work-36",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-06.jpg",
+  "alt": "Walk-in with open shelving down one side and deep cubbies over a drawer bank on the other"
+ },
+ {
+  "id": "work-37",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-07.jpg",
+  "alt": "Woodgrain walk-in with full-height doors on the left and open shelving and drawers along the back"
+ },
+ {
+  "id": "work-39",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-09.jpg",
+  "alt": "Laundry room in woodgrain with wall cabinets over a counter and a run of base drawers"
+ },
+ {
+  "id": "work-40",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-10.jpg",
+  "alt": "Laundry room with a stacked washer and dryer, woodgrain uppers and a full-width counter"
+ },
+ {
+  "id": "work-41",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-11.jpg",
+  "alt": "Grey shaker wall cabinets over a stone counter spanning a washer and dryer"
+ },
+ {
+  "id": "work-43",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-13.jpg",
+  "alt": "Narrow white walk-in with hanging both sides and a drawer bank at the far end"
+ },
+ {
+  "id": "clip-08",
+  "w": 480,
+  "h": 848,
+  "portrait": true,
+  "video": true,
+  "src": "clip-08.mp4",
+  "alt": "Walking into a white walk-in with hanging and open shelving"
+ },
+ {
+  "id": "work-44",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-14.jpg",
+  "alt": "White closet with a central tower of shelves over five drawers, hanging either side"
+ },
+ {
+  "id": "work-45",
+  "w": 900,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-15.jpg",
+  "alt": "Laundry with a washer and dryer under a counter and dark grey wall cabinets open above"
+ },
+ {
+  "id": "work-46",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-16.jpg",
+  "alt": "Narrow white walk-in seen from the doorway, shelving down both sides"
+ },
+ {
+  "id": "work-49",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-19.jpg",
+  "alt": "White walk-in with long hanging, a shelf run and a drawer tower against the far wall"
+ },
+ {
+  "id": "work-50",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-20.jpg",
+  "alt": "White walk-in with shelving down both sides and a drawer bank under the hanging"
+ },
+ {
+  "id": "work-52",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-22.jpg",
+  "alt": "White closet wall with full-height doors in the middle and open shelving and drawers either side"
+ },
+ {
+  "id": "work-53",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-23.jpg",
+  "alt": "White tall cabinet with doors beside a run of open shelves over a six-drawer bank"
+ },
+ {
+  "id": "work-54",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-24.jpg",
+  "alt": "White floor-to-ceiling wardrobe doors, with an open walk-in through the doorway behind"
+ },
+ {
+  "id": "work-55",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-25.jpg",
+  "alt": "A run of white full-height wardrobe doors with drawers at the end, on the day of the fit"
+ },
+ {
+  "id": "work-56",
+  "w": 1600,
+  "h": 1200,
   "portrait": false,
-  "src": "JSIC-74-1920w.jpg",
-  "alt": "Walnut walk-in closet with a drawer island, storage bins on the top shelf and a window at the end"
+  "src": "wa-26.jpg",
+  "alt": "White reach-in with a drawer bank in the middle, hanging either side and shelves above"
  },
  {
-  "id": "work-21",
-  "w": 1920,
-  "h": 1280,
+  "id": "work-57",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-27.jpg",
+  "alt": "White reach-in with an open door panel, hanging, shelves and a four-drawer bank"
+ },
+ {
+  "id": "work-59",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-29.jpg",
+  "alt": "Pale woodgrain walk-in with double hanging on the right and a wall of shelving on the left"
+ },
+ {
+  "id": "work-61",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-31.jpg",
+  "alt": "Pale woodgrain walk-in with a lit glass-front cabinet and hanging alongside it"
+ },
+ {
+  "id": "work-62",
+  "w": 1200,
+  "h": 1600,
+  "portrait": true,
+  "src": "wa-32.jpg",
+  "alt": "Pale woodgrain walk-in with wall cabinets over open shelving and a drawer bank"
+ },
+ {
+  "id": "work-65",
+  "w": 1600,
+  "h": 1200,
   "portrait": false,
-  "src": "JSIC-75-1920w.jpg",
-  "alt": "Light oak wardrobe wall holding folded linens, shoes and hanging shirts"
- },
- {
-  "id": "work-22",
-  "w": 1920,
-  "h": 1920,
-  "portrait": false,
-  "src": "JSIC-76-1920w.jpg",
-  "alt": "Light oak walk-in closet with a white-topped island, its drawers open, and a full wall of shoe shelving"
- },
- {
-  "id": "work-23",
-  "w": 900,
-  "h": 1600,
-  "portrait": true,
-  "src": "2200-2.webp",
-  "alt": "White reach-in closet part way through installation, with the hanging rod and shelves in place"
- },
- {
-  "id": "work-24",
-  "w": 1152,
-  "h": 2048,
-  "portrait": true,
-  "src": "2200-3.webp",
-  "alt": "White closet with pull-out wire baskets on full-extension glides and a mirrored end panel"
- },
- {
-  "id": "work-25",
-  "w": 900,
-  "h": 1600,
-  "portrait": true,
-  "src": "2200-4.webp",
-  "alt": "Light woodgrain tall storage cabinets built in beside a fridge, over a herringbone floor"
- },
- {
-  "id": "work-26",
-  "w": 900,
-  "h": 1600,
-  "portrait": true,
-  "src": "2200-5.webp",
-  "alt": "White reach-in closet behind frosted glass bypass doors"
- },
- {
-  "id": "work-27",
-  "w": 900,
-  "h": 1600,
-  "portrait": true,
-  "src": "2200-6.webp",
-  "alt": "Woodgrain laundry cabinets over the washer, with drawers below and wall cabinets above"
- },
- {
-  "id": "work-28",
-  "w": 1153,
-  "h": 2048,
-  "portrait": true,
-  "src": "2200-7.webp",
-  "alt": "Built-in woodgrain shelving unit mid-install, with blue-painted back panels"
- },
- {
-  "id": "work-29",
-  "w": 900,
-  "h": 1600,
-  "portrait": true,
-  "src": "2200-8.webp",
-  "alt": "Light oak tall cabinets and base cabinets on a herringbone floor"
- },
- {
-  "id": "work-30",
-  "w": 2200,
-  "h": 3911,
-  "portrait": true,
-  "src": "2200.webp",
-  "alt": "Grey shaker laundry room cabinets over a washer and dryer, with a stone counter between them"
+  "src": "wa-35.jpg",
+  "alt": "Grey closet wall of open shelving and hanging with a drawer bank in the middle"
  }
 ]

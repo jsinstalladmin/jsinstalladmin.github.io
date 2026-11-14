@@ -151,10 +151,23 @@ export async function mountGallery(base=''){
      photographs and the page is exactly as long as it is with twelve. */
   const PAGE = 12;
   let shown = 0;
+  /* A WALKTHROUGH IS A PHOTOGRAPH THAT MOVES.
+
+     Half of what the crew sends back from a finished job is a clip taken
+     walking into the closet, and a clip says more about a closet than any
+     still: you see the depth of it, the doors opening, how it sits in the
+     room. They live in the same grid as the photographs, marked with a play
+     badge, and open in the same lightbox with the video in place of the
+     picture. Each one is a still frame in the grid, so a page of them costs
+     the same to load as a page of photographs. */
+  const poster = m => `${base}${m.video ? 'video/' + m.id + '-poster.jpg'
+                                        : 'img/work/' + m.id + '@800.jpg'}`;
   const cell = (m,i) => `
-    <button class="gcell ${m.portrait?'tall':''}" data-g="${i}" aria-label="Open: ${esc(m.alt||('photo '+(i+1)))}">
-      <img src="${base}img/work/${m.id}@800.jpg" alt="${esc(m.alt||'Closet installed by JS Installations & Closets')}"
+    <button class="gcell ${m.portrait?'tall':''}${m.video?' gvid':''}" data-g="${i}"
+            aria-label="${m.video ? 'Play' : 'Open'}: ${esc(m.alt||('photo '+(i+1)))}">
+      <img src="${poster(m)}" alt="${esc(m.alt||'Closet installed by JS Installations & Closets')}"
            loading="${i<6?'eager':'lazy'}" decoding="async" width="800" height="${Math.round(800*m.h/m.w)}">
+      ${m.video ? '<span class="gplay" aria-hidden="true"></span>' : ''}
     </button>`;
   host.innerHTML = `<div class="gwrap"><div class="ggrid"></div><div class="gfade"></div></div>
     <div class="gmore"><button type="button" class="btn btn-ghost" data-gmore></button>
@@ -163,6 +176,7 @@ export async function mountGallery(base=''){
       <button class="gx" aria-label="Close">&times;</button>
       <button class="gprev" aria-label="Previous">&#9664;</button>
       <img alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+      <video playsinline controls preload="none" hidden></video>
       <button class="gnext" aria-label="Next">&#9654;</button>
       <span class="gcount"></span>
     </div>`;
@@ -184,19 +198,37 @@ export async function mountGallery(base=''){
   page();
 
   const lb = host.querySelector('#glight'), img = lb.querySelector('img'),
-        cnt = lb.querySelector('.gcount');
+        vid = lb.querySelector('video'), cnt = lb.querySelector('.gcount');
   let at = 0;
   const show = i => { at = (i + man.length) % man.length;
-    img.src = base + 'img/work/' + man[at].id + '@1600.jpg';
+    const m = man[at];
+    /* Whichever one is not being shown is stopped and emptied, so moving off
+       a clip with the arrow keys does not leave it playing behind the next
+       photograph. */
+    if(m.video){
+      img.hidden = true; img.removeAttribute('src');
+      vid.hidden = false;
+      vid.poster = base + 'video/' + m.id + '-poster.jpg';
+      vid.src = base + 'video/' + m.id + '.mp4';
+      vid.load();
+      vid.play().catch(()=>{});          // a blocked autoplay just shows the controls
+    } else {
+      vid.pause(); vid.removeAttribute('src'); vid.load(); vid.hidden = true;
+      img.hidden = false;
+      img.src = base + 'img/work/' + m.id + '@1600.jpg';
+    }
     /* The caption is the photo's own description, not a number. It is what a
        screen reader announces and what an image search indexes. */
-    img.alt = man[at].alt || 'Closet installed by JS Installations & Closets';
+    img.alt = m.alt || 'Closet installed by JS Installations & Closets';
     cnt.textContent = (at+1) + ' / ' + man.length; };
   const open = i => { show(i); lb.hidden = false; document.body.style.overflow = 'hidden'; };
-  const close = () => { lb.hidden = true; document.body.style.overflow = ''; };
+  const close = () => {
+    vid.pause(); vid.removeAttribute('src'); vid.load(); vid.hidden = true;
+    lb.hidden = true; document.body.style.overflow = ''; };
   host.addEventListener('click', e => {
     if(e.target.closest('[data-gmore]')){ page(); return; }
     const c = e.target.closest('[data-g]'); if(c) return open(+c.dataset.g);
+    if(e.target.closest('video')) return;       // the player's own controls
     if(e.target.closest('.gx') || e.target === lb) return close();
     if(e.target.closest('.gprev')) return show(at-1);
     if(e.target.closest('.gnext')) return show(at+1);

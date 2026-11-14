@@ -1387,8 +1387,18 @@ function view(step){
          middle of the room, so both runs and the bridge between them are in
          the one picture. */
       const c = [W/2, H*0.45, D*0.45];
-      const r = fitDist(H*1.45, Math.max(W, D) * 1.5);
-      const az = 26 * Math.PI/180, el = 20 * Math.PI/180;
+      /* A little more air than the picture needs: a drawing cropped at the
+         toe kick looks like a mistake, and a U-shape seen from too low shows
+         you the back of the near run instead of into the closet. */
+      const r = fitDist(H*1.62, Math.max(W, D) * 1.66);
+      /* A three-quarter view shows an L-shape and hides a U-shape: swing
+         round on a closet with runs down BOTH sides and the near one becomes
+         a wall of end panel across the picture. A U is looked straight into
+         and from a little higher, so you see down both sides and the back. */
+      const bothSides = (cur?.bays || []).some(b => b.wall === 'left')
+                     && (cur?.bays || []).some(b => b.wall === 'right');
+      const az = (bothSides ? 5 : 24) * Math.PI/180;
+      const el = (bothSides ? 30 : 26) * Math.PI/180;
       return { t:c,
                p:[c[0] + r*Math.cos(el)*Math.sin(az),
                   c[1] + r*Math.sin(el),
@@ -1457,7 +1467,58 @@ function rebuild(reframe){
   /* ?audit=1 hands the built design to a test runner so a sweep can check
      that nothing was placed outside the room it was drawn for. It is off
      unless asked for, so nothing is exposed to an ordinary visitor. */
-  if(AUDIT) window.__cur = cur;
+  if(AUDIT){
+    window.__cur = cur;
+    /* ?audit=1 also exposes the documentation shot, so the pictures of a
+       layout used on the site can be rendered from the engine itself rather
+       than drawn by somebody who then has to remember the twelve inch
+       standoff. A render that comes out of here cannot get it wrong. */
+    window.__shot = keep => snapshot(keep);
+    /* And a documentation mode: the room shell off and a plain white ground,
+       so a layout can be rendered as a product picture rather than as a
+       photograph of an empty room with a closet in it. */
+    window.__bare = on => {
+      shell.visible = !on;
+      scene.background = new THREE.Color(on ? 0xFFFFFF : 0xEDEDEC);
+      needsFrame = true;
+    };
+    /* And the two handles a frame grabber needs: put a whole design in, and
+       put the camera exactly where you want it. The scroll sequence on the
+       home page is rendered through these, so the closet in it is one this
+       engine actually builds, standoff and bridge pieces included, rather
+       than a picture somebody drew of a closet. */
+    window.__apply = pl => {
+      if(pl.type) S.type = pl.type;
+      if(pl.room) S.room = { ...pl.room };
+      S.mounting = pl.mounting || S.mounting;
+      if(pl.shape) applyShape(pl.shape);
+      for(const wall of Object.keys(S.runs)) if(S.runs[wall]) S.runs[wall].bays = [];
+      for(const wall of Object.keys(pl.runs || {})){
+        const r = S.runs[wall]; if(!r) continue;
+        let at = 0;
+        r.bays = pl.runs[wall].map(sec => {
+          const b = makeBay(sec.w, structuredClone(sec.s || []), sec.top !== false);
+          b.at = at; at += sec.w; return b;
+        });
+        if(pl.depth && pl.depth[wall] != null) r.depth = clampDepth(pl.depth[wall], wall);
+      }
+      for(const wall of Object.keys(pl.runs || {})) fitWall(wall);
+      S.sel = null; fly = null;
+      rebuild(true);
+    };
+    /* Camera in room inches: where you are standing and what you are looking
+       at. A sequence that walks into a closet is choreographed in those
+       terms, not in angles around a bounding box. */
+    window.__cam = (o = {}) => {
+      const { w:W, d:D, h:H } = S.room;
+      const at = o.at || [W/2, 62, D*0.9];
+      const look = o.look || [W/2, H*0.45, 0];
+      cam.position.set(at[0], at[1], at[2]);
+      ctl.target.set(look[0], look[1], look[2]);
+      if(o.fov){ cam.fov = o.fov; cam.updateProjectionMatrix(); }
+      fly = null; ctl.update(); needsFrame = true;
+    };
+  }
   if(!DRAGGING) drawRoom();
   drawCloset(cur);
   if(!DRAGGING) resize();
@@ -2964,7 +3025,7 @@ function openGate(){
    carries which wall and which tower it is, so clicking one selects it and
    the panel on the right jumps to it, the same as clicking it in 3D.
    ══════════════════════════════════════════════════════════════════════ */
-let VIEW = '3d';          // '3d' | 'wall' | 'plan'
+let VIEW = '3d';          // '3d' | 'wall' | 'plan' | 'tower'
 let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
@@ -2983,14 +3044,25 @@ function paintFlat(){
   const walls = wallsWithTowers();
   if(VIEW === 'wall' && (!FLATWALL || !walls.includes(FLATWALL))) FLATWALL = S.sel?.wall && walls.includes(S.sel.wall) ? S.sel.wall : walls[0];
 
-  /* the wall picker only exists when there is more than one wall to pick */
+  /* The row under the switcher: which wall is being shown, and the way in
+     and out of a single tower. The tower this opens is whichever one is
+     selected, which is the one the panel on the right is already editing,
+     so the two never disagree about what you are looking at. */
   const picker = $('#v2dwalls');
+  const selOk = S.sel && (cur?.bays || []).some(b => b.wall === S.sel.wall && b.bay === S.sel.i);
   if(picker){
-    picker.innerHTML = VIEW === 'plan'
-      ? '<span class="v2dname">Looking down on the room</span>'
-      : (walls.length > 1
+    if(VIEW === 'tower'){
+      picker.innerHTML = `<button type="button" data-flatback="1">&larr; The whole wall</button>
+        <span class="v2dname">Tower ${selOk ? S.sel.i + 1 : ''}</span>`;
+    } else if(VIEW === 'plan'){
+      picker.innerHTML = '<span class="v2dname">Looking down on the room</span>'
+        + (selOk ? `<button type="button" data-flattower="1">Open tower ${S.sel.i + 1}</button>` : '');
+    } else {
+      picker.innerHTML = (walls.length > 1
           ? walls.map(w => `<button type="button" data-flatwall="${w}" aria-pressed="${w === FLATWALL}">${WALL_LABEL[w] || w}</button>`).join('')
-          : `<span class="v2dname">${WALL_LABEL[FLATWALL] || ''}</span>`);
+          : `<span class="v2dname">${WALL_LABEL[FLATWALL] || ''}</span>`)
+        + (selOk ? `<button type="button" data-flattower="1">Open tower ${S.sel.i + 1}</button>` : '');
+    }
   }
 
   const box = $('#v2dcanvas');
@@ -3002,16 +3074,40 @@ function paintFlat(){
   }
   /* The drawing is built at the size of the space it is going into, so the
      figures stay the same size on screen however big the window is, instead
-     of a wide screen printing tiny numbers on a huge drawing. */
-  const width = Math.max(320, Math.min(1180, Math.round(box.clientWidth || 900)));
-  flatModule().then(({ elevation, plan }) => {
+     of a wide screen printing tiny numbers on a huge drawing.
+
+     Width alone is not enough. A single tower is two feet wide and seven
+     feet tall: drawn to the full width of the stage it came out four times
+     taller than the stage, and the browser then shrank the whole thing to
+     fit, figures and all, which is exactly what building it at display size
+     was meant to avoid. So the drawing is fitted to the BOX: built once at
+     full width, and if it comes back taller than the space, built again
+     narrower until it fits. The padding round a drawing is fixed while its
+     body scales, so two passes settle it. */
+  /* The drawing is built at the size of the space it is going into, so the
+     figures stay the same size on screen however big the window is, instead
+     of a wide screen printing tiny numbers on a huge drawing. Both the width
+     and the height are handed over: a single tower is two feet wide and
+     seven feet tall, so width alone would make it four times taller than
+     the stage and the browser would shrink the whole thing, figures and all,
+     which is the thing building it at display size was meant to avoid. */
+  const boxW = Math.max(320, Math.min(1180, Math.round(box.clientWidth || 900)));
+  const boxH = Math.max(260, Math.round(box.clientHeight || 600));
+  flatModule().then(({ elevation, plan, tower }) => {
     if(VIEW === '3d') return;
     /* The drawing's own caption is left off here: the switcher and the wall
        buttons above it already say which wall this is, and a second title
        inside the drawing collided with the overall dimension across the top
        of it. On paper and on its own the caption stays. */
-    const opt = { width, pick:true, selected:S.sel, title:false };
-    const svg = VIEW === 'plan' ? plan(cur, opt) : elevation(cur, FLATWALL, opt);
+    const opt = { width:boxW, height:boxH, pick:true, selected:S.sel, title:false };
+    let svg;
+    if(VIEW === 'tower'){
+      if(!selOk){ VIEW = 'wall'; paintFlat(); return; }
+      svg = tower(cur, S.sel.wall, S.sel.i, { width:boxW, height:boxH, title:false });
+      if(!svg){ VIEW = 'wall'; paintFlat(); return; }
+    } else {
+      svg = VIEW === 'plan' ? plan(cur, opt) : elevation(cur, FLATWALL, opt);
+    }
     box.innerHTML = svg || `<p class="v2dempty">There is nothing on that wall yet.</p>`;
   }).catch(err => {
     console.warn('[flat view]', err);
@@ -3036,17 +3132,102 @@ $('#vswitch')?.addEventListener('click', e => {
   setView(b.dataset.view);
 });
 $('#v2dwalls')?.addEventListener('click', e => {
-  const b = e.target.closest('button[data-flatwall]'); if(!b) return;
-  FLATWALL = b.dataset.flatwall; paintFlat();
+  const w = e.target.closest('button[data-flatwall]');
+  if(w){ FLATWALL = w.dataset.flatwall; paintFlat(); return; }
+  if(e.target.closest('button[data-flattower]')){
+    VIEW = 'tower';
+    $('#vswitch')?.querySelectorAll('button').forEach(x => x.setAttribute('aria-selected','false'));
+    paintFlat(); return;
+  }
+  if(e.target.closest('button[data-flatback]')){
+    VIEW = 'wall';
+    if(S.sel?.wall) FLATWALL = S.sel.wall;
+    $('#vswitch')?.querySelectorAll('button').forEach(x =>
+      x.setAttribute('aria-selected', String(x.dataset.view === 'wall')));
+    paintFlat(); return;
+  }
 });
-/* clicking a tower in a flat view is clicking that tower */
-$('#v2dcanvas')?.addEventListener('click', e => {
+/* ── CLICKING AND DRAGGING A TOWER IN A FLAT VIEW ────────────────────────
+
+   The same gesture the 3D view and the layout strip already have, on the
+   drawing: press a tower and it is selected, drag it and it slides along
+   its own wall, stopping where its neighbours are. The pointer is captured
+   on the container rather than on the tower, because the drawing is
+   redrawn on every frame of the drag and the tower under the finger is a
+   different element each time.
+
+   data-k on the drawing says how many SVG units an inch is, and the ratio
+   between the drawing's own width and the width it is displayed at turns
+   that into screen pixels, so this works at any size. */
+let FDRAG = null;
+
+function flatScale(svg){
+  if(!svg) return 0;
+  const k = +svg.dataset.k || 0;
+  const box = svg.getBoundingClientRect();
+  const own = +svg.getAttribute('width') || box.width;
+  if(!k || !own || !box.width) return 0;
+  return k * (box.width / own);              // screen pixels per inch
+}
+
+$('#v2dcanvas')?.addEventListener('pointerdown', e => {
   const r = e.target.closest('.pick'); if(!r) return;
-  S.sel = { wall:r.dataset.wall, i:+r.dataset.bay };
+  const wall = r.dataset.wall, i = +r.dataset.bay;
+  const run = S.runs[wall]; const bay = run?.bays?.[i];
+  if(!bay) return;
+  /* selecting is instant; the panel should follow the press, not the release */
+  S.sel = { wall, i };
   if(document.body.dataset.step === '1' && typeof window.gotoStep === 'function')
     window.gotoStep('2');
+  const host = $('#v2dcanvas');
+  const pxPerIn = flatScale(host.querySelector('svg'));
+  /* The plan is drawn to one scale in both directions, so only which axis
+     counts as "along this wall" changes: across for the back wall, up and
+     down for a side wall. The tower itself is held by reference, because
+     moving it re-sorts the run and its index changes under us. */
+  FDRAG = pxPerIn ? { wall, i, ref:bay, axis:r.dataset.axis || 'x', pxPerIn, delta:0,
+                      p0: r.dataset.axis === 'y' ? e.clientY : e.clientX,
+                      at0: bay.at ?? 0, moved:false } : null;
+  if(FDRAG){
+    DRAGGING = true;
+    host.setPointerCapture?.(e.pointerId);
+    host.classList.add('dragging');
+  }
   paintAll();
 });
+
+const dragFlat = onFrame(() => {
+  if(!FDRAG) return;
+  const inches = FDRAG.delta / FDRAG.pxPerIn;
+  if(Math.abs(inches) > 0.4) FDRAG.moved = true;
+  if(!FDRAG.moved) return;
+  moveSection(FDRAG.wall, FDRAG.i, FDRAG.at0 + inches);
+  /* moveSection re-sorts the run, so the index this tower had is no longer
+     the index it has. The object itself has not changed, so ask the array
+     where it put it rather than guessing from its position. */
+  const at = S.runs[FDRAG.wall].bays.indexOf(FDRAG.ref);
+  FDRAG.i = at < 0 ? 0 : at;
+  S.sel = { wall:FDRAG.wall, i:FDRAG.i };
+  rebuild(false);
+  paintFlat();
+});
+
+$('#v2dcanvas')?.addEventListener('pointermove', e => {
+  if(!FDRAG) return;
+  FDRAG.delta = (FDRAG.axis === 'y' ? e.clientY : e.clientX) - FDRAG.p0;
+  dragFlat();
+});
+
+const endFlatDrag = () => {
+  if(!FDRAG) return;
+  const { moved, wall } = FDRAG;
+  FDRAG = null; DRAGGING = false;
+  $('#v2dcanvas')?.classList.remove('dragging');
+  if(moved){ sortRun(wall); rebuild(true); }   // reprice once, at the end
+  paintAll();
+};
+$('#v2dcanvas')?.addEventListener('pointerup', endFlatDrag);
+$('#v2dcanvas')?.addEventListener('pointercancel', endFlatDrag);
 /* a flat view is laid out for the width it was drawn at */
 let flatPending = null;
 addEventListener('resize', () => {
@@ -3070,10 +3251,14 @@ addEventListener('resize', () => {
    a size we compose one fresh frame first; if it does not we take the last
    one that was drawn, which preserveDrawingBuffer has kept for us. Either
    way a failure here returns null and the drawing goes without the shot. */
-function snapshot(){
+function snapshot(keepCamera){
   const pos = cam.position.clone(), tgt = ctl.target.clone();
   try{
-    if(canvas.clientWidth > 0 && canvas.clientHeight > 0){
+    /* keepCamera is for a frame grabber that has already placed the camera
+       itself. Without it this would helpfully move the camera back to the
+       documentation view and photograph that instead, which is exactly what
+       it is for everywhere else. */
+    if(!keepCamera && canvas.clientWidth > 0 && canvas.clientHeight > 0){
       /* The shot is taken from the whole-room view, not from wherever the
          customer happened to leave the camera. Pressing send with the camera
          two inches from a drawer front was putting a photograph of a drawer
@@ -3081,13 +3266,17 @@ function snapshot(){
          back the moment the picture is taken, so nothing moves on screen. */
       const v = view('doc');
       cam.position.set(...v.p); ctl.target.set(...v.t); ctl.update();
+    }
+    if(canvas.clientWidth > 0 && canvas.clientHeight > 0){
       if(composer) composer.render(); else renderer.render(scene, cam);
     }
     return renderer.domElement.toDataURL('image/png');
   }catch(e){
     console.warn('[drawing] no 3D shot:', e); return null;
   }finally{
-    cam.position.copy(pos); ctl.target.copy(tgt); ctl.update();
+    if(!keepCamera){
+      cam.position.copy(pos); ctl.target.copy(tgt); ctl.update();
+    }
     needsFrame = true;
   }
 }

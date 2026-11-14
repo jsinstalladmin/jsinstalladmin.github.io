@@ -34,6 +34,32 @@ export const inch = v => {
 const INK = '#2B2118', LINE = '#8C7F70', DIM = '#1F6F8B', FAINT = '#D8D2C8';
 const FONT = 'ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif';
 
+/* FITTING A DRAWING TO THE SPACE IT HAS.
+
+   Every drawing here is a body that scales with the scale factor plus a
+   margin that does not: the dimension figures, the labels and the ladders
+   are laid out in points and have to stay the size they are or nobody can
+   read them. That makes the height a drawing comes out at NOT proportional
+   to the width it was asked for, so "draw it wide and let the browser
+   shrink it" and "guess a width, measure, guess again" both go wrong — the
+   first shrinks the figures, the second overshoots.
+
+   So the scale is solved for instead. Given the margins and how many
+   inches have to fit across and down, this returns the one scale that fits
+   both, and the exact size the drawing will be at that scale.
+   ──────────────────────────────────────────────────────────────────────── */
+function fitScale(pad, acrossIn, downIn, opt = {}){
+  const w = opt.width || 900;
+  const kW = (w - pad.l - pad.r) / Math.max(0.01, acrossIn);
+  const kH = opt.height
+    ? (opt.height - pad.t - pad.b) / Math.max(0.01, downIn)
+    : Infinity;
+  const k = Math.max(0.6, Math.min(kW, kH));
+  return { k,
+           W: Math.round(acrossIn * k + pad.l + pad.r),
+           H: Math.round(downIn   * k + pad.t + pad.b) };
+}
+
 /* ── a dimension: witness lines, an arrowed rule and the figure ──────── */
 function dimH(x0, x1, y, label, opt = {}){
   if(Math.abs(x1 - x0) < 0.01) return '';
@@ -93,9 +119,7 @@ export function elevation(design, wall, opt = {}){
      all of them the overall ceiling height. They each need their own lane
      or they print on top of one another. */
   const PAD = { l:86, r:34, t:54, b:62 };
-  const W = opt.width || 980;
-  const k = (W - PAD.l - PAD.r) / spanIn;              // px per inch
-  const H = Math.round(hIn * k) + PAD.t + PAD.b;
+  const { k, W, H } = fitScale(PAD, spanIn, hIn, opt);
   const X = v => PAD.l + v * k;
   const Y = v => PAD.t + (hIn - v) * k;                // y is up in the room
 
@@ -235,14 +259,17 @@ export function elevation(design, wall, opt = {}){
   if(opt.pick){
     for(const b of sorted){
       const left = posOf(b) - b.w / 2;
-      picks += `<rect class="pick" data-wall="${esc(wall)}" data-bay="${b.bay}"
+      picks += `<rect class="pick" data-wall="${esc(wall)}" data-bay="${b.bay}" data-axis="x"
         ${opt.selected && opt.selected.wall === wall && opt.selected.i === b.bay ? 'data-on="1"' : ''}
         x="${X(left).toFixed(1)}" y="${Y(b.top).toFixed(1)}"
-        width="${(b.w * k).toFixed(1)}" height="${Math.max(8, b.h * k).toFixed(1)}"><title>Tower ${b.bay + 1}, ${inch(b.w)} wide</title></rect>`;
+        width="${(b.w * k).toFixed(1)}" height="${Math.max(8, b.h * k).toFixed(1)}"><title>Tower ${b.bay + 1}, ${inch(b.w)} wide. Drag it along the wall.</title></rect>`;
     }
   }
+  /* data-k is how many SVG units one inch is, so a drag in screen pixels can
+     be turned back into inches without the page having to know anything
+     about how the drawing was laid out. */
   return `<svg xmlns="${NS}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
-    aria-label="${esc(title)}"><rect width="${W}" height="${H}" fill="#FFFFFF"/>
+    data-k="${k.toFixed(5)}" aria-label="${esc(title)}"><rect width="${W}" height="${H}" fill="#FFFFFF"/>
     ${caption}${frame}${body}${doorway}${dims}${heights}${picks}</svg>`;
 }
 
@@ -253,9 +280,7 @@ export function elevation(design, wall, opt = {}){
 export function plan(design, opt = {}){
   const room = design.room || { w:96, d:24, h:96 };
   const PAD = { l:62, r:40, t:52, b:62 };
-  const W = opt.width || 760;
-  const k = (W - PAD.l - PAD.r) / room.w;
-  const H = Math.round(room.d * k) + PAD.t + PAD.b;
+  const { k, W, H } = fitScale(PAD, room.w, room.d, opt);
   const X = v => PAD.l + v * k;
   const Z = v => PAD.t + v * k;
 
@@ -279,10 +304,14 @@ export function plan(design, opt = {}){
       body += `<rect x="${X(x).toFixed(1)}" y="${Z(z).toFixed(1)}"
         width="${(w*k).toFixed(1)}" height="${(d*k).toFixed(1)}"
         fill="#EFE6D8" stroke="${LINE}" stroke-width="0.8"/>`;
+      /* Looking down, a back-wall tower slides across the drawing and a side
+         tower slides up and down it, so each one says which screen axis is
+         "along its own wall". */
       if(opt.pick) picks += `<rect class="pick" data-wall="${esc(wall)}" data-bay="${b.bay}"
+        data-axis="${wall === 'back' ? 'x' : 'y'}"
         ${opt.selected && opt.selected.wall === wall && opt.selected.i === b.bay ? 'data-on="1"' : ''}
         x="${X(x).toFixed(1)}" y="${Z(z).toFixed(1)}"
-        width="${(w*k).toFixed(1)}" height="${(d*k).toFixed(1)}"><title>${esc(wall)} wall, tower ${b.bay + 1}</title></rect>`;
+        width="${(w*k).toFixed(1)}" height="${(d*k).toFixed(1)}"><title>${esc(wall)} wall, tower ${b.bay + 1}. Drag it along the wall.</title></rect>`;
     }
   }
 
@@ -330,8 +359,141 @@ export function plan(design, opt = {}){
     `<text x="${PAD.l}" y="20" font-family="${FONT}" font-size="12" font-weight="600"
            fill="${INK}">Looking down on the room</text>`;
   return `<svg xmlns="${NS}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
-    aria-label="Plan view"><rect width="${W}" height="${H}" fill="#FFFFFF"/>
+    data-k="${k.toFixed(5)}" aria-label="Plan view"><rect width="${W}" height="${H}" fill="#FFFFFF"/>
     ${caption}${body}${dims}${picks}</svg>`;
+}
+
+/* ══ ONE TOWER, ON ITS OWN ══════════════════════════════════════════════
+   A wall elevation answers "where does each tower go". This answers "what
+   is inside this one": the clear opening above every shelf, the height of
+   every drawer front, where the rod sits, and what each part of the stack
+   actually is. It is the drawing a fitter works from with the tower in
+   front of him, and the one a customer looks at to check a shoe shelf is
+   tall enough for a boot.
+
+   It is built from the same geometry as everything else, cropped to the
+   tower's own span along its wall, so it cannot describe a tower the
+   engine did not build.
+   ══════════════════════════════════════════════════════════════════════ */
+export function towerOf(design, wall, bay){
+  return (design.bays || []).find(b => b.wall === wall && b.bay === bay) || null;
+}
+
+export function tower(design, wall, bay, opt = {}){
+  const b = towerOf(design, wall, bay);
+  if(!b) return null;
+
+  const along  = (wall === 'back') ? b.x
+               : ((b.alongRoom != null) ? b.alongRoom : ((b.start || 0) + b.x));
+  const left   = along - b.w / 2, right = along + b.w / 2;
+  const floorY = b.top - b.h;                 // the deck this tower stands on
+  const hIn    = b.top + 4;                   // a little air above the top shelf
+
+  const PAD = { l:92, r:150, t:50, b:46 };
+  const { k, W, H } = fitScale(PAD, b.w, hIn, opt);
+  const X   = v => PAD.l + (v - left) * k;
+  const Y   = v => PAD.t + (hIn - v) * k;
+
+  /* EVERY PIECE OF THIS TOWER, CLIPPED TO IT.
+
+     Deciding by a piece's centre was not enough. A toe kick and a hang
+     cleat are built island-long, not tower-long, so one of them centred
+     anywhere inside this tower dragged its whole eight foot length into the
+     drawing and the kick ran out past both sides of a two foot tower. A
+     piece is in if it OVERLAPS the tower, and it is drawn only across the
+     part of it that does. */
+  const overlaps = g => {
+    const q = alongOf(g, wall);
+    return (q.a + q.s / 2) > left + 0.05 && (q.a - q.s / 2) < right - 0.05;
+  };
+  const geo = (design.geo || []).filter(g =>
+    g.wall === wall && g.k !== 'cloth' && g.k !== 'garment' && !g.bridge && overlaps(g));
+
+  const fill = g => g.m === 'front' ? '#E6D9C6'
+                  : g.m === 'metal' ? '#C9CED4'
+                  : g.m === 'glass' ? '#DCE8EC'
+                  : '#F3EDE3';
+  let body = '';
+  for(const g of geo){
+    const q = alongOf(g, wall);
+    const a0 = Math.max(left, q.a - q.s / 2), a1 = Math.min(right, q.a + q.s / 2);
+    const y = Y(g.p[1] + g.s[1] / 2);
+    body += `<rect x="${X(a0).toFixed(1)}" y="${y.toFixed(1)}"
+      width="${Math.max(0.6, (a1 - a0) * k).toFixed(1)}" height="${Math.max(0.6, g.s[1] * k).toFixed(1)}"
+      fill="${fill(g)}" stroke="${LINE}" stroke-width="0.6"/>`;
+  }
+
+  /* THE OPENINGS.
+
+     Every horizontal surface inside the tower, bottom to top, taken as a
+     pair of faces: the top of one and the bottom of the next. The figure
+     between them is the CLEAR opening, which is the number anybody actually
+     wants, rather than the distance between two shelf centres. */
+  const faces = [];
+  const push = (lo, hi, what) => faces.push({ lo, hi, what });
+  for(const g of geo){
+    const lo = g.p[1] - g.s[1] / 2, hi = g.p[1] + g.s[1] / 2;
+    if(g.k === 'shelf')  push(lo, hi, 'shelf');
+    if(g.k === 'toe')    push(lo, hi, 'kick');
+    if(g.k === 'counter')push(lo, hi, 'top');
+    if(g.k === 'front' || g.k === 'glass') push(lo, hi, 'front');
+  }
+  faces.sort((a, c) => a.lo - c.lo);
+
+  let dims = '';
+  /* drawer and door fronts measured as themselves, openings measured clear */
+  let cursor = floorY;
+  for(const f of faces){
+    if(f.what === 'front'){
+      dims += dimV(Y(f.lo), Y(f.hi), PAD.l - 16, inch(f.hi - f.lo));
+      cursor = Math.max(cursor, f.hi);
+      continue;
+    }
+    if(f.lo - cursor > 1.2) dims += dimV(Y(cursor), Y(f.lo), PAD.l - 16, inch(f.lo - cursor));
+    cursor = Math.max(cursor, f.hi);
+  }
+  if(b.top - cursor > 1.2) dims += dimV(Y(cursor), Y(b.top), PAD.l - 16, inch(b.top - cursor));
+  /* the tower itself, outside all of that */
+  dims += dimV(Y(floorY), Y(b.top), PAD.l - 58, inch(b.h) + ' tall');
+  dims += dimH(X(left), X(right), PAD.t - 16, inch(b.w) + ' wide');
+
+  /* rods get their own figure off the floor, because a rail height is
+     measured from the floor on site and from nothing else */
+  for(const g of geo){
+    if(g.k !== 'rod') continue;
+    dims += `<g><line x1="${X(right).toFixed(1)}" y1="${Y(g.p[1]).toFixed(1)}"
+        x2="${(X(right) + 26).toFixed(1)}" y2="${Y(g.p[1]).toFixed(1)}"
+        stroke="${DIM}" stroke-width="0.7" stroke-dasharray="3 2"/>
+      <text x="${(X(right) + 30).toFixed(1)}" y="${(Y(g.p[1]) + 3).toFixed(1)}"
+        fill="${DIM}" font-size="9" font-family="${FONT}">rod at ${esc(inch(g.p[1]))}</text></g>`;
+  }
+
+  /* WHAT EACH PART OF IT IS, in the customer's own words, written against
+     the band of the tower it occupies. A drawing of empty boxes does not
+     tell anybody that the middle one is the shoe shelves. */
+  let labels = '';
+  for(const band of (b.bands || [])){
+    if(!band.label || band.y1 - band.y0 < 2) continue;
+    const mid = (band.y0 + band.y1) / 2;
+    labels += `<text x="${(X(right) + 30).toFixed(1)}" y="${(Y(mid) + 3).toFixed(1)}"
+      fill="${INK}" font-size="10" font-family="${FONT}">${esc(band.label)}</text>`;
+  }
+
+  const frame = `
+    <line x1="${X(left)}" y1="${Y(0)}" x2="${X(right)}" y2="${Y(0)}" stroke="${INK}" stroke-width="1.4"/>
+    <line x1="${X(left)}" y1="${Y(0)}" x2="${X(left)}" y2="${Y(b.top)}" stroke="${FAINT}" stroke-width="1"/>
+    <line x1="${X(right)}" y1="${Y(0)}" x2="${X(right)}" y2="${Y(b.top)}" stroke="${FAINT}" stroke-width="1"/>`;
+
+  const title = `${wall[0].toUpperCase()}${wall.slice(1)} wall · tower ${bay + 1}`;
+  const caption = opt.title === false ? '' :
+    `<text x="${PAD.l}" y="20" font-family="${FONT}" font-size="12" font-weight="600"
+           fill="${INK}">${esc(title)}</text>`;
+  const note = `<text x="${PAD.l}" y="${H - 16}" font-family="${FONT}" font-size="9"
+      fill="${LINE}">${esc(inch(b.depth))} deep · starts ${esc(inch(left))} from the corner</text>`;
+
+  return `<svg xmlns="${NS}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
+    aria-label="${esc(title)}"><rect width="${W}" height="${H}" fill="#FFFFFF"/>
+    ${caption}${frame}${body}${dims}${labels}${note}</svg>`;
 }
 
 /* ── every wall that has something on it ─────────────────────────────── */
@@ -414,48 +576,46 @@ export async function buildPdf(design, meta = {}){
     return m ? { w:+m[1], h:+m[2] } : { w:900, h:600 };
   };
 
-  /* FITTING A DRAWING TO A PAGE WITHOUT SHRINKING THE FIGURES.
-
-     The obvious way is to draw big and scale down, and it is the wrong way:
-     the dimension figures scale with it, so a 9px label on a 1100px drawing
-     lands on paper at about six points and nobody can read the number the
-     whole drawing exists to carry.
-
-     So the drawing is BUILT at the size it will be printed, one point per
-     SVG unit, and placed at 1:1. The padding round a drawing is fixed in
-     pixels while the body of it scales with the width, so the height is not
-     a straight multiple of the width; two passes settle it. The PNG is
-     rasterised at 3x so the line work is still sharp on paper even though
-     the type is laid out at its final size. */
-  const fitted = (make, box) => {
-    let w = box.w, svg = make(w), sz = sizeOf(svg);
-    for(let i = 0; i < 2 && sz.h > box.h; i++){
-      w = Math.max(220, Math.floor(w * (box.h / sz.h)));
-      svg = make(w); sz = sizeOf(svg);
-    }
-    return { svg, ...sz };
-  };
-
+  /* A drawing is asked for the exact box it is going into and comes back at
+     the one scale that fits both ways, so it is placed at 1:1 and the
+     dimension figures print at the size they were laid out at. They used to
+     be drawn big and scaled down, which put a nine point label on paper at
+     about six and made the whole drawing unreadable. The PNG is rasterised
+     at 3x so the line work is still sharp even though the type is already
+     at its final size. */
   const place = async (make, top) => {
-    const box = { w: PAGE.w - M * 2, h: PAGE.h - top - M };
-    const f = fitted(make, box);
-    const k = Math.min(1, box.w / f.w, box.h / f.h);
-    const w = f.w * k, h = f.h * k;
-    const png = await svgToPng(f.svg, 3);
-    doc.addImage(png, 'PNG', M + (box.w - w) / 2, top, w, h, undefined, 'FAST');
+    const box = { width: PAGE.w - M * 2, height: PAGE.h - top - M };
+    const svg = make(box);
+    const sz = sizeOf(svg);
+    const png = await svgToPng(svg, 3);
+    doc.addImage(png, 'PNG', M + (box.width - sz.w) / 2, top, sz.w, sz.h, undefined, 'FAST');
   };
 
   /* one page per wall */
   for(const wall of wallsIn(design)){
     if(!elevation(design, wall)) continue;
     head(`${wall[0].toUpperCase()}${wall.slice(1)} wall`, meta.ref || '');
-    await place(width => elevation(design, wall, { width, title:false }), M + 30);
+    await place(box => elevation(design, wall, { ...box, title:false }), M + 30);
   }
 
   /* the plan */
   if(plan(design)){
     head('Looking down on the room', meta.ref || '');
-    await place(width => plan(design, { width, title:false }), M + 30);
+    await place(box => plan(design, { ...box, title:false }), M + 30);
+  }
+
+  /* A PAGE PER TOWER.
+
+     The elevation says where each tower goes and how wide it is. This says
+     what is inside it: the clear opening over every shelf, the height of
+     every drawer front, where the rod sits and what each band of it is.
+     That is the page somebody works from with the tower in front of them,
+     and it is the last thing that was still only in the customer's head. */
+  for(const b of (design.bays || [])){
+    if(!tower(design, b.wall, b.bay)) continue;
+    head(`${b.wall[0].toUpperCase()}${b.wall.slice(1)} wall · tower ${b.bay + 1}`,
+         meta.ref || '');
+    await place(box => tower(design, b.wall, b.bay, { ...box, title:false }), M + 30);
   }
 
   /* the 3D view as the customer saw it */
