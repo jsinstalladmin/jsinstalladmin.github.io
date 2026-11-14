@@ -1972,3 +1972,72 @@ body:has(.gate:not([hidden])){overflow:hidden}
 .chpick button:disabled{opacity:.45;cursor:not-allowed}
 .chpick button:disabled i{color:var(--warn,#9A3B2A);opacity:1}
 #bayNote.warnnote{color:var(--warn,#9A3B2A)}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE FOOTER IS FOR THE END, NOT FOR THE WHOLE TIME
+
+   "Price back within 24 hours", a sub-line, two buttons and a flag
+   counter sat under the panel on every step, permanently, taking a
+   fifth of the height of the thing people are actually working in. It
+   belongs where it is true: once the closet is designed and they are
+   about to send it. Three steps out of four get the height back.
+   ══════════════════════════════════════════════════════════════════════ */
+.pfoot{display:none}
+body[data-step="3"] .pfoot,
+body[data-step="order"] .pfoot{display:block}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE WALLS AS A ROW OF CHIPS
+
+   Three stacked accordions became one row and one open wall. The panel
+   under it is whatever was pressed, which is the whole point of it.
+   ══════════════════════════════════════════════════════════════════════ */
+.wallbar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px;margin:0 0 .8em}
+.wallbar button{display:grid;gap:1px;padding:.46em .5em;cursor:pointer;text-align:center;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper);color:var(--ink-2)}
+.wallbar button:hover{border-color:var(--ink-3)}
+.wallbar button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.wallbar button b{font-size:.76rem;font-weight:500}
+.wallbar button i{font-style:normal;font-size:.64rem;opacity:.7}
+.runblk.chipped{border:0;padding:0;background:none;box-shadow:none}
+.runhd2{display:flex;align-items:center;justify-content:space-between;gap:.7em;margin:0 0 .6em}
+.runhd2 > b{font-size:.84rem;font-weight:500;color:var(--ink)}
+
+/* adding a tower: one row, not five cards with a paragraph each */
+.addrow2{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:.5em .8em;padding:.6em .7em;margin:.8em 0 0;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper-2)}
+.addrow2 .addlb{display:grid;gap:1px;min-width:0}
+.addrow2 .addlb b{font-size:.78rem;font-weight:500;color:var(--ink)}
+.addrow2 .addlb i{font-style:normal;font-size:.66rem;color:var(--ink-3)}
+.addrow2 .addw{display:flex;flex-wrap:wrap;gap:4px}
+.addrow2 .addw button{min-width:38px;padding:.34em .52em;font-size:.73rem;line-height:1;cursor:pointer;
+  border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink-2)}
+.addrow2 .addw button:hover{border-color:var(--ink);color:var(--ink)}
+.addrow2 .addw button.fill{border-style:dashed}
+.addrow2.full .addlb b{color:var(--warn,#9A3B2A)}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE TOOLBAR ON THE LEFT OF THE STAGE
+
+   The reference software puts the thing you build WITH beside the thing
+   you are building, not at the bottom of a column on the far side of the
+   screen. Components and the ready-made towers are one press from the
+   drawing, and they open the right-hand panel on what you pressed.
+   ══════════════════════════════════════════════════════════════════════ */
+.ltools{position:absolute;left:14px;top:50%;translate:0 -50%;z-index:6;
+  display:grid;gap:6px;padding:6px;border-radius:14px;
+  background:color-mix(in srgb, var(--paper) 90%, transparent);
+  border:1px solid var(--line);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+.ltools button{display:grid;justify-items:center;gap:3px;width:62px;padding:.5em .2em;cursor:pointer;
+  border:1px solid transparent;border-radius:10px;background:none;color:var(--ink-2);font:inherit}
+.ltools button:hover:not(:disabled){background:var(--paper-2);border-color:var(--line);color:var(--ink)}
+.ltools button:disabled{opacity:.35;cursor:not-allowed}
+.ltools button svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.ltools button span{font-size:.6rem;line-height:1.15;text-align:center}
+@media(max-width:1060px){
+  .ltools{position:static;translate:none;grid-auto-flow:column;grid-auto-columns:1fr;
+    margin:0 0 8px;backdrop-filter:none;-webkit-backdrop-filter:none}
+  .ltools button{width:auto}
+}

@@ -2400,6 +2400,10 @@ export function buildDesign(cfg, cat){
               standing in front of the closet rather than leaving the
               customer to imagine them */
            doorOpening: cfg.doorW || 0,
+           /* which door, so the plan and the elevation can draw the thing
+              itself rather than a dashed line that could be anything */
+           doorType: cfg.door || 'none',
+           doorLabel: cfg.doorLabel || cfg.door || '',
            room: cfg.room, cabTop: bayTop, mounting: cfg.mounting,
            bays:bayIndex, wallGap:GAP, warnings:[...new Set(warnings)],
            quote:quoteSummary(price, bayIndex, cfg.runs),

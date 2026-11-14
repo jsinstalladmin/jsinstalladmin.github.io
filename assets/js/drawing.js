@@ -394,12 +394,60 @@ export function plan(design, opt = {}){
   }
   body += bridges;
 
+  /* ══ THE DOOR, ON THE WALL IT IS ACTUALLY IN ════════════════════════
+     The plan showed the cabinetry and said nothing about how you get at
+     it. Which door and how wide decides how much of the front can be
+     reached, so it is drawn on the near wall, to scale, as the thing it
+     is, and labelled with its width and its name. */
+  let doorArt = '';
+  const dw = Math.min(room.w, Math.max(0, +design.doorOpening || 0));
+  const dt = design.doorType || design.door || 'none';
+  if(dw >= 12 && dt !== 'none'){
+    const ox = (room.w - dw) / 2, oz = room.d;
+    const x0 = X(ox), x1 = X(ox + dw), zy = Z(oz), ow = x1 - x0;
+    const L = `fill="none" stroke="${DIM}" stroke-width="1.4"`;
+    const G = `fill="none" stroke="${DIM}" stroke-width=".9" stroke-dasharray="4 3" opacity=".65"`;
+    /* the opening itself, cut white out of the wall line */
+    doorArt += `<path d="M${x0} ${zy}h${ow}" stroke="#FFFFFF" stroke-width="4"/>`;
+    if(dt === 'swing-r' || dt === 'swing-l'){
+      const hinge = dt === 'swing-r' ? x1 : x0, dir = dt === 'swing-r' ? -1 : 1;
+      doorArt += `<path d="M${hinge} ${zy}L${hinge + dir * ow} ${zy}" ${L}/>
+        <path d="M${hinge + dir * ow} ${zy}A${ow} ${ow} 0 0 ${dir > 0 ? 0 : 1} ${hinge} ${zy + ow}" ${G}/>`;
+    } else if(dt === 'double'){
+      const hw = ow / 2;
+      doorArt += `<path d="M${x0} ${zy}L${x0 + hw} ${zy}" ${L}/>
+        <path d="M${x1} ${zy}L${x0 + hw} ${zy}" ${L}/>
+        <path d="M${x0 + hw} ${zy}A${hw} ${hw} 0 0 1 ${x0} ${zy + hw}" ${G}/>
+        <path d="M${x0 + hw} ${zy}A${hw} ${hw} 0 0 0 ${x1} ${zy + hw}" ${G}/>`;
+    } else if(dt === 'bypass'){
+      const hw = ow / 2;
+      doorArt += `<rect x="${x0}" y="${zy - 4}" width="${hw}" height="3" fill="${DIM}" opacity=".55"/>
+        <rect x="${x0 + hw}" y="${zy + 1}" width="${hw}" height="3" fill="${DIM}" opacity=".9"/>`;
+    } else if(dt === 'bifold'){
+      const q = ow / 4;
+      const zig = [0,1,2,3].map(i =>
+        `M${x0 + i * q} ${zy + (i % 2 ? 0 : 6)}L${x0 + (i + 1) * q} ${zy + (i % 2 ? 6 : 0)}`).join('');
+      doorArt += `<path d="${zig}" ${L}/>`;
+    } else if(dt === 'barn'){
+      doorArt += `<path d="M${x0 - ow * 0.12} ${zy + 8}h${ow * 1.3}" stroke="${DIM}" stroke-width="1" opacity=".6"/>
+        <rect x="${x0 + ow * 0.5}" y="${zy + 3}" width="${ow}" height="4" fill="${DIM}" opacity=".7"/>`;
+    } else if(dt === 'pocket'){
+      doorArt += `<rect x="${x0}" y="${zy - 2}" width="${ow / 2}" height="4" fill="${DIM}" opacity=".85"/>
+        <path d="M${x0 - ow / 2} ${zy}h${ow / 2}" stroke="${DIM}" stroke-width="1" stroke-dasharray="3 2" opacity=".5"/>`;
+    } else {
+      doorArt += `<path d="M${x0} ${zy}h${ow}" stroke="${DIM}" stroke-width="1.4" stroke-dasharray="5 3"/>`;
+    }
+    const name = (design.doorLabel || dt).toString().toLowerCase();
+    doorArt += `<text x="${(x0 + x1) / 2}" y="${zy + 30}" fill="${DIM}" font-family="${FONT}"
+      font-size="11" text-anchor="middle">${esc(inch(dw))} ${esc(name)}</text>`;
+  }
+
   const caption = opt.title === false ? '' :
     `<text x="${PAD.l}" y="20" font-family="${FONT}" font-size="12" font-weight="600"
            fill="${INK}">Looking down on the room</text>`;
   return `<svg xmlns="${NS}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img"
     data-k="${k.toFixed(5)}" aria-label="Plan view"><rect width="${W}" height="${H}" fill="#FFFFFF"/>
-    ${caption}${body}${dims}${picks}</svg>`;
+    ${caption}${body}${doorArt}${dims}${picks}</svg>`;
 }
 
 /* ══ ONE TOWER, ON ITS OWN ══════════════════════════════════════════════
