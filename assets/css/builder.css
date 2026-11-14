@@ -1617,9 +1617,29 @@ body[data-step="6"] .pacts{margin-top:0}
 .vswitch button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
 .vswitch button:focus-visible{outline:2px solid var(--accent,#A8824C);outline-offset:2px}
 
+/* ══════════════════════════════════════════════════════════════════════
+   THE BUG THAT HID THE 3D FOR THREE WEEKS
+
+   This rule said display:flex. A class selector beats the browser's own
+   [hidden]{display:none}, so `v2d.hidden = true` did nothing: an opaque,
+   full-bleed, var(--paper) panel at z-index 5 sat over the stage from the
+   moment the page loaded. It covered the canvas, the h1, the scene
+   toolbar and the hint line, and the only thing left showing was the
+   view switcher, which is at z-index 6.
+
+   The 3D was rendering correctly the whole time. Every test passed
+   because canvas.toDataURL() reads the canvas's own backing store, which
+   has no idea anything is painted on top of it. A screenshot would have
+   caught it in a second, and neither the headless browser nor the
+   desktop browser pane can screenshot a WebGL layer, so none of them
+   ever did.
+
+   The guard below is the fix. The blanket [hidden] rule further down is
+   the thing that stops it happening again anywhere else. */
 .v2d{position:absolute;inset:0;z-index:5;background:var(--paper);
   display:flex;flex-direction:column;align-items:center;
   padding:56px 16px 16px;overflow:auto}
+.v2d[hidden]{display:none}
 .v2dwalls{display:flex;gap:4px;margin:0 0 10px;flex-wrap:wrap;justify-content:center}
 .v2dwalls button{appearance:none;cursor:pointer;font:inherit;font-size:.72rem;
   padding:.34em .9em;border-radius:999px;border:1px solid var(--line-2);

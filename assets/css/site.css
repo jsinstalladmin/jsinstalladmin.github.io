@@ -1476,3 +1476,17 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
 .glight video{max-width:100%;max-height:88svh;border-radius:var(--r-sm);background:#000}
 .glight video[hidden],.glight img[hidden]{display:none}
 @media(max-width:600px){ .gplay{width:44px;height:44px} }
+
+/* ══════════════════════════════════════════════════════════════════════
+   HIDDEN MEANS HIDDEN
+
+   The browser's own rule is [hidden]{display:none}, and any class rule
+   that sets display beats it on specificity. That is not a nuance worth
+   relying on: it cost this build three weeks of a blank 3D stage, under
+   an overlay nobody could see was there because it was the same colour
+   as the page.
+
+   Every element on this site that carries the hidden attribute is meant
+   to be gone. This makes that true whatever else is set on it, so the
+   next element given a display and a hidden cannot repeat it. */
+[hidden]{display:none !important}
