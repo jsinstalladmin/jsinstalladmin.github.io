@@ -134,22 +134,14 @@ export async function mountGallery(base=''){
   let man = [];
   try { man = await (await fetch(base + 'img/work/manifest.json')).json(); } catch(e){}
   if(!man.length){ host.innerHTML = '<p class="note">Gallery is loading.</p>'; return; }
-  /* The grid used to be every photo at once, so every job added to the folder
-     made this page taller and pushed everything under it further away. It is
-     now a fixed window onto the work: three rows, then a button that says how
-     many more there are. Adding a hundred photos changes what is behind the
-     button, not the length of the page. */
-  /* The box is a FIXED SIZE and the photographs page in and out of it.
-
-     "Show all" used to lift the lid off the box: max-height went to none, the
-     page grew by however many photographs were in the folder, and everything
-     under the gallery was pushed a screen and a half further away. Adding work
-     to the folder made the page worse, which is backwards.
-
-     Now the box never changes height. Pressing the button loads the next
-     batch INSIDE it and the box scrolls, so the gallery can hold a hundred
-     photographs and the page is exactly as long as it is with twelve. */
-  const PAGE = 12;
+  /* ALL OF THE WORK, NOT THREE ROWS OF IT.
+     This was a fixed window: twelve tiles, then a button, inside a box that
+     scrolled on its own so the page never grew. The reasoning was that
+     adding photographs should not lengthen the page. On a page called Our
+     Work that is backwards, because the work is the point, and a visitor
+     scrolling the page hit a second scrollbar inside it and stopped. The
+     grid is the page now and every job is in it. */
+  const PAGE = 24;
   let shown = 0;
   /* A WALKTHROUGH IS A PHOTOGRAPH THAT MOVES.
 
@@ -185,17 +177,20 @@ export async function mountGallery(base=''){
         wrap = host.querySelector('.gwrap'),
         more = host.querySelector('[data-gmore]'),
         tally = host.querySelector('.gcount2');
-  function page(){
-    const next = man.slice(shown, shown + PAGE);
+  function page(n){
+    const next = man.slice(shown, shown + (n || PAGE));
     grid.insertAdjacentHTML('beforeend', next.map((m,k) => cell(m, shown + k)).join(''));
     shown += next.length;
     const left = man.length - shown;
     more.textContent = left ? `Show ${Math.min(PAGE,left)} more` : '';
     more.hidden = !left;
-    tally.textContent = `${shown} of ${man.length}`;
+    tally.textContent = left ? `${shown} of ${man.length}` : `All ${man.length}`;
     wrap.classList.toggle('gdone', !left);
   }
-  page();
+  /* Everything, in one paint. The eager/lazy split on the images means the
+     first screenful loads and the rest come in as they are scrolled to, so
+     a long grid costs no more to open than a short one did. */
+  page(man.length);
 
   const lb = host.querySelector('#glight'), img = lb.querySelector('img'),
         vid = lb.querySelector('video'), cnt = lb.querySelector('.gcount');

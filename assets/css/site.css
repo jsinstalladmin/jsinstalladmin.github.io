@@ -1211,25 +1211,17 @@ body.over-dark .hdr:not(.solid) .nvt[aria-expanded="true"]{
   box-shadow:inset 0 0 0 1px rgba(248,245,240,.3)}
 body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
 
-/* ════════ Work gallery: a window, not a growing column ════════ */
-/* The gallery is a BOX, and it stays the same size whatever is in it. The
-   photographs scroll inside it and page in from the button underneath, so the
-   folder can grow without the page growing with it. */
-.gwrap{position:relative;height:664px;overflow-y:auto;overscroll-behavior:contain;
-  border:1px solid var(--line);border-radius:var(--r-md);background:var(--paper-3);
-  padding:clamp(8px,1vw,14px);scrollbar-width:thin}
-.gwrap::-webkit-scrollbar{width:10px}
-.gwrap::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px;
-  border:3px solid var(--paper-3)}
-.gfade{position:sticky;inset:auto 0 -14px;height:96px;margin-top:-96px;
-  pointer-events:none;
-  background:linear-gradient(to bottom,rgba(248,245,240,0),var(--paper-3));
-  transition:opacity .35s var(--ease)}
-.gwrap.gdone .gfade{opacity:0}
+/* ════════ Work gallery ════════ */
+/* It used to be a fixed 664px box that scrolled inside itself, so the page
+   never grew as work was added. On the page whose whole job is to show the
+   work, that meant a visitor scrolling down hit a second scrollbar and
+   stopped, three rows into forty-nine jobs. The grid is the page now. */
+.gwrap{position:relative;border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--paper-3);padding:clamp(8px,1vw,14px)}
+.gfade{display:none}
 .gmore{display:flex;flex-direction:column;align-items:center;gap:.5em;
   margin-top:clamp(18px,2.2vw,28px)}
 .gcount2{font-size:.76rem;color:var(--muted);letter-spacing:.04em}
-@media(max-width:700px){.gwrap{height:520px}}
 
 /* ════════ The states, as boxes ════════
    Five rows with a lot of air between them read as a list of links. Five

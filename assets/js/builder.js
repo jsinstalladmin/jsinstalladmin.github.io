@@ -2982,7 +2982,17 @@ function openGate(){
       <b>${t.label}</b>
       <span>${t.note}</span>
       <em>${t.w}" wide \u00b7 ${t.d}" deep</em>
-    </button>`).join('');
+    </button>`).join('')
+    /* SOMETHING THAT IS NOT ONE OF THE FIVE.
+       A run down a landing, a cupboard under a stair, two walls of a
+       box room. It is the same builder, it just does not assume a room
+       size or which walls, so step two opens on nothing filled in. */
+    + `<button type="button" class="gatetype gatetype-custom" data-t="custom">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V8l8-4 8 4v12"/><path d="M4 20h16"/><path d="M12 11v5M9.5 13.5h5"/></svg>
+      <b>Custom</b>
+      <span>Something that is not one of these. Your own walls and your own numbers.</span>
+      <em>You set everything</em>
+    </button>`;
 
   const show = n => {
     if(s1) s1.hidden = n !== 1;
@@ -2993,12 +3003,21 @@ function openGate(){
   host?.addEventListener('click', e => {
     const b = e.target.closest('button[data-t]'); if(!b) return;
     picked = b.dataset.t;
-    /* The type carries the room it usually comes in and the walls it is
-       usually built on, so step two opens already filled in with something
-       sensible rather than with somebody else's 96 inch box. Same call the
-       picker inside the builder makes, so the two cannot drift apart. */
-    S.shape = TYPES[picked].walls.length > 1 ? 'u' : 'straight';
-    applyType(picked);
+    if(picked === 'custom'){
+      /* Custom assumes nothing. It keeps whatever is in the boxes as a
+         starting point and lets them change every one, including which
+         walls, which is the whole reason somebody picks it. */
+      S.type = 'walk-in';
+      applyShape('custom');
+    } else {
+      /* The type carries the room it usually comes in and the walls it is
+         usually built on, so step two opens already filled in with
+         something sensible rather than somebody else's 96 inch box. Same
+         call the picker inside the builder makes, so the two cannot
+         drift apart. */
+      S.shape = TYPES[picked].walls.length > 1 ? 'u' : 'straight';
+      applyType(picked);
+    }
     S.cabTop = clampCabTop(S.cabTop, S.room.h);
     fill();
     show(2);
@@ -3019,6 +3038,10 @@ function openGate(){
     const h2 = $('#gate2h');
     if(h2) h2.textContent = picked && TYPES[picked]
       ? `Your ${TYPES[picked].label.toLowerCase()}, in inches` : 'Your room, in inches';
+    /* Custom is the one that gets a fourth choice of walls, because it is
+       the only one where "pick them yourself" is the point. */
+    const cw = $('#gatecustomwall');
+    if(cw) cw.hidden = picked !== 'custom';
     drawGatePlan();
   }
 
@@ -3036,7 +3059,12 @@ function openGate(){
     const walls = (SHAPES[sh] || SHAPES.straight).walls;
     const dw = Math.min(W, Math.max(0, n(form.door.value, 0, 240, 0)));
 
-    const PAD = { l:52, r:52, t:40, b:56 }, BOX = 360;
+    /* a swing or a french door sweeps a quarter circle into the room, and
+       it was being drawn off the bottom of the box. The space under the
+       plan is reserved for the widest thing the chosen door does. */
+    const dt0 = form.doortype?.value || 'none';
+    const sweeps = dt0 === 'swing-l' || dt0 === 'swing-r' || dt0 === 'double';
+    const PAD = { l:52, r:54, t:40, b:(sweeps && dw > 0) ? 104 : 64 }, BOX = 360;
     const k = Math.min((BOX - PAD.l - PAD.r) / W, (BOX - PAD.t - PAD.b) / Math.max(D, 1));
     const w = W * k, d = D * k, x0 = PAD.l, y0 = PAD.t;
     const VW = Math.round(w + PAD.l + PAD.r), VH = Math.round(d + PAD.t + PAD.b);
@@ -3053,11 +3081,52 @@ function openGate(){
     if(walls.includes('right'))
       band.push(`<rect x="${x0 + w - run}" y="${y0 + off}" width="${run}" height="${Math.max(6, d - off)}" fill="${FILL}" opacity=".85" stroke="${INK}" stroke-width="1.1"/>`);
 
-    const door = dw > 0
-      ? `<path d="M${x0 + (w - dw * k) / 2} ${y0 + d}h${dw * k}" stroke="#F2F0EC" stroke-width="3.4"/>
-         <path d="M${x0 + (w - dw * k) / 2} ${y0 + d}h${dw * k}" stroke="${DIM}" stroke-width="1.4" stroke-dasharray="5 3"/>
-         <text x="${x0 + w / 2}" y="${y0 + d + 34}" fill="${DIM}" font-size="11" text-anchor="middle">${dw}" opening</text>`
-      : '';
+    /* THE DOOR THEY PICKED, DRAWN THE WAY IT OPENS.
+       An opening with a dashed line across it told them nothing about
+       whether they had chosen a bi-fold or a barn door, which is the
+       thing that decides how much of the front they can actually use.
+       Each type is drawn the way it moves, in the room, to scale. */
+    const door = (() => {
+      const dt = dt0;
+      if(!(dw > 0) || dt === 'none') return '';
+      const ow = dw * k, ox = x0 + (w - ow) / 2, oy = y0 + d;
+      const lab = (DOORS.find(x => x.id === dt) || {}).label || '';
+      const leaf = `fill="none" stroke="${DIM}" stroke-width="1.3"`;
+      let art = '';
+      if(dt === 'swing-r' || dt === 'swing-l'){
+        /* one leaf, and the quarter circle it sweeps through */
+        const hinge = dt === 'swing-r' ? ox + ow : ox, dir = dt === 'swing-r' ? -1 : 1;
+        art = `<path d="M${hinge} ${oy}L${hinge + dir * ow} ${oy}" ${leaf}/>
+               <path d="M${hinge + dir * ow} ${oy}A${ow} ${ow} 0 0 ${dir > 0 ? 0 : 1} ${hinge} ${oy + ow}"
+                     fill="none" stroke="${DIM}" stroke-width=".9" stroke-dasharray="4 3" opacity=".7"/>`;
+      } else if(dt === 'double'){
+        const half = ow / 2;
+        art = `<path d="M${ox} ${oy}L${ox + half} ${oy}" ${leaf}/>
+               <path d="M${ox + ow} ${oy}L${ox + half} ${oy}" ${leaf}/>
+               <path d="M${ox + half} ${oy}A${half} ${half} 0 0 1 ${ox} ${oy + half}" fill="none"
+                     stroke="${DIM}" stroke-width=".9" stroke-dasharray="4 3" opacity=".7"/>
+               <path d="M${ox + half} ${oy}A${half} ${half} 0 0 0 ${ox + ow} ${oy + half}" fill="none"
+                     stroke="${DIM}" stroke-width=".9" stroke-dasharray="4 3" opacity=".7"/>`;
+      } else if(dt === 'bypass'){
+        /* two leaves on two tracks, one passing in front of the other */
+        const half = ow / 2;
+        art = `<rect x="${ox}" y="${oy - 3}" width="${half}" height="3" fill="${DIM}" opacity=".55"/>
+               <rect x="${ox + half}" y="${oy}" width="${half}" height="3" fill="${DIM}" opacity=".85"/>`;
+      } else if(dt === 'bifold'){
+        /* panels folded back on themselves at each end */
+        const p = ow / 4, zig = [0,1,2,3].map(i =>
+          `M${ox + i * p} ${oy + (i % 2 ? 0 : 5)}L${ox + (i + 1) * p} ${oy + (i % 2 ? 5 : 0)}`).join('');
+        art = `<path d="${zig}" ${leaf}/>`;
+      } else if(dt === 'barn'){
+        /* rides on a rail outside the opening, so it parks on the wall */
+        art = `<path d="M${ox - ow * .1} ${oy + 7}h${ow * 1.2}" stroke="${DIM}" stroke-width="1" opacity=".6"/>
+               <rect x="${ox + ow * .5}" y="${oy + 2}" width="${ow}" height="4" fill="${DIM}" opacity=".7"/>`;
+      } else {
+        art = `<path d="M${ox} ${oy}h${ow}" stroke="${DIM}" stroke-width="1.4" stroke-dasharray="5 3"/>`;
+      }
+      return `<path d="M${ox} ${oy}h${ow}" stroke="#FFFFFF" stroke-width="3.6"/>${art}
+        <text x="${x0 + w / 2}" y="${y0 + d + 40}" fill="${DIM}" font-size="11" text-anchor="middle">${dw}" ${lab.toLowerCase()}</text>`;
+    })();
 
     fig.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}"
       role="img" aria-label="${W} inches wide by ${D} inches deep, ${H} inch ceiling"
@@ -3107,45 +3176,16 @@ function openGate(){
     const dw = Math.round(Number(form.door.value));
     /* A door opening only means something when there is a door in it. */
     if(Number.isFinite(dw) && dw > 0 && S.door !== 'none') S.doorW = dw;
-    /* "CREATE MY CLOSET" HAS TO CREATE A CLOSET.
-       It used to drop you into an empty room with a panel saying "add your
-       first tower", which is the same blank page they started on with one
-       more button pressed. Every live wall is filled with towers of a
-       sensible width carrying the starting stack for the type they chose,
-       and every one of them can be widened, moved, emptied or removed. */
-    fillWalls();
+    /* NOTHING IS ADDED FOR THEM.
+       Filling every wall with towers was wrong twice over: it is not their
+       closet, and on a walk-in it packed the room so tightly that the
+       camera opened inside a panel. The room is drawn empty and they put
+       the first tower where they want it. */
     shut();
     rebuild(true);
     setView('3d');
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
   });
-
-  /* Divide each wall into the fewest towers that are all a buildable
-     width. A 132" wall is four at 33", not four at 32" and a 4" stub. */
-  function fillWalls(){
-    const stack = defaultStackFor(S.type);
-    for(const wall of Object.keys(S.runs)){
-      const r = S.runs[wall];
-      if(!r?.on || r.bays.length) continue;
-      const len = wallLength(wall);
-      if(len < SPEC.bayMin) continue;
-      const n = Math.max(1, Math.round(len / 30));
-      const w = len / n;
-      /* if an even split lands outside what he builds, take the widest
-         count that fits instead of forcing a partition where none goes */
-      const count = (w >= SPEC.bayMin && w <= SPEC.bayMax)
-        ? n : Math.max(1, Math.ceil(len / SPEC.bayMax));
-      const each = +(len / count).toFixed(1);
-      if(each < SPEC.bayMin) continue;
-      let at = 0;
-      for(let i = 0; i < count; i++){
-        const b = makeBay(each, structuredClone(stack), true);
-        b.at = at; at += each;
-        r.bays.push(b);
-      }
-    }
-    S.sel = { wall:Object.keys(S.runs).find(w => S.runs[w]?.bays?.length) || 'back', i:0 };
-  }
 
   $('#gateskip')?.addEventListener('click', () => { shut(); rebuild(true); setView('3d'); });
   /* Escape steps back rather than dumping somebody into a builder they

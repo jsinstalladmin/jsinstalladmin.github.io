@@ -1665,6 +1665,10 @@ body[data-step="6"] .pacts{margin-top:0}
 .gatetype span{font-size:.78rem;line-height:1.45;color:var(--muted)}
 .gatetype em{margin-top:.2em;font-style:normal;font-size:.7rem;letter-spacing:.07em;
   text-transform:uppercase;color:var(--muted);opacity:.8}
+/* Custom is not one of the five rooms, so it reads as the alternative
+   to them rather than as a sixth of the same kind. */
+.gatetype-custom{border-style:dashed}
+.gatetype-custom svg{opacity:.6}
 
 /* STEP TWO: the numbers on the left, the room drawn on the right. */
 .gate2{display:grid;gap:26px;grid-template-columns:minmax(0,1fr) minmax(0,.84fr);
@@ -1676,14 +1680,32 @@ body[data-step="6"] .pacts{margin-top:0}
 .gateplan svg{width:100%;height:auto;display:block}
 /* Fields line up on their boxes, not on their labels: a label that wraps to
    two lines used to push its own input half an inch below its neighbours. */
-.gaterow{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:.6em;align-items:end}
-.gaterow label{position:relative;display:flex;flex-direction:column;gap:.3em;min-width:0}
-.gaterow label > span{font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.gaterow{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:.7em;align-items:end}
+.gaterow label{position:relative;display:flex;flex-direction:column;gap:.38em;min-width:0}
+/* a fixed line box, so a label that wraps to two words and one that does
+   not still put their inputs on the same line */
+.gaterow label > span{height:1.05em;font-size:.7rem;line-height:1.05;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Every field is the same height, set here rather than left to the font,
+   so a number box and a select sit on the same line instead of half a
+   pixel apart. */
 .gaterow input,.gaterow select{width:100%;min-width:0;font:inherit;font-size:.95rem;
-  padding:.56em .7em;border:1px solid var(--line-2);border-radius:10px;
-  background:var(--paper);color:var(--ink)}
-.gaterow label > i{position:absolute;right:.7em;bottom:.72em;font-style:normal;
-  font-size:.74rem;color:var(--muted);pointer-events:none}
+  height:46px;padding:0 .78em;border:1px solid var(--line-2);border-radius:10px;
+  background:var(--paper);color:var(--ink);line-height:normal}
+.gaterow input:focus-visible,.gaterow select:focus-visible{outline:2px solid var(--accent,#A8824C);
+  outline-offset:1px;border-color:var(--ink)}
+/* THE SPINNER AND THE UNIT WERE IN THE SAME PLACE.
+   A number input draws its own up/down arrows hard against the right
+   edge, and the "in" was absolutely positioned on top of them, so the
+   two overlapped into an unreadable smudge. The arrows are gone, the
+   unit sits in reserved space at the right of the box, and it is
+   centred on the box rather than pinned to its bottom. */
+.gaterow input[type="number"]{-moz-appearance:textfield;appearance:textfield}
+.gaterow input[type="number"]::-webkit-outer-spin-button,
+.gaterow input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.gaterow label:has(> i) input{padding-right:2.5em}
+.gaterow label > i{position:absolute;right:.9em;top:calc(50% + .72em);translate:0 -50%;
+  font-style:normal;font-size:.76rem;color:var(--muted);pointer-events:none}
 .gaterow label.wide > i{display:none}
 .gateshape{border:0;padding:0;margin:1.1em 0 0;min-width:0}
 .gateshape legend{padding:0;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
@@ -1691,6 +1713,9 @@ body[data-step="6"] .pacts{margin-top:0}
 .gatepick{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:.5em}
 .gatepick label{display:flex;flex-direction:column;gap:.15em;cursor:pointer;
   padding:.7em .8em;border:1px solid var(--line-2);border-radius:12px;min-width:0}
+/* display:flex beats the hidden attribute, so the custom-only choice
+   was on screen for every type until this said otherwise */
+.gatepick label[hidden]{display:none}
 .gatepick input{position:absolute;opacity:0;pointer-events:none}
 .gatepick b{font-size:.9rem;font-weight:600;color:var(--ink)}
 .gatepick span{font-size:.72rem;color:var(--muted);line-height:1.4}
