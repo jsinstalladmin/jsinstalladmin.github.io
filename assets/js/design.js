@@ -103,7 +103,26 @@ export const FIT_SPEC = {
     ask:'How wide is it, how high is the sill, and do you want the run to pass under it?' },
   pipe:   { w:6,  depth:4, hi:0, rule:'stealDepth', label:'Pipe / bulkhead',
     note:'Pushes the run forward by its own depth where it passes.',
-    ask:'Floor to ceiling, or a boxed bulkhead across the top? How far does it stick out?' }
+    ask:'Floor to ceiling, or a boxed bulkhead across the top? How far does it stick out?' },
+  /* ── THE THINGS A LAUNDRY ROOM ALREADY HAS ──────────────────────────
+     A laundry closet is cabinetry built around two machines and a sink
+     that are already there. Drawing the room without them, and then
+     building a run of base units straight through where the washer
+     stands, is the single most obvious way for a laundry design to be
+     wrong. They take their width off the wall the same way a column
+     does, and they are drawn, so the customer can see the cabinetry
+     going round them. */
+  /* keepClear, NOT stealWidth. stealWidth takes the width off the total
+     length of the wall without caring where on it the thing stands, which
+     is right for a column in a corner. A machine stands in a PLACE, and
+     the layout now carves the real gap at that place, so deducting the
+     width as well took it off twice and a 168" wall lost 112". */
+  machines:{ w:56, top:39, rule:'keepClear', label:'Washer and dryer', prop:'machines',
+    note:'Two machines side by side. The run stops either side of them, and a worktop can run over the top.',
+    ask:'Side by side or stacked? How wide are the two together, and how tall?' },
+  sink:   { w:25, top:36, rule:'keepClear', label:'Utility sink', prop:'sink',
+    note:'The run stops at it. Plumbing stays reachable.',
+    ask:'How wide is it, and is it freestanding or in a cabinet?' }
 };
 
 /* clearance between a baseboard heater element and anything above it */
@@ -736,10 +755,27 @@ export const MODULES = {
     spec:'Adjustable on 32mm centres · 12\"–84\"',
     icon:'M2 4h20M2 11h20M2 18h20M2 25h20',
     defH:42, minH:12, maxH:84, fill:true, opt:{key:'n',label:'Shelves',min:1,max:10,def:4},
+    /* FIXED OR ADJUSTABLE IS A REAL CHOICE AND A REAL PRICE.
+       A fixed shelf is dowelled and cammed into both side panels: it is
+       stiffer, it ties the tower together, and it costs more. An
+       adjustable shelf sits on four pins and moves. The builder only ever
+       offered the adjustable one, so the stronger of the two could not be
+       asked for and the price difference never showed up. */
+    choice:{ key:'fixed', label:'How the shelves sit', def:0, options:[
+      { v:0, label:'Adjustable', note:'On pins, moves on 32mm centres' },
+      { v:1, label:'Fixed',      note:'Dowelled into both sides, stiffer' } ] },
+    /* Dividers stand on a shelf and stop a stack of jumpers falling over. */
+    opt2:{ key:'div', label:'Dividers per shelf', min:0, max:3, def:0 },
     build(c){
       const {w,d,y,h,G,parts,o,midAt} = c;
       const n = clamp(o.n ?? Math.max(2,Math.round(h/13)), 1, 10);
-      parts.push(P('ADJ',n,(w*d)/144*n,(w/12)*n,`${n} adjustable shelves`));
+      const isFixed = +(o.fixed ?? 0) === 1;
+      const divs = clamp(+(o.div ?? 0), 0, 3);
+      parts.push(P(isFixed ? 'FIXED' : 'ADJ', n, (w*d)/144*n, (w/12)*n,
+                   `${n} ${isFixed ? 'fixed' : 'adjustable'} shelves`));
+      if(divs > 0)
+        parts.push(P('VP_FLOOR', n * divs, (10 * d)/144 * n * divs, ((10 + d)*2)/12 * n * divs,
+                     `${n * divs} shelf dividers, 10" tall`));
 
       /* A tall tower of shelves is one piece to the customer and two boxes to
          the shop: the carcass puts a fixed shelf across the middle, and the
@@ -758,8 +794,14 @@ export const MODULES = {
         const k = (si === spans.length - 1) ? left
                 : Math.max(1, Math.min(left - (spans.length - 1 - si), Math.round(n * sh / total)));
         left -= k;
-        for(let i = 1; i <= k; i++)
-          G.push({k:'shelf', p:[0, sy + (sh/(k+1))*i, 0], s:[w, SPEC.panel, d], m:'carcass'});
+        for(let i = 1; i <= k; i++){
+          const sY = sy + (sh/(k+1))*i;
+          G.push({k:'shelf', p:[0, sY, 0], s:[w, SPEC.panel, d], m:'carcass'});
+          /* a divider stands ON the shelf, so it is drawn above it */
+          for(let j = 1; j <= divs; j++)
+            G.push({k:'divider', p:[-w/2 + (w/(divs+1))*j, sY + 5 + SPEC.panel/2, 0],
+                    s:[SPEC.panel, 10, d - 1], m:'carcass'});
+        }
       });
     }
   },
@@ -1249,6 +1291,11 @@ export const MODULES = {
     icon:'M3 2h18v28H3zM18 15h2',
     defH:48, minH:12, maxH:84, fill:true,
     inside: true,
+    choice:{ key:'leaves', label:'How it opens', def:0, options:[
+      { v:0, label:'Let it decide', note:'One leaf up to 26", a pair above that' },
+      { v:1, label:'One door',      note:'A single leaf', maxW:30,
+        no:'A single leaf past 30" sags on its hinges and needs a metre of swing in front of it.' },
+      { v:2, label:'Two doors',     note:'A pair meeting at the centre' } ] },
     build(c){
       const {w,d,y,h,G,parts,pull} = c;
       /* WHAT IS BEHIND IT, built first so the leaf closes over it. */
@@ -1257,7 +1304,14 @@ export const MODULES = {
          needs a metre of swing in front of it, and no shop builds one. It
          goes in as a pair on a centre stile. Two leaves is two sets of edges
          and two pulls, so it is priced as two. */
-      const leaves = w > 26 ? 2 : 1;
+      /* ONE LEAF OR TWO.
+         Past about 26" a single slab sags on its hinges and needs a metre
+         of swing in front of it, so the default decides for them. Asking
+         for a pair on a narrow bay is a real thing people want, and
+         insisting on a single over 30" is not buildable, so the choice is
+         offered and the unbuildable half of it is refused. */
+      const want = +(c.o?.leaves ?? 0);
+      const leaves = want === 2 ? 2 : (want === 1 && w <= 30) ? 1 : (w > 26 ? 2 : 1);
       const lw = w / leaves;
       parts.push(P('DOOR',leaves,(lw*h)/144*leaves,((lw+h)*2)/12*leaves,
                    leaves===2 ? 'Slab doors, a pair' : 'Slab door'));
@@ -2205,6 +2259,44 @@ export function buildDesign(cfg, cat){
     }
     run.width = x;
     for(const g of local) G.push(place(g, run, cfg.room, GAP));
+  }
+
+  /* ══ WHAT IS ALREADY IN THE ROOM ═══════════════════════════════════════
+     A laundry closet is cabinetry built around two machines and a sink
+     that are already standing there. The engine has always taken their
+     width off the wall, so the layout was right, but nothing was drawn
+     and the 3D showed a run of cabinetry stopping for no visible reason.
+     These are props: no parts, no price, no cut list. They are stamped
+     prop:true so the elevation and the plan can grey them back and the
+     picker can never select one. */
+  for(const f of fittings){
+    const sp = FIT_SPEC[f.k];
+    if(!sp?.prop || !f.wall) continue;
+    const fw = +(f.w ?? sp.w), ft = +(f.top ?? sp.top);
+    const at = +(f.at || 0);
+    const push = (g) => G.push(place({ ...g, prop:true },
+      { wall:f.wall, start:0, depth:fw, builtDepth:0 }, cfg.room, 0));
+
+    if(sp.prop === 'machines'){
+      /* two bodies with a gap, each with a door, so it reads as a pair
+         rather than as one long box */
+      const bw = (fw - 1) / 2;
+      for(const side of [0, 1]){
+        const cx = at + 0.5 + bw * side + bw / 2;
+        push({ k:'appliance', p:[cx, ft/2, 13], s:[bw - 0.5, ft, 26], m:'pullmat' });
+        push({ k:'appliance', p:[cx, ft * 0.52, 26.1], s:[bw * 0.62, bw * 0.62, 0.6], m:'glass' });
+        push({ k:'appliance', p:[cx, ft - 2.5, 26.1], s:[bw - 2, 3, 0.5], m:'metal' });
+      }
+    } else if(sp.prop === 'sink'){
+      const cx = at + fw / 2;
+      /* the cabinet, the rim, the basin sunk into it, and the tap. The
+         basin is what stops it reading as another drawer unit. */
+      push({ k:'appliance', p:[cx, ft/2, 11], s:[fw, ft, 22], m:'pullmat' });
+      push({ k:'appliance', p:[cx, ft + 0.8, 11], s:[fw + 1, 1.6, 23], m:'pullmat' });
+      push({ k:'appliance', p:[cx, ft - 2.6, 12], s:[fw - 5, 7, 16], m:'metal' });
+      push({ k:'appliance', p:[cx, ft + 7, 2.5], s:[0.9, 13, 0.9], m:'metal' });
+      push({ k:'appliance', p:[cx, ft + 13, 7], s:[0.9, 0.9, 9], m:'metal' });
+    }
   }
 
   /* ══ THE BRIDGE OVER THE CORNER ════════════════════════════════════════

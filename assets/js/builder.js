@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=3fd7a85b';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=95c7ee44';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=3fd7a85b';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=95c7ee44';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=3fd7a85b';
+         clothMaterials, clearCaches } from './materials.js?v=95c7ee44';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -121,7 +121,9 @@ const FITTINGS = [
   { id:'column',  label:'Column',          art:'M8 3h8v18H8z M6 3h12 M6 21h12' },
   { id:'slope',   label:'Sloped ceiling',  art:'M3 20h18 M3 20L21 6 M21 6v14' },
   { id:'window',  label:'Window',          art:'M3 4h18v16H3z M12 4v16 M3 12h18' },
-  { id:'pipe',    label:'Pipe / bulkhead', art:'M4 3h6v18H4z M10 7h10v5H10z' }
+  { id:'pipe',    label:'Pipe / bulkhead', art:'M4 3h6v18H4z M10 7h10v5H10z' },
+  { id:'machines',label:'Washer and dryer', art:'M2 4h9v16H2zM13 4h9v16h-9M6.5 9.5a2.7 2.7 0 1 1 0 5.4 2.7 2.7 0 0 1 0-5.4M17.5 9.5a2.7 2.7 0 1 1 0 5.4 2.7 2.7 0 0 1 0-5.4' },
+  { id:'sink',    label:'Utility sink',     art:'M3 10h18v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM12 10V5a2 2 0 0 1 2-2h3M12 14v3' }
 ];
 
 const S = {
@@ -324,6 +326,93 @@ function moveSection(wall, index, at){
   sortRun(wall);
   return b.at;
 }
+/* ══════════════════════════════════════════════════════════════════════
+   THE CABINETRY GOES ROUND THE WASHING MACHINE
+
+   A washer and dryer and a utility sink take their width off the wall, so
+   the layout was always the right LENGTH. It was never in the right
+   PLACE: the towers still started in the corner and the machines were
+   drawn standing in front of them.
+
+   Say where a machine is and the towers on that wall move clear of it.
+   They keep their order and their widths where the free stretches allow,
+   and they are squeezed in proportion only where they do not fit. A
+   tower that cannot fit anywhere at all is dropped rather than drawn
+   through an appliance.
+   ══════════════════════════════════════════════════════════════════════ */
+function blockedSpans(wall){
+  return placedFittings()
+    .filter(f => f.wall === wall && FIT_SPEC[f.k]?.prop)
+    .map(f => { const at = Math.max(0, +(f.at || 0));
+                return [at, at + (+(f.w ?? FIT_SPEC[f.k].w) || 0)]; })
+    .sort((a, b) => a[0] - b[0]);
+}
+
+/* the stretches of this wall with nothing standing in them */
+function freeSpans(wall){
+  const len = wallLength(wall);
+  let out = [[0, len]];
+  for(const [a, b] of blockedSpans(wall)){
+    const next = [];
+    for(const [x, y] of out){
+      if(b <= x || a >= y){ next.push([x, y]); continue; }
+      if(a > x) next.push([x, a]);
+      if(b < y) next.push([b, y]);
+    }
+    out = next;
+  }
+  return out.filter(([a, b]) => b - a > 0.5);
+}
+
+/* what the last clear-out cost, so the panel can say so out loud rather
+   than quietly deleting somebody's towers */
+let PROP_NOTE = '';
+
+function clearProps(wall){
+  const r = S.runs[wall];
+  if(!r?.bays?.length) return false;
+  const spans = freeSpans(wall);
+  const blocked = blockedSpans(wall);
+  if(!blocked.length) return false;
+
+  const bays = [...r.bays].sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+  const room = spans.reduce((a, [x, y]) => a + (y - x), 0);
+  const want = bays.reduce((a, b) => a + b.w, 0);
+  /* everything has to come down in proportion before anything is placed,
+     or the last tower is the only one that pays for the machine */
+  const k = want > room ? room / want : 1;
+
+  const kept = [];
+  let si = 0, at = spans.length ? spans[0][0] : 0;
+  for(const b of bays){
+    let w = Math.max(SPEC.bayMin, Math.round(b.w * k));
+    /* walk forward until this tower has a stretch it fits in */
+    while(si < spans.length && at + w > spans[si][1] + 0.01){
+      si++; if(si < spans.length) at = spans[si][0];
+    }
+    if(si >= spans.length) break;               // nothing left that it fits
+    b.at = +at.toFixed(1); b.w = w;
+    kept.push(b);
+    at += w;
+  }
+  const lost = bays.length - kept.length;
+  const standing = placedFittings()
+    .filter(f => f.wall === wall && FIT_SPEC[f.k]?.prop)
+    .map(f => 'the ' + FIT_SPEC[f.k].label.toLowerCase());
+  const list = standing.length > 1
+    ? standing.slice(0, -1).join(', ') + ' and ' + standing[standing.length - 1]
+    : standing[0] || 'what is standing there';
+  PROP_NOTE = lost
+    ? `${lost} tower${lost === 1 ? '' : 's'} came off the ${WALL_LABEL[wall].toLowerCase()}. `
+      + `With ${list} on it there is not ${SPEC.bayMin}" of clear wall left for `
+      + `${lost === 1 ? 'it' : 'them'}. Make the machines narrower, slide them along `
+      + `the wall, or build on another wall.`
+    : '';
+  r.bays = kept;
+  sortRun(wall);
+  return true;
+}
+
 /* what design.js needs: towers with the bare wall between them spelled out */
 function withGaps(wall){
   const len = wallLength(wall), out = [];
@@ -518,6 +607,10 @@ const HW=hardwareMaterial(), CLOTH=clothMaterials();
 const GLASS=new THREE.MeshPhysicalMaterial({color:0xE8F0F2,transmission:.9,thickness:.4,
   roughness:.06,metalness:0,ior:1.5,transparent:true,opacity:.42});
 let PULLMAT=hardwareMaterial();
+/* A washing machine is painted steel, not brushed nickel and not oak. One
+   material for every appliance body so the pair reads as a pair. */
+const APPLIANCE = new THREE.MeshStandardMaterial({
+  color:0xE6E7E6, roughness:0.38, metalness:0.12, envMapIntensity:0.9 });
 let composer=null, ao=null;
 
 /* declared before resize() touches it — a `let` below its first use is a
@@ -1076,7 +1169,8 @@ function drawCloset(res){
        at about 0.22" and was being fattened into a bar. */
     const [sx,sy,sz]=g.s.map(v=>Math.max(0.1,v));
     let mat;
-    if(g.m==='metal') mat=HW;
+    if(g.prop && g.m==='pullmat') mat=APPLIANCE;
+    else if(g.m==='metal') mat=HW;
     else if(g.m==='pullmat') mat=PULLMAT;
     else if(g.m==='glass') mat=GLASS;
     else if(g.m==='cloth') mat=CLOTH[(Math.abs(Math.round(g.p[0]+g.p[2]))|0)%CLOTH.length];
@@ -1093,7 +1187,10 @@ function drawCloset(res){
     /* WHICH COMPONENT THIS PIECE IS PART OF.
        Stamped in the engine and carried through here, so pressing a shelf
        in the 3D view opens that shelf rather than the tower it lives in. */
-    if(g.wall && g.bay != null) m.userData = { wall:g.wall, i:g.bay, si:g.si, mod:g.mod, part:true };
+    /* A prop is in the room, not in the closet. It is drawn, it is never
+       selectable, and it is not part of anything the workshop cuts. */
+    if(!g.prop && g.wall && g.bay != null)
+      m.userData = { wall:g.wall, i:g.bay, si:g.si, mod:g.mod, part:true };
     root.add(m);
   });
   // invisible pick volumes, one per bay, so you can click the closet to edit it
@@ -2100,7 +2197,9 @@ function paintBays(){
       </div>`;
     host.appendChild(d);
   }
-  $('#bayNote').textContent = `Past ${SPEC.bayMax}" a ¾" shelf sags under a normal load, so a partition goes in instead. That is why those are the only widths offered.`;
+  $('#bayNote').textContent = PROP_NOTE
+    || `Past ${SPEC.bayMax}" a ¾" shelf sags under a normal load, so a partition goes in instead. That is why those are the only widths offered.`;
+  $('#bayNote').classList.toggle('warnnote', !!PROP_NOTE);
 }
 
 /* ───────── step 2b: what goes in the selected section ─────────
@@ -2288,6 +2387,7 @@ function buildForMe(restOverride){
       r.bays.push(b);
     }
   }
+  for(const wall of walls) clearProps(wall);
   S.sel = { wall:walls.find(w => S.runs[w].bays.length) || walls[0], i:0 };
   rebuild(true);
   if(typeof window.gotoStep === 'function') window.gotoStep('2');
@@ -2598,12 +2698,35 @@ function paintStack(){
     </div>`;
   };
 
-  const countRow = (st, si, d) => `<div class="hrow">
-      <span class="hlbl"><b>How many</b><i>${d.opt.lbl || ''}</i></span>
-      <span class="sopt"><button data-optpart="-1" data-si="${si}" title="Fewer">−</button>
-        <i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i>
-        <button data-optpart="1" data-si="${si}" title="More">+</button></span>
+  const countRow = (st, si, d, which = 'opt') => {
+    const o = d[which]; if(!o) return '';
+    return `<div class="hrow">
+      <span class="hlbl"><b>${o.label || 'How many'}</b><i>${o.note || ''}</i></span>
+      <span class="sopt"><button data-optpart="-1" data-si="${si}" data-key="${which}" title="Fewer">−</button>
+        <i>${(st.o?.[o.key] ?? o.def)}</i>
+        <button data-optpart="1" data-si="${si}" data-key="${which}" title="More">+</button></span>
     </div>`;
+  };
+
+  /* A CHOICE IS NOT A COUNT.
+     Fixed or adjustable, one door or two: two or three named answers, so
+     a plus and a minus button is the wrong control for it. */
+  const choiceRow = (st, si, d) => {
+    const ch = d.choice; if(!ch) return '';
+    const now = +(st.o?.[ch.key] ?? ch.def);
+    return `<div class="chrow">
+      <span class="hlbl"><b>${ch.label}</b></span>
+      <span class="chpick">${ch.options.map(op => {
+        /* an answer that cannot be built on this tower is refused here and
+           says why, rather than being accepted and quietly overruled */
+        const no = (op.maxW != null && bay.w > op.maxW) ? (op.no || 'Not at this width.') : '';
+        return `<button type="button" class="${op.v === now ? 'on' : ''}" data-choice="${ch.key}"
+                data-si="${si}" data-v="${op.v}" ${no ? 'disabled' : ''}
+                title="${(no || op.note || '').replace(/"/g,'&quot;')}">
+          <b>${op.label}</b><i>${no || op.note || ''}</i></button>`;
+      }).join('')}</span>
+    </div>`;
+  };
 
   /* A PART WITH NO PHOTO IS STILL A CARD.
      The accessories do not have studio photos yet. A missing <img> is a
@@ -2651,7 +2774,9 @@ function paintStack(){
           <i>${b ? inches(b.y1 - b.y0) + ' tall, ' + inches(b.y0) + ' off the floor' : ''}</i></span>
       </div>
       ${heightRow(st, si, d)}
-      ${d.opt ? countRow(st, si, d) : ''}
+      ${d.opt ? countRow(st, si, d, 'opt') : ''}
+      ${d.choice ? choiceRow(st, si, d) : ''}
+      ${d.opt2 ? countRow(st, si, d, 'opt2') : ''}
       ${d.sizes ? drawerRows(st) : ''}
       ${d.inside ? insideRow(st, si === 0 ? 'bottom' : 'top') : ''}
       <h4 class="subh">Change it for something else</h4>
@@ -2970,7 +3095,10 @@ $('#fittings').onclick=e=>{const b=e.target.closest('[data-fit]');if(!b)return;
   S.pinSel = S.fittings.length-1; paintPlan(); paintDoors(); };
 $('#fitlist').onclick=e=>{
   const rm=e.target.closest('[data-fitrm]');
-  if(rm){ S.fittings.splice(+rm.dataset.fitrm,1); S.pinSel=null; rebuild(); return; }
+  if(rm){ const gone = S.fittings[+rm.dataset.fitrm];
+    S.fittings.splice(+rm.dataset.fitrm,1); S.pinSel=null;
+    if(gone?.wall) clearProps(gone.wall);
+    rebuild(); return; }
 
   /* Picking the wall is what places it. Dragging a pin around a 400px plan to
      say "the outlet is on the back wall" was a puzzle, not a control. */
@@ -2978,14 +3106,26 @@ $('#fitlist').onclick=e=>{
   if(wb && !wb.disabled){
     const f=S.fittings[+wb.dataset.i], w=wb.dataset.fwall;
     const len = w==='back' ? S.room.w : S.room.d;
-    if(!f.placed || f.wall!==w) f.at = Math.round(Math.max(0, Math.min(len - (f.w||4), len/2 - (f.w||4)/2)));
-    f.wall=w; f.placed=true; S.pinSel=+wb.dataset.i; rebuild(); return;
+    if(!f.placed || f.wall!==w){
+      const fw = +(f.w ?? FIT_SPEC[f.k]?.w ?? 4);
+      /* A machine dropped in the middle of a wall that already has one
+         lands on top of it. Put it in the first stretch of that wall with
+         nothing standing in it, and only fall back to the centre when
+         there is no such stretch. */
+      f.wall = w; f.placed = true;
+      const spot = freeSpans(w).find(([a, b]) => b - a >= fw - 0.01);
+      f.at = spot ? Math.round(spot[0])
+                  : Math.round(Math.max(0, Math.min(len - fw, len/2 - fw/2)));
+    }
+    f.wall=w; f.placed=true; S.pinSel=+wb.dataset.i;
+    clearProps(w); rebuild(true); return;
   }
   const at=e.target.closest('[data-fat]');
   if(at){
     const f=S.fittings[+at.dataset.i];
     const len = f.wall==='back' ? S.room.w : S.room.d;
     f.at = Math.max(0, Math.min(len - (f.w||4), Math.round(f.at + 2*(+at.dataset.fat))));
+    if(f.wall) clearProps(f.wall);
     rebuild(); return;
   }
   /* A vent in the floor and a vent on the wall are two different problems. */
@@ -3001,6 +3141,7 @@ $('#fitlist').onclick=e=>{
     const L={ w:[2,2,120], hi:[2,0,120], cap:[2,18,84], top:[1,4,24], depth:[1,1,16] }[dim.dataset.fdim];
     const f=S.fittings[+dim.dataset.i], k=dim.dataset.fdim;
     f[k]=Math.min(L[2], Math.max(L[1], (+f[k]||0) + L[0]*(+dim.dataset.s)));
+    if(f.wall) clearProps(f.wall);
     rebuild(); return;
   }
   /* Selecting a row highlights it on the plan. It must NOT repaint the list:
@@ -3516,10 +3657,14 @@ $('#stack').onclick=e=>{
   }
   else if(t.dataset.optpart !== undefined){
     const st = bay.stack[+t.dataset.si]; if(!st) return;
-    const d = MODULES[st.m]; if(!d.opt) return;
+    const o = MODULES[st.m]?.[t.dataset.key || 'opt']; if(!o) return;
     st.o = st.o || {};
-    st.o[d.opt.key] = Math.max(d.opt.min, Math.min(d.opt.max,
-      (st.o[d.opt.key] ?? d.opt.def) + +t.dataset.optpart));
+    st.o[o.key] = Math.max(o.min, Math.min(o.max,
+      (st.o[o.key] ?? o.def) + +t.dataset.optpart));
+  }
+  else if(t.dataset.choice){
+    const st = bay.stack[+t.dataset.si]; if(!st) return;
+    st.o = { ...(st.o || {}), [t.dataset.choice]: +t.dataset.v };
   }
   else if(t.dataset.counter !== undefined){
     setCounter(bay, t.checked);
@@ -3830,7 +3975,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=3fd7a85b');
+  if(!DRAW) DRAW = await import('./drawing.js?v=95c7ee44');
   return DRAW;
 }
 
@@ -4274,7 +4419,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=3fd7a85b');
+    const { downloadPdf } = await import('./drawing.js?v=95c7ee44');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -4297,7 +4442,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=3fd7a85b');
+    const { downloadPdf } = await import('./drawing.js?v=95c7ee44');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
