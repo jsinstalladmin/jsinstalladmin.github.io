@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=e986eb90';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=3fd7a85b';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=e986eb90';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=3fd7a85b';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=e986eb90';
+         clothMaterials, clearCaches } from './materials.js?v=3fd7a85b';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -2167,7 +2167,8 @@ const LIB_GROUPS = [
   { t:'Shelving', ids:['SHELVES','CUBBIES','COUNTER'] },
   { t:'Drawers and pull-outs', ids:['DRAWERS','PULLOUT','BASKETS','HAMPER'] },
   { t:'Shoes',    ids:['SHOES','SHOE_SLANT'] },
-  { t:'Fronts',   ids:['DOOR','GLASS_DOOR','OPEN'] },
+  { t:'Fronts',   ids:['DOOR','GLASS_DOOR','MIRROR','OPEN'] },
+  { t:'Accessories', ids:['VALET','TIE_RACK','BELT_RACK','SCARF_RACK','PANTS_RACK'] },
 ];
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -2545,12 +2546,25 @@ function paintStack(){
         const sub = d.sizes
           ? `${(st.o?.sizes?.length || defaultDrawerSizes(st.o?.n).length)} drawers · ${h != null ? inches(h) : ''}`
           : (h != null ? inches(h) + ' tall' : (st.h == null ? 'fills the space' : inches(st.h) + ' tall'));
-        return `<li><button type="button" class="comprow" data-part="${si}">
-          <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
-          <span class="compname"><b>${d.label}</b><i>${sub}</i></span>
-          <span class="compgo" aria-hidden="true">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
-          </span></button></li>`;
+        /* UP AND DOWN, BECAUSE WHERE A PIECE SITS IS MOST OF THE DESIGN.
+           A valet rod belongs under a shelf at eye height and a trouser
+           rack belongs in the middle. Something added from the library
+           lands at the top of the tower, and without these the only way
+           to move it was to take it out and build the tower again. */
+        const last = bay.stack.length - 1;
+        return `<li class="comprowwrap">
+          <button type="button" class="comprow" data-part="${si}">
+            <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
+            <span class="compname"><b>${d.label}</b><i>${sub}</i></span>
+            <span class="compgo" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
+            </span></button>
+          <span class="compmove">
+            <button type="button" data-partmove="1" data-si="${si}" ${si>=last?'disabled':''}
+              title="Move it up the tower" aria-label="Move ${d.label} up">&#9650;</button>
+            <button type="button" data-partmove="-1" data-si="${si}" ${si<=0?'disabled':''}
+              title="Move it down the tower" aria-label="Move ${d.label} down">&#9660;</button>
+          </span></li>`;
       }).join('');
     return `<h4 class="subh">What is in this tower</h4>
       <p class="note" style="margin:-2px 0 9px">Top to bottom. Press one to open it, or press it
@@ -2591,20 +2605,32 @@ function paintStack(){
         <button data-optpart="1" data-si="${si}" title="More">+</button></span>
     </div>`;
 
+  /* A PART WITH NO PHOTO IS STILL A CARD.
+     The accessories do not have studio photos yet. A missing <img> is a
+     broken card, so a part without one is drawn from its own icon on a
+     tinted tile instead. Drop the photo in later and it takes over with
+     no other change. */
+  const partArt = (d, id) => {
+    const img = d.img || id.toLowerCase().replace(/_/g,'-');
+    if(d.nopic) return `<span class="pdraw" aria-hidden="true">
+      <svg viewBox="0 0 24 32" fill="none" stroke="currentColor"><path d="${d.icon}"/></svg></span>`;
+    return `<img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
+           width="420" height="315" style="background:${PART_TILE[img] || '#F1EEEA'}">`;
+  };
+
   /* what this one could be instead, with the reason shown when it cannot */
   const swapCards = si => {
     const st = bay.stack[si];
     const slot = si === 0 ? 'bottom' : 'top';
     const others = bay.stack.filter((_, j) => j !== si);
     return MODULE_IDS.filter(id => canOffer(id, slot, others.length > 0) || st.m === id).map(id => {
-      const d = MODULES[id], img = d.img || id.toLowerCase().replace(/_/g,'-');
+      const d = MODULES[id];
       const on = st.m === id;
       const chk = on ? { ok:true } : canAdd(others, id, usable, inCorner, slot);
       const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
       return `<button class="pcard" data-setpart="${si}" data-m="${id}" aria-pressed="${on}"
                       ${chk.ok?'':'disabled'} title="${tip}">
-        <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
-             width="420" height="315" style="background:${PART_TILE[img] || '#F1EEEA'}">
+        ${partArt(d, id)}
         <i>${d.label}</i>
         <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
           <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
@@ -2638,16 +2664,23 @@ function paintStack(){
   /* ── the library ── */
   const libPanel = () => {
     const others = bay.stack;
+    /* A front is judged against an EMPTY tower, because it takes the tower
+       over rather than squeezing in beside what is there. Measured against
+       the contents it always came back "no room" and could never be
+       chosen, which is not what a door does. */
     const groups = LIB_GROUPS.map(g => {
       const items = g.ids.filter(id => MODULES[id] && !MODULES[id].legacy);
       if(!items.length) return '';
       return `<div class="libgrp"><h6>${g.t}</h6><div class="pgrid">${items.map(id => {
-        const d = MODULES[id], img = d.img || id.toLowerCase().replace(/_/g,'-');
-        const chk = canAdd(others, id, usable, inCorner, 'top');
-        const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
+        const d = MODULES[id];
+        const against = WHOLE_FRONT.has(id) ? [] : others;
+        const chk = canAdd(against, id, usable, inCorner, 'top');
+        const hint = WHOLE_FRONT.has(id) && others.length
+          ? d.hint + ' It takes the whole tower, and what is in it becomes what is behind it.'
+          : d.hint;
+        const tip = (chk.ok ? hint : chk.why).replace(/"/g,'&quot;');
         return `<button class="pcard" data-addmod="${id}" ${chk.ok?'':'disabled'} title="${tip}">
-          <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
-               width="420" height="315" style="background:${PART_TILE[img] || '#F1EEEA'}">
+          ${partArt(d, id)}
           <i>${d.label}</i>
           <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
             <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
@@ -2705,7 +2738,7 @@ const FAMS=[
    in it and the customer has not chosen a front finish yet, that is the one
    worth putting in front of them. */
 let FINTAB = 'carcass';
-const HAS_FRONTS = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER']);
+const HAS_FRONTS = new Set(['DRAWERS','DOOR','GLASS_DOOR','MIRROR','HAMPER']);
 const designHasFronts = () =>
   (cur?.bays || []).some(b => (b.stack||[]).some(st => HAS_FRONTS.has(st.m)));
 
@@ -3229,26 +3262,40 @@ function freshPart(id){
   return made;
 }
 
-/* Put a piece into a tower. Whatever was filling the space gives it up so
-   the newcomer has somewhere to be, and the new piece takes the fill,
-   because the thing you just added is the thing you want to see. */
+/* A FRONT IS THE WHOLE TOWER, NOT A BAND OF IT.
+   A door, a glass door and a mirror cover the section from the kick to
+   the top shelf. Adding one as another band would draw a door across the
+   upper third with the shelves below it still showing, which no shop
+   builds. It takes the tower over, and what was in it becomes what is
+   behind it. */
+const WHOLE_FRONT = new Set(['DOOR','GLASS_DOOR','MIRROR']);
+
+/* Put a piece into a tower.
+
+   If something is already taking up the slack, the newcomer arrives at
+   its own natural height and that piece gives up the inches. If nothing
+   is, the newcomer takes the slack itself. Fixing every existing height
+   AND letting the newcomer fill is how you end up with a 92" stack in an
+   80" tower. */
 function addPart(bay, id){
   const d = MODULES[id];
   if(id === 'COUNTER'){ setCounter(bay, true); return; }
   const made = freshPart(id);
-  /* anything already set to fill keeps its resolved height instead, so the
-     tower does not silently rearrange itself around the new piece */
-  const bands = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands || [];
-  bay.stack.forEach((st, i) => {
-    if(st.h == null && !MODULES[st.m].sizes){
-      const b = bands[i];
-      const h = b ? +(b.y1 - b.y0).toFixed(2) : (MODULES[st.m].defH ?? 24);
-      st.h = Math.max(MODULES[st.m].minH ?? 4, Math.round(h / 2) * 2);
-    }
-  });
-  /* a front belongs across the whole tower, so it goes on the end; a drawer
-     bank and a hamper only sit on the floor, so they go underneath */
-  if(d.floorOnly || d.sizes || id === 'HAMPER') bay.stack.unshift(made);
+
+  if(WHOLE_FRONT.has(id)){
+    const was = bay.stack.find(st => DOOR_INSIDE.includes(st.m));
+    made.h = null;
+    made.o = { ...(made.o || {}), inside: was ? was.m : DOOR_INSIDE_DEF };
+    bay.stack = [made];
+    return;
+  }
+
+  const filler = bay.stack.find(st => st.h == null && !MODULES[st.m].sizes);
+  if(filler && !d.sizes) made.h = Math.max(d.minH ?? 4, d.defH ?? d.minH ?? 12);
+  else made.h = d.sizes ? null : null;
+
+  /* a drawer bank and a hamper only sit on the floor, so they go underneath */
+  if(d.sizes || id === 'HAMPER' || id === 'BASKETS') bay.stack.unshift(made);
   else bay.stack.push(made);
 }
 
@@ -3450,6 +3497,12 @@ $('#stack').onclick=e=>{
     addPart(bay, id);
     S.lib = false;
     S.part = bay.stack.findIndex(x => x.m === id);
+  }
+  else if(t.dataset.partmove !== undefined){
+    const si = +t.dataset.si, to = si + +t.dataset.partmove;
+    if(to < 0 || to >= bay.stack.length) return;
+    const a = bay.stack[si]; bay.stack[si] = bay.stack[to]; bay.stack[to] = a;
+    if(S.part === si) S.part = to; else if(S.part === to) S.part = si;
   }
   else if(t.dataset.rmpart !== undefined){
     const si = +t.dataset.rmpart;
@@ -3777,7 +3830,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=e986eb90');
+  if(!DRAW) DRAW = await import('./drawing.js?v=3fd7a85b');
   return DRAW;
 }
 
@@ -4221,7 +4274,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=e986eb90');
+    const { downloadPdf } = await import('./drawing.js?v=3fd7a85b');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -4244,7 +4297,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=e986eb90');
+    const { downloadPdf } = await import('./drawing.js?v=3fd7a85b');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

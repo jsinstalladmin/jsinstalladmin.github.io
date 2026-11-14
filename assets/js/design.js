@@ -370,6 +370,14 @@ export const SLOT = {
      lite is always cut to the real opening. */
   DOOR       : { top:true,  bottom:false, whole:true,  over:false },
   GLASS_DOOR : { top:true,  bottom:false, whole:true,  over:false },
+  MIRROR     : { top:true,  bottom:false, whole:true,  over:false },
+  /* The accessories. Small fixed bands, so they fit anywhere there are
+     three inches, in either half, on their own or over something else. */
+  VALET      : { top:true,  bottom:true,  whole:true,  over:true  },
+  TIE_RACK   : { top:true,  bottom:true,  whole:true,  over:true  },
+  BELT_RACK  : { top:true,  bottom:true,  whole:true,  over:true  },
+  SCARF_RACK : { top:true,  bottom:true,  whole:true,  over:true  },
+  PANTS_RACK : { top:true,  bottom:true,  whole:true,  over:true  },
 };
 export const canSit = (id, slot) => !!(SLOT[id] || { top:true, bottom:true })[slot];
 
@@ -499,7 +507,10 @@ const CLASH = [
    one of these in the tower at an inside corner and it opens straight into
    the run returning along the next wall. This is the reason closet companies
    put shelving in a corner, never drawers. */
-export const OPENING_FRONT = new Set(['DRAWERS','DOOR','GLASS_DOOR','HAMPER','BASKETS']);
+export const OPENING_FRONT = new Set(['DRAWERS','DOOR','GLASS_DOOR','MIRROR','HAMPER','BASKETS',
+  /* every accessory here rides on glides and pulls out of the front, so
+     none of them can go in a corner the next run returns across */
+  'TIE_RACK','BELT_RACK','SCARF_RACK','PANTS_RACK','VALET']);
 
 /* Is this tower the one sitting in an inside corner? A run on a side wall
    starts clear of the back run's depth, so the back run's FIRST section is
@@ -552,9 +563,23 @@ export function canAdd(stack, id, usableH, inCorner, slot){
       if((id===c.a && stack.some(st=>st.m===c.b)) || (id===c.b && stack.some(st=>st.m===c.a)))
         return { ok:false, why:c.why };
     }
-    const other = stack.reduce((a,st) => a + MODULES[st.m].minH, 0);
+    /* WHAT THE REST OF THE TOWER ACTUALLY TAKES, not what it could be
+       squeezed to. A piece with a height set by the customer takes that
+       height; a drawer bank takes the sum of its boxes; only a piece
+       still filling the space can be asked to give some up, and the most
+       it can give is down to its own minimum. Measuring everything at its
+       minimum let a valet rod into a tower that then had to warn the
+       hanging above it was an inch under, which is the thing this check
+       exists to prevent. */
+    const other = stack.reduce((a, st) => {
+      const sd = MODULES[st.m];
+      if(sd.sizes) return a + drawerBankHeight(
+        (Array.isArray(st.o?.sizes) && st.o.sizes.length) ? st.o.sizes : defaultDrawerSizes(st.o?.n));
+      if(st.h != null) return a + clamp(st.h, sd.minH, sd.maxH);
+      return a + sd.minH;
+    }, 0);
     if(def.minH + other > usableH + 0.5)
-      return { ok:false, why:`${def.label} needs ${def.minH}" and only ${Math.max(0, usableH - other).toFixed(0)}" is free in this tower. Make the tower taller or pick something shorter.` };
+      return { ok:false, why:`${def.label} needs ${def.minH}" and only ${Math.max(0, usableH - other).toFixed(0)}" is free in this tower. Make the tower taller, lower the height of something that has one, or take something out.` };
     return { ok:true };
   }
 
@@ -1095,6 +1120,118 @@ export const MODULES = {
       }
     }
   },
+  /* ══════════════════════════════════════════════════════════════════
+     ACCESSORIES
+
+     The small fittings a closet is actually sold on. Every one of them
+     occupies a real slice of the tower, because that is what they do in
+     a real closet: a valet rod lives in the three inches under a shelf,
+     a tie rack is a pull-out on its own pair of glides. Modelling them
+     as decoration that floats somewhere would put them on the drawing
+     and leave them off the cut list.
+
+     They are priced from the catalogue like everything else. The
+     accessory SKUs are not in his ClosetPro export yet, so they carry
+     their real hardware description and a zero until he gives us the
+     numbers, and they appear on the order list by name either way, which
+     is what the workshop needs first.
+     ══════════════════════════════════════════════════════════════════ */
+
+  VALET: {
+    nopic:true,
+    label:'Valet rod', hint:'A rod that pulls straight out to hang tomorrow on.',
+    spec:'Pull-out valet rod, 12" extension · 3" of tower',
+    icon:'M4 10h16M8 10v3M16 10v3M12 10v8',
+    defH:3, minH:3, maxH:6, fixed:true,
+    build(c){
+      const {w,d,y,h,G,parts} = c;
+      parts.push({ code:'VALET', qty:1, len:12, style:'Pull-out valet rod, chrome',
+                   note:'Valet rod, pull-out' });
+      /* the mounting plate against the back, and the rod running out of it */
+      G.push({k:'wire', p:[0, y + h - 1.2, -d/2 + 1.2], s:[3.2, 0.9, 0.7], m:'metal'});
+      G.push({k:'wire', p:[0, y + h - 1.2, 0.5], s:[0.75, 0.75, d - 3], m:'metal'});
+      G.push({k:'wire', p:[0, y + h - 1.2, d/2 - 1.4], s:[2.4, 0.75, 0.75], m:'metal'});
+    }
+  },
+
+  TIE_RACK: {
+    nopic:true,
+    label:'Tie rack', hint:'A pull-out rack of pegs. Thirty ties in three inches.',
+    spec:'Pull-out tie rack on glides · 3" of tower',
+    icon:'M5 8h14M7 8v4M10 8v4M13 8v4M16 8v4',
+    defH:3, minH:3, maxH:6, fixed:true,
+    build(c){ pegRack(c, 'TIE_RACK', 'Tie rack, pull-out', 14); }
+  },
+
+  BELT_RACK: {
+    nopic:true,
+    label:'Belt rack', hint:'The same rack with longer pegs, for belts.',
+    spec:'Pull-out belt rack on glides · 3" of tower',
+    icon:'M5 8h14M7 8v5M11 8v5M15 8v5',
+    defH:3, minH:3, maxH:6, fixed:true,
+    build(c){ pegRack(c, 'BELT_RACK', 'Belt rack, pull-out', 8); }
+  },
+
+  SCARF_RACK: {
+    nopic:true,
+    label:'Scarf rack', hint:'A pull-out with wide loops, so a scarf does not crease.',
+    spec:'Pull-out scarf rack on glides · 3" of tower',
+    icon:'M5 8h14M7 8a2 2 0 0 0 0 4M12 8a2 2 0 0 0 0 4M17 8a2 2 0 0 0 0 4',
+    defH:3, minH:3, maxH:6, fixed:true,
+    build(c){ pegRack(c, 'SCARF_RACK', 'Scarf rack, pull-out', 6); }
+  },
+
+  PANTS_RACK: {
+    nopic:true,
+    label:'Trouser rack', hint:'Arms that pull out so trousers hang full length without folding.',
+    spec:'Pull-out trouser rack, 4 to 8 arms · 12" of tower',
+    icon:'M4 6h16M4 10h16M4 14h16M4 18h16',
+    defH:12, minH:9, maxH:20, fixed:true,
+    opt:{key:'n',label:'Arms',min:4,max:8,def:6},
+    build(c){
+      const {w,d,y,h,G,parts,o} = c;
+      const n = clamp(o.n ?? 6, 4, 8);
+      parts.push({ code:'PANTS_RACK', qty:1, len:Math.max(11, Math.round(d - 2)),
+                   style:`Pull-out trouser rack, ${n} arms`,
+                   note:`Trouser rack, ${n} arms` });
+      /* the frame it rides on, then one arm per pair of trousers */
+      for(const sx of [-1, 1])
+        G.push({k:'glide', p:[sx*(w/2 - 0.6), y + h - 1, 0.4], s:[0.8, 0.9, d - 2.4], m:'metal'});
+      for(let i = 0; i < n; i++){
+        const ax = -w/2 + (w / (n + 1)) * (i + 1);
+        G.push({k:'wire', p:[ax, y + h - 1.6, 0.4], s:[0.5, 0.5, d - 3.2], m:'metal'});
+      }
+    }
+  },
+
+  MIRROR: {
+    nopic:true,
+    label:'Mirror front', hint:'A mirrored door across the whole tower.',
+    spec:'Mirror bonded to a slab front · whole section',
+    icon:'M5 3h14v26H5zM8 7h8v18H8',
+    /* fill:true, the same as the other two fronts. Without it the height
+       resolver hands the piece its defH and a front has no defH, so the
+       mirror was drawn nought inches tall. */
+    defH:48, minH:12, maxH:84, fill:true,
+    inside:true,
+    build(c){
+      const {w,d,y,h,G,parts,o,pull} = c;
+      const fh = h - 0.3;
+      parts.push(P('DOOR', 1, (w*fh)/144, (w+fh)*2/12, `Mirror front, ${w.toFixed(1)}" x ${fh.toFixed(1)}"`));
+      parts.push({ code:'MIRROR', qty:1, w:+(w-4).toFixed(1), h:+(fh-4).toFixed(1),
+                   style:'Mirror bonded to the front', note:'Mirror glass, bonded' });
+      parts.push({ code:'PULL', qty:1, note:'Door pull' });
+      /* the slab, then the mirror laid on the face of it */
+      G.push({k:'front', p:[0, y + h/2, d/2 - 0.4], s:[w - 0.2, fh, 0.8], m:'front'});
+      G.push({k:'glass', p:[0, y + h/2, d/2 + 0.05], s:[w - 4, fh - 4, 0.12], m:'glass'});
+      G.push({k:'pullmat', p:[w/2 - 2.4, y + h/2, d/2 + 0.4], s:[0.5, 4, 0.5], m:'pullmat'});
+      /* whatever they chose to put behind it */
+      const inside = o?.inside || DOOR_INSIDE_DEF;
+      const def = MODULES[inside];
+      if(def && inside !== 'OPEN') def.build({ ...c, o:{}, G, parts });
+    }
+  },
+
   COUNTER: {
     label:'Counter top', hint:'A work surface. Folding, packing, a laundry bench.',
     spec:'Work surface at 36\" · 1¼\"–3\" thick',
@@ -1507,6 +1644,24 @@ export function presetDelta(preset, bayW, usableH, cat, finish){
   }catch(e){ return null; }
 }
 
+/* Three accessories are the same pull-out with a different number of pegs
+   on it, so they are one function. The rack rides on a pair of glides at
+   the top of its band and the pegs point out of the front of it. */
+function pegRack(c, code, note, pegs){
+  const {w,d,y,h,G,parts} = c;
+  const n = Math.max(3, Math.min(pegs, Math.floor(w / 1.2)));
+  parts.push({ code, qty:1, len:Math.max(11, Math.round(d - 2)),
+               style:`${note}, ${n} pegs`, note:`${note}, ${n} pegs` });
+  for(const sx of [-1, 1])
+    G.push({k:'glide', p:[sx*(w/2 - 0.6), y + h - 1, 0.4], s:[0.8, 0.9, d - 2.4], m:'metal'});
+  /* the carrier the pegs sit on */
+  G.push({k:'wire', p:[0, y + h - 1.7, -d/2 + 2], s:[w - 2, 0.6, 0.6], m:'metal'});
+  for(let i = 0; i < n; i++){
+    const px = -w/2 + 1 + ((w - 2) / Math.max(1, n - 1)) * i;
+    G.push({k:'wire', p:[px, y + h - 2.1, 0.6], s:[0.4, 0.4, d - 4.4], m:'metal'});
+  }
+}
+
 export const MODULE_IDS = Object.keys(MODULES);
 
 /* ══ WHICH LONE PIECES STILL GET THE MIDDLE SHELF ══════════════════════
@@ -1532,7 +1687,7 @@ export const MODULE_IDS = Object.keys(MODULES);
 
    What is left is the four that really are a tall empty span with nothing
    holding the sides apart. Those get the shelf. */
-const MID_WHEN_ALONE = new Set(['SHELVES','OPEN','DOOR','GLASS_DOOR']);
+const MID_WHEN_ALONE = new Set(['SHELVES','OPEN','DOOR','GLASS_DOOR','MIRROR']);
 
 /* ══ WHAT GOES BEHIND A DOOR ═══════════════════════════════════════════
    A door is a front. It is not a filling, and it never was: adding one
