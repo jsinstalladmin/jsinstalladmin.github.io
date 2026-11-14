@@ -177,5 +177,17 @@ export function mountTour(){
     if(e.target.closest('[data-a="tour"]')) show(0);
   });
 
-  if(!seen) setTimeout(() => show(0), 1200);
+  /* THE TOUR WAITS FOR THE GATE.
+     It used to fire 1.2 seconds after load, which on a first visit put a
+     card about "five steps, start to finish" on top of the question asking
+     which closet they wanted, over a panel of five steps they could not
+     see. It starts when the gate closes, and straight away when there is
+     no gate, which is how anybody arriving on a ?plan= link gets here. */
+  if(seen) return;
+  const begin = () => setTimeout(() => show(0), 900);
+  /* The builder says when the gate is out of the way, and says it straight
+     away when it never opened one. Checking gate.hidden here would be a
+     race: this module runs before the builder has finished deciding. */
+  if(document.getElementById('gate')) addEventListener('js:gate-closed', begin, { once:true });
+  else begin();
 }

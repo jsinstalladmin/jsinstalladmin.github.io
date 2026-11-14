@@ -2969,19 +2969,126 @@ function openGate(){
   const gate = $('#gate'), form = $('#gateform');
   if(!gate || !form) return;
 
+  const s1 = $('#gstep1'), s2 = $('#gstep2'), host = $('#gatetypes');
+  /* S.type always holds something, because the builder boots with a
+     default so it has a room to draw. That is not a choice anybody made,
+     so the gate always opens on the question. */
+  let picked = null;
+
+  /* ── step one: which closet ───────────────────────────────────────── */
+  if(host) host.innerHTML = Object.entries(TYPES).map(([k, t]) => `
+    <button type="button" class="gatetype" data-t="${k}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${t.art}"/></svg>
+      <b>${t.label}</b>
+      <span>${t.note}</span>
+      <em>${t.w}" wide \u00b7 ${t.d}" deep</em>
+    </button>`).join('');
+
+  const show = n => {
+    if(s1) s1.hidden = n !== 1;
+    if(s2) s2.hidden = n !== 2;
+    gate.scrollTop = 0;
+  };
+
+  host?.addEventListener('click', e => {
+    const b = e.target.closest('button[data-t]'); if(!b) return;
+    picked = b.dataset.t;
+    /* The type carries the room it usually comes in and the walls it is
+       usually built on, so step two opens already filled in with something
+       sensible rather than with somebody else's 96 inch box. Same call the
+       picker inside the builder makes, so the two cannot drift apart. */
+    S.shape = TYPES[picked].walls.length > 1 ? 'u' : 'straight';
+    applyType(picked);
+    S.cabTop = clampCabTop(S.cabTop, S.room.h);
+    fill();
+    show(2);
+    if(!matchMedia('(max-width:700px)').matches) setTimeout(() => form.w.focus(), 60);
+  });
+
+  $('#gateback')?.addEventListener('click', () => show(1));
+
+  /* ── step two: the numbers, with the room drawn beside them ───────── */
   const sel = $('#gatedoor');
   if(sel) sel.innerHTML = DOORS.map(d =>
     `<option value="${d.id}"${d.id === S.door ? ' selected' : ''}>${d.label}</option>`).join('');
-  form.w.value = S.room.w; form.d.value = S.room.d; form.h.value = S.room.h;
-  const shape = form.querySelector(`input[name="shape"][value="${S.shape}"]`);
-  if(shape) shape.checked = true;
+
+  function fill(){
+    form.w.value = S.room.w; form.d.value = S.room.d; form.h.value = S.room.h;
+    const shape = form.querySelector(`input[name="shape"][value="${S.shape}"]`);
+    if(shape) shape.checked = true;
+    const h2 = $('#gate2h');
+    if(h2) h2.textContent = picked && TYPES[picked]
+      ? `Your ${TYPES[picked].label.toLowerCase()}, in inches` : 'Your room, in inches';
+    drawGatePlan();
+  }
+
+  /* The room as described, from above, redrawn on every keystroke. It is
+     not the closet, there is no closet yet: it is the box, the walls being
+     built on shaded, the door opening cut out of the front, and the three
+     figures so a typo is obvious before anybody presses the button. */
+  function drawGatePlan(){
+    const fig = $('#gateplan'); if(!fig) return;
+    const n = (v, lo, hi, d) => { const x = Math.round(Number(v));
+      return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
+    const W = n(form.w.value, 36, 288, 96), D = n(form.d.value, 12, 360, 24);
+    const H = n(form.h.value, 60, 180, 96);
+    const sh = form.querySelector('input[name="shape"]:checked')?.value || 'straight';
+    const walls = (SHAPES[sh] || SHAPES.straight).walls;
+    const dw = Math.min(W, Math.max(0, n(form.door.value, 0, 240, 0)));
+
+    const PAD = { l:52, r:52, t:40, b:56 }, BOX = 360;
+    const k = Math.min((BOX - PAD.l - PAD.r) / W, (BOX - PAD.t - PAD.b) / Math.max(D, 1));
+    const w = W * k, d = D * k, x0 = PAD.l, y0 = PAD.t;
+    const VW = Math.round(w + PAD.l + PAD.r), VH = Math.round(d + PAD.t + PAD.b);
+    const run = Math.min(24, Math.max(10, D * 0.28)) * k;   // a run, drawn to depth
+    const INK = '#16120D', DIM = '#2E6B83', FILL = '#D9D4CC';
+
+    const band = [];
+    if(walls.includes('back'))
+      band.push(`<rect x="${x0}" y="${y0}" width="${w}" height="${run}" fill="${FILL}" opacity=".85" stroke="${INK}" stroke-width="1.1"/>`);
+    /* the side runs stand clear of the back run, the way he builds them */
+    const off = walls.includes('back') ? run + 12 * k : 0;
+    if(walls.includes('left'))
+      band.push(`<rect x="${x0}" y="${y0 + off}" width="${run}" height="${Math.max(6, d - off)}" fill="${FILL}" opacity=".85" stroke="${INK}" stroke-width="1.1"/>`);
+    if(walls.includes('right'))
+      band.push(`<rect x="${x0 + w - run}" y="${y0 + off}" width="${run}" height="${Math.max(6, d - off)}" fill="${FILL}" opacity=".85" stroke="${INK}" stroke-width="1.1"/>`);
+
+    const door = dw > 0
+      ? `<path d="M${x0 + (w - dw * k) / 2} ${y0 + d}h${dw * k}" stroke="#F2F0EC" stroke-width="3.4"/>
+         <path d="M${x0 + (w - dw * k) / 2} ${y0 + d}h${dw * k}" stroke="${DIM}" stroke-width="1.4" stroke-dasharray="5 3"/>
+         <text x="${x0 + w / 2}" y="${y0 + d + 34}" fill="${DIM}" font-size="11" text-anchor="middle">${dw}" opening</text>`
+      : '';
+
+    fig.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}"
+      role="img" aria-label="${W} inches wide by ${D} inches deep, ${H} inch ceiling"
+      font-family="Archivo, system-ui, sans-serif">
+      <rect width="${VW}" height="${VH}" fill="#F7F6F3"/>
+      <rect x="${x0}" y="${y0}" width="${w}" height="${d}" fill="#FFFFFF" stroke="${INK}" stroke-width="1.6"/>
+      ${band.join('')}
+      ${door}
+      <path d="M${x0} ${y0 - 16}h${w}M${x0} ${y0 - 21}v10M${x0 + w} ${y0 - 21}v10" stroke="${DIM}" stroke-width="1.1"/>
+      <text x="${x0 + w / 2}" y="${y0 - 22}" fill="${DIM}" font-size="12" text-anchor="middle">${W}" wall</text>
+      <path d="M${x0 - 16} ${y0}v${d}M${x0 - 21} ${y0}h10M${x0 - 21} ${y0 + d}h10" stroke="${DIM}" stroke-width="1.1"/>
+      <text x="${x0 - 22}" y="${y0 + d / 2}" fill="${DIM}" font-size="12" text-anchor="middle"
+            transform="rotate(-90 ${x0 - 22} ${y0 + d / 2})">${D}" deep</text>
+      <text x="${VW - PAD.r + 8}" y="${y0 + d / 2}" fill="${DIM}" font-size="12" text-anchor="middle"
+            transform="rotate(90 ${VW - PAD.r + 8} ${y0 + d / 2})">${H}" ceiling</text>
+    </svg>`;
+  }
+
+  form.addEventListener('input', drawGatePlan);
+  form.addEventListener('change', drawGatePlan);
 
   gate.hidden = false;
-  /* Focus the first field, but not on a phone: bringing the keyboard up over
-     the card the moment the page opens hides the thing it is asking about. */
-  if(!matchMedia('(max-width:700px)').matches) setTimeout(() => form.w.focus(), 60);
+  show(1);
 
-  const shut = () => { gate.hidden = true; resize(); frame(); };
+  const shut = () => {
+    gate.hidden = true;
+    /* the tour waits behind the gate: it used to pop over step one and
+       talk about five steps nobody could see yet */
+    window.dispatchEvent(new Event('js:gate-closed'));
+    resize(); frame();
+  };
 
   form.addEventListener('submit', e => {
     e.preventDefault();
@@ -3000,14 +3107,57 @@ function openGate(){
     const dw = Math.round(Number(form.door.value));
     /* A door opening only means something when there is a door in it. */
     if(Number.isFinite(dw) && dw > 0 && S.door !== 'none') S.doorW = dw;
+    /* "CREATE MY CLOSET" HAS TO CREATE A CLOSET.
+       It used to drop you into an empty room with a panel saying "add your
+       first tower", which is the same blank page they started on with one
+       more button pressed. Every live wall is filled with towers of a
+       sensible width carrying the starting stack for the type they chose,
+       and every one of them can be widened, moved, emptied or removed. */
+    fillWalls();
     shut();
     rebuild(true);
+    setView('3d');
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
   });
 
-  $('#gateskip')?.addEventListener('click', () => { shut(); rebuild(true); });
-  /* Escape is the same as skip: nobody should be trapped behind a form. */
-  gate.addEventListener('keydown', e => { if(e.key === 'Escape'){ shut(); rebuild(true); } });
+  /* Divide each wall into the fewest towers that are all a buildable
+     width. A 132" wall is four at 33", not four at 32" and a 4" stub. */
+  function fillWalls(){
+    const stack = defaultStackFor(S.type);
+    for(const wall of Object.keys(S.runs)){
+      const r = S.runs[wall];
+      if(!r?.on || r.bays.length) continue;
+      const len = wallLength(wall);
+      if(len < SPEC.bayMin) continue;
+      const n = Math.max(1, Math.round(len / 30));
+      const w = len / n;
+      /* if an even split lands outside what he builds, take the widest
+         count that fits instead of forcing a partition where none goes */
+      const count = (w >= SPEC.bayMin && w <= SPEC.bayMax)
+        ? n : Math.max(1, Math.ceil(len / SPEC.bayMax));
+      const each = +(len / count).toFixed(1);
+      if(each < SPEC.bayMin) continue;
+      let at = 0;
+      for(let i = 0; i < count; i++){
+        const b = makeBay(each, structuredClone(stack), true);
+        b.at = at; at += each;
+        r.bays.push(b);
+      }
+    }
+    S.sel = { wall:Object.keys(S.runs).find(w => S.runs[w]?.bays?.length) || 'back', i:0 };
+  }
+
+  $('#gateskip')?.addEventListener('click', () => { shut(); rebuild(true); setView('3d'); });
+  /* Escape steps back rather than dumping somebody into a builder they
+     never chose a closet for. From step one it skips, as it always did.
+     On document, not on the gate: stepping back hides the button that had
+     focus, focus falls to the body, and a listener on the gate then never
+     hears the next key. */
+  document.addEventListener('keydown', e => {
+    if(e.key !== 'Escape' || gate.hidden) return;
+    if(s2 && !s2.hidden){ show(1); return; }
+    shut(); rebuild(true); setView('3d');
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -3473,6 +3623,9 @@ rebuild(true); resize();
    ?plan= or ?preset= link has already answered it, and so has a room that
    somebody has already put towers in, so neither sees it. */
 if(!qPre && !qPlan && !Object.values(S.runs).some(r => r?.bays?.length)) openGate();
+/* and when there is no gate, say so, so the tour does not sit waiting for
+   a door that is never going to open */
+else window.dispatchEvent(new Event('js:gate-closed'));
 
 const sheet = new Image();
 sheet.crossOrigin = 'anonymous';

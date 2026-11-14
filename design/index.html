@@ -88,41 +88,68 @@
          Anyone arriving on a ?plan= or ?preset= link skips it, because they
          have already chosen. -->
     <div class="gate" id="gate" hidden>
-      <form class="gatecard" id="gateform" novalidate>
-        <h2>Your room, in inches</h2>
-        <p>Measure wall to wall at about waist height. Room depth is how far the
-          room goes back from the wall you are building on. Everything after this
-          is cut from these numbers, so it is worth taking them off the wall
-          rather than guessing.</p>
-        <div class="gaterow">
-          <label><span>Back wall</span><input type="number" name="w" inputmode="numeric"
-            min="36" max="288" value="96" required><i>in</i></label>
-          <label><span>Room depth</span><input type="number" name="d"
-            inputmode="numeric" min="12" max="360" value="24" required><i>in</i></label>
-          <label><span>Ceiling</span><input type="number" name="h" inputmode="numeric"
-            min="60" max="180" value="96" required><i>in</i></label>
-        </div>
-        <fieldset class="gateshape">
-          <legend>Which walls are you building on</legend>
-          <div class="gatepick" id="gateshape">
-            <label><input type="radio" name="shape" value="straight" checked><b>One wall</b><span>Back wall only</span></label>
-            <label><input type="radio" name="shape" value="l"><b>Two walls</b><span>Back and one side</span></label>
-            <label><input type="radio" name="shape" value="u"><b>Three walls</b><span>Back and both sides</span></label>
+      <div class="gatebox">
+
+        <!-- STEP ONE: WHICH CLOSET. Nothing else on the screen.
+             This used to open on six number fields, which asks somebody to
+             measure a room before they have said what they are putting in
+             it. The first question is which closet, and it is the only
+             thing on the screen when it is asked. -->
+        <section class="gatestep" id="gstep1">
+          <p class="gatekick">Step 1 of 2</p>
+          <h2>What are you building?</h2>
+          <p class="gatelede">Pick the one nearest to your room. The measurements
+            come next and nothing here is locked in, you can change any of it
+            once the closet is on the screen.</p>
+          <div class="gatetypes" id="gatetypes"></div>
+        </section>
+
+        <!-- STEP TWO: THE NUMBERS, WITH THE ROOM DRAWN BESIDE THEM.
+             A form on its own tells you nothing about whether you typed the
+             right number. The plan redraws on every keystroke, so the room
+             on the right is the room you just described. -->
+        <section class="gatestep" id="gstep2" hidden>
+          <p class="gatekick"><button type="button" class="gatelink" id="gateback">Back</button>
+            <span>Step 2 of 2</span></p>
+          <h2 id="gate2h">Your room, in inches</h2>
+          <div class="gate2">
+            <form class="gateform" id="gateform" novalidate>
+              <div class="gaterow">
+                <label><span>Back wall</span><input type="number" name="w" inputmode="numeric"
+                  min="36" max="288" value="96" required><i>in</i></label>
+                <label><span>Room depth</span><input type="number" name="d"
+                  inputmode="numeric" min="12" max="360" value="24" required><i>in</i></label>
+                <label><span>Ceiling</span><input type="number" name="h" inputmode="numeric"
+                  min="60" max="180" value="96" required><i>in</i></label>
+              </div>
+              <p class="gatehelp">Measure wall to wall at about waist height. Room depth
+                is how far the room goes back from the wall you are building on.</p>
+              <fieldset class="gateshape">
+                <legend>Which walls are you building on</legend>
+                <div class="gatepick" id="gateshape">
+                  <label><input type="radio" name="shape" value="straight" checked><b>One wall</b><span>Back wall only</span></label>
+                  <label><input type="radio" name="shape" value="l"><b>Two walls</b><span>Back and one side</span></label>
+                  <label><input type="radio" name="shape" value="u"><b>Three walls</b><span>Back and both sides</span></label>
+                </div>
+              </fieldset>
+              <fieldset class="gateshape">
+                <legend>How it opens</legend>
+                <div class="gaterow">
+                  <label><span>Door opening</span><input type="number" name="door" inputmode="numeric"
+                    min="0" max="240" value="0"><i>in</i></label>
+                  <label class="wide"><span>Door type</span><select name="doortype" id="gatedoor"></select></label>
+                </div>
+              </fieldset>
+              <div class="gateacts">
+                <button class="btn btn-fill" type="submit">Create my closet</button>
+                <button class="btn btn-ghost btn-sm" type="button" id="gateskip">Skip, I will set it inside</button>
+              </div>
+            </form>
+            <figure class="gateplan" id="gateplan" aria-label="The room you have described, from above"></figure>
           </div>
-        </fieldset>
-        <fieldset class="gateshape">
-          <legend>How it opens</legend>
-          <div class="gaterow">
-            <label><span>Door opening</span><input type="number" name="door" inputmode="numeric"
-              min="0" max="240" value="0"><i>in</i></label>
-            <label class="wide"><span>Door type</span><select name="doortype" id="gatedoor"></select></label>
-          </div>
-        </fieldset>
-        <div class="gateacts">
-          <button class="btn btn-fill" type="submit">Create my closet</button>
-          <button class="btn btn-ghost btn-sm" type="button" id="gateskip">Skip, I will set it inside</button>
-        </div>
-      </form>
+        </section>
+
+      </div>
     </div>
 
     <!-- THREE WAYS TO LOOK AT THE SAME CLOSET.
