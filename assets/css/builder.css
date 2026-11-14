@@ -824,7 +824,11 @@ body[data-step="6"] .pacts{margin-top:0}
   display:flex;flex-direction:column;gap:.3em;text-align:left}
 .phov em{font-size:.65rem;line-height:1.4;color:rgba(248,245,240,.88)}
 .phov b{font-size:.58rem;font-weight:400;letter-spacing:.04em;color:rgba(248,245,240,.56)}
-.pcard:hover .phov,.pcard:focus-visible .phov{translate:0 0}
+.pcard:hover:not(:disabled) .phov,.pcard:focus-visible:not(:disabled) .phov{translate:0 0}
+/* A card that cannot be used says why on its badge. Sliding the hover
+   panel up over a greyed card as well put two pieces of text on top of
+   each other and neither could be read. */
+.pcard:disabled .phov{display:none}
 @media(hover:none){ .phov{display:none} }
 
 /* ---- spacing and corners ---- */
@@ -1828,3 +1832,95 @@ body:has(.gate:not([hidden])){overflow:hidden}
   font-weight:600}
 .mixacts{display:flex;gap:.6em;flex-wrap:wrap;margin:0 0 6px}
 .mixacts .btn{flex:1 1 auto;justify-content:center}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE CONTEXTUAL PANEL
+
+   The panel is whatever was pressed: the tower, one component inside it,
+   or the library. Three states, one column, never two at once. Replaces
+   the two "halves" cards, which asked people to think about a closet in
+   a way nobody thinks about a closet.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── depth, beside the tower it belongs to ── */
+.twdepth{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5em .8em;
+  align-items:center;padding:.7em .8em;margin:0 0 1.1em;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper-2)}
+.twdepth .tdlbl{display:grid;gap:1px;min-width:0}
+.twdepth .tdlbl b{font-size:.8rem;font-weight:500;color:var(--ink)}
+.twdepth .tdlbl i{font-style:normal;font-size:.68rem;line-height:1.35;color:var(--ink-3)}
+.twdepth .tdpick{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px}
+.twdepth .tdpick button{min-width:40px;padding:.34em .5em;font-size:.74rem;line-height:1;
+  border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink-2);cursor:pointer}
+.twdepth .tdpick button:hover{border-color:var(--ink-3);color:var(--ink)}
+.twdepth .tdpick button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.twdepth .tdnum{display:flex;align-items:center;gap:4px}
+.twdepth .tdnum input{width:60px;height:32px;padding:0 .4em;text-align:right;font-size:.8rem;
+  border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);
+  appearance:textfield;-moz-appearance:textfield}
+.twdepth .tdnum input::-webkit-outer-spin-button,
+.twdepth .tdnum input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.twdepth .tdnum i{font-style:normal;font-size:.7rem;color:var(--ink-3)}
+
+/* ── what is in this tower ── */
+.complist{list-style:none;margin:0 0 .9em;padding:0;display:grid;gap:6px}
+.complist li{margin:0}
+.comprow{width:100%;display:grid;grid-template-columns:30px minmax(0,1fr) 18px;gap:9px;
+  align-items:center;text-align:left;padding:.58em .7em;cursor:pointer;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper);
+  font:inherit;color:inherit;transition:border-color .12s,background .12s}
+.comprow:hover{border-color:var(--ink-3);background:var(--paper-2)}
+.comprow .compname{display:grid;gap:1px;min-width:0}
+.comprow .compname b{font-size:.82rem;font-weight:500;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comprow .compname i{font-style:normal;font-size:.69rem;color:var(--ink-3)}
+.comprow .compgo svg{width:16px;height:16px;fill:none;stroke-width:1.6;color:var(--ink-3)}
+.comprow:hover .compgo svg{color:var(--ink)}
+.compnone{padding:.9em;border:1px dashed var(--line);border-radius:var(--r-sm);
+  font-size:.76rem;color:var(--ink-3);text-align:center}
+.compacts{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 .4em}
+
+/* ── one component, opened ── */
+.pbar{margin:-.2em 0 .7em}
+.pback{display:inline-flex;align-items:center;gap:5px;padding:.34em .62em .34em .46em;
+  font-size:.74rem;border:1px solid var(--line);border-radius:999px;
+  background:var(--paper);color:var(--ink-2);cursor:pointer}
+.pback:hover{border-color:var(--ink-3);color:var(--ink)}
+.pback svg{width:14px;height:14px;stroke-width:1.7}
+.phd{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;align-items:center;
+  padding:.1em 0 .9em;border-bottom:1px solid var(--line);margin:0 0 .9em}
+.phdtx{display:grid;gap:2px;min-width:0}
+.phdtx b{font-size:.92rem;font-weight:500;color:var(--ink)}
+.phdtx i{font-style:normal;font-size:.7rem;color:var(--ink-3)}
+
+/* ── the height control, which also drags in the drawing ── */
+.hrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5em .8em;align-items:center;
+  padding:.7em .8em;margin:0 0 .8em;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:var(--paper-2)}
+.hrow .hlbl{display:grid;gap:1px;min-width:0}
+.hrow .hlbl b{font-size:.8rem;font-weight:500;color:var(--ink)}
+.hrow .hlbl i{font-style:normal;font-size:.68rem;line-height:1.35;color:var(--ink-3)}
+.hfill{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--ink-2);cursor:pointer}
+.hfill input{accent-color:var(--ink)}
+.hslide{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) 62px;
+  gap:10px;align-items:center}
+.hslide input[type=range]{width:100%;accent-color:var(--ink)}
+.hslide input[type=range]:disabled{opacity:.4}
+.hslide b{font-size:.84rem;font-weight:500;color:var(--ink);text-align:right;
+  font-variant-numeric:tabular-nums}
+
+/* ── the library ── */
+.libgrp{margin:0 0 1.1em}
+.libgrp h6{margin:0 0 .5em;font-family:'Archivo',sans-serif;font-size:.64rem;
+  letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+
+/* ── the elevation is also the control, component by component ── */
+.v2dcanvas .pickpart{fill:transparent;cursor:pointer;
+  stroke:transparent;stroke-width:1.2;transition:fill .1s,stroke .1s}
+.v2dcanvas .pickpart:hover{fill:rgba(168,130,76,.12);stroke:rgba(168,130,76,.75)}
+.v2dcanvas .pickpart.on{fill:rgba(168,130,76,.16);stroke:#A8824C;stroke-width:1.6}
+.v2dcanvas .hgrab{cursor:ns-resize}
+.v2dcanvas .hgrab .hbar{stroke:#A8824C;stroke-width:1.4;opacity:0;transition:opacity .1s}
+.v2dcanvas .hgrab .hgrip{stroke:#A8824C;stroke-width:1.5;stroke-linecap:round;opacity:0;transition:opacity .1s}
+.v2dcanvas .hgrab:hover .hbar,.v2dcanvas .hgrab:hover .hgrip{opacity:1}
+.v2dcanvas.dragging .hgrab .hbar,.v2dcanvas.dragging .hgrab .hgrip{opacity:1}

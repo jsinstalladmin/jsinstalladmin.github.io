@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=629b5c4c';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=e986eb90';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=629b5c4c';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=e986eb90';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=629b5c4c';
+         clothMaterials, clearCaches } from './materials.js?v=e986eb90';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -1090,6 +1090,10 @@ function drawCloset(res){
     if(g.yaw) m.rotation.y = g.yaw;
     if(g.tilt) m.rotation.x=g.tilt;
     m.castShadow=m.receiveShadow=true;
+    /* WHICH COMPONENT THIS PIECE IS PART OF.
+       Stamped in the engine and carried through here, so pressing a shelf
+       in the 3D view opens that shelf rather than the tower it lives in. */
+    if(g.wall && g.bay != null) m.userData = { wall:g.wall, i:g.bay, si:g.si, mod:g.mod, part:true };
     root.add(m);
   });
   // invisible pick volumes, one per bay, so you can click the closet to edit it
@@ -1156,7 +1160,10 @@ const ndcFrom=(e)=>{ const r=canvas.getBoundingClientRect();
 canvas.addEventListener('pointermove', e=>{
   if(e.buttons) return;                               // orbiting, not hovering
   ray.setFromCamera(ndcFrom(e), cam);
-  canvas.style.cursor = ray.intersectObjects(picks.children,false).length ? 'ew-resize' : 'grab';
+  const overPart = ray.intersectObjects(root.children,false)
+                      .some(h => h.object.userData && h.object.userData.part);
+  canvas.style.cursor = overPart ? 'pointer'
+    : (ray.intersectObjects(picks.children,false).length ? 'ew-resize' : 'grab');
 });
 /* ══════════════════════════════════════════════════════════════════════
    DRAG A SECTION ALONG ITS WALL, IN THE DRAWING
@@ -1269,9 +1276,30 @@ canvas.addEventListener('pointerup',e=>{
   const r=canvas.getBoundingClientRect();
   ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
   ray.setFromCamera(ndc,cam);
+  /* WHAT DID THEY ACTUALLY PRESS?
+     The real cabinetry first, because a shelf is a more specific answer
+     than the tower it sits in, and the invisible per-tower volume only
+     afterwards so pressing the empty air inside a tower still selects it.
+     Press the same piece twice and it steps back out to the tower. */
+  const pHit = ray.intersectObjects(root.children, false)
+                  .find(h => h.object.userData && h.object.userData.part);
+  if(pHit){
+    const u = pHit.object.userData;
+    const same = S.sel && S.sel.wall === u.wall && S.sel.i === u.i;
+    S.sel = { wall:u.wall, i:u.i };
+    /* an engine shelf carries si -1: it belongs to the tower, not to a
+       component, so pressing one opens the tower */
+    S.part = (u.si != null && u.si >= 0 && !(same && S.part === u.si)) ? u.si : null;
+    S.lib = false;
+    PICK_FOR = u.wall + '|' + u.i;
+    rebuild(false);
+    if(typeof window.gotoStep === 'function') window.gotoStep('2');
+    return;
+  }
   const hit=ray.intersectObjects(picks.children,false)[0];
   if(hit){
     S.sel={wall:hit.object.userData.wall,i:hit.object.userData.i};
+    S.part = null; S.lib = false;
     rebuild(false);
     /* Dividing the wall and filling it are one panel now, so clicking a
        section on the drawing just selects it. It used to yank you onto
@@ -2054,30 +2082,11 @@ function paintBays(){
           <i>${r.bays.length} tower${r.bays.length===1?'':'s'} &middot; ${Math.round(used)}" of ${Math.round(len)}"${left>0.5?` &middot; ${Math.round(left)}" free`:''}</i>
         </span></button>
       <div class="runbody">
-        ${(() => {
-          /* HOW DEEP THIS WALL IS BUILT.
-             The run has always carried a depth and it has always been 24",
-             because nothing ever asked. A linen run is 12" or 14", a pantry
-             is 16", a hanging run is 24", and every shelf, rod, drawer box
-             and basket in the tower is cut to whatever this says, so the
-             price moves with it. */
-          const cap = wallDepthCap(wall);
-          const cur = Math.min(r.depth ?? SPEC.hangDepth, cap);
-          const lo = SPEC.runDepthMin, hi = Math.min(SPEC.runDepthMax, Math.round(cap));
-          return `<div class="rundepth">
-            <label class="pfield pf-wide"><span>How deep this wall is</span>
-              <input type="number" data-rundepth="${wall}" value="${+cur.toFixed(1)}"
-                     min="${lo}" max="${hi}" step="0.5"
-                     aria-label="How deep the ${wall} wall run is, in inches"><i>in</i></label>
-            <div class="depthquick">
-              ${[12,14,16,20,24].filter(v => v >= lo && v <= hi).map(v =>
-                `<button type="button" data-rundepth-set="${wall}" data-v="${v}"
-                   class="${Math.abs(cur - v) < 0.26 ? 'on' : ''}">${v}"</button>`).join('')}
-            </div>
-            <p class="note">${lo}" to ${hi}" on this wall. Shelves, rods, drawer boxes and
-              baskets are all cut to it.</p>
-          </div>`;
-        })()}
+        ${/* DEPTH MOVED. It used to sit at the top of every wall block,
+             which is a long way from the tower it changes. It is now in
+             the panel for the selected tower, where the reference software
+             puts it, and printing it in both places meant two controls for
+             one number. */''}
         ${strip}
         ${r.bays.length > 0 ? `<div class="trackacts">
           <span class="tahint">Drag any tower along the wall. The gaps are real bare wall.</span>
@@ -2122,6 +2131,7 @@ window.__artGone = n => ART_GONE.add(n);
    there are five places that move the selection, so the check lives here
    rather than being repeated in all of them. */
 let PICK_FOR = null;
+let LAST_MODE = null;
 
 /* ══════════════════════════════════════════════════════════════════════
    BUILD IT FOR ME
@@ -2149,6 +2159,53 @@ const MIX_PICK = {
   rest : ['shelves-6','shelves-4','cubbies','shelves-8'],
 };
 
+/* The component library, grouped the way he asked for it: the things that
+   make the closet, then the things that go in it. A group whose parts are
+   not built yet simply has nothing in it and does not print. */
+const LIB_GROUPS = [
+  { t:'Hanging',  ids:['HANG','DOUBLE_HANG','LONG_HANG','SHORT_HANG'] },
+  { t:'Shelving', ids:['SHELVES','CUBBIES','COUNTER'] },
+  { t:'Drawers and pull-outs', ids:['DRAWERS','PULLOUT','BASKETS','HAMPER'] },
+  { t:'Shoes',    ids:['SHOES','SHOE_SLANT'] },
+  { t:'Fronts',   ids:['DOOR','GLASS_DOOR','OPEN'] },
+];
+
+/* ══════════════════════════════════════════════════════════════════════
+   A CLOSET IS ALREADY IN THE ROOM WHEN THEY ARRIVE
+
+   The room used to open empty, on the argument that it is their closet and
+   nobody should put towers in it for them. That is the wrong way round.
+   An empty room is a blank page: there is nothing to react to, nothing to
+   click, and the first thing anybody has to do is work out what a tower
+   even is. Every configurator worth using drops you into a finished closet
+   and lets you change it, because changing something is easy and starting
+   something is hard.
+
+   So the type they picked decides what is standing there the moment the
+   gate closes. A pantry opens as shelves floor to ceiling. A garage opens
+   as deep shelving with one bank of drawers. A reach-in opens as double
+   hanging with drawers in the middle. Then they take it apart.
+   ══════════════════════════════════════════════════════════════════════ */
+const TYPE_START = {
+  'reach-in': { mix:{ hang:3, shoe:1, draw:1 } },
+  'walk-in' : { mix:{ hang:2, shoe:1, draw:2 } },
+  /* no hanging, no shoes: a pantry is shelves, and tall ones */
+  'pantry'  : { mix:{ hang:0, shoe:0, draw:0 }, rest:['shelves-8','shelves-6'] },
+  'garage'  : { mix:{ hang:0, shoe:0, draw:1 }, rest:['shelves-6','shelves-4'] },
+  'laundry' : { mix:{ hang:1, shoe:0, draw:1 }, rest:['shelves-4','shelves-6'] },
+  custom    : { mix:{ hang:2, shoe:1, draw:1 } },
+};
+
+/* Set the sliders to what the type asks for and stand the closet up, so the
+   three sliders under "Build it for me" always read as the thing on screen
+   rather than as somebody else's defaults. */
+function startingCloset(type){
+  const want = TYPE_START[type] || TYPE_START['walk-in'];
+  MIX.forEach(m => { if(want.mix[m.k] != null) m.v = want.mix[m.k]; });
+  paintMix();
+  buildForMe(want.rest);
+}
+
 function paintMix(){
   const host = $('#mix'); if(!host) return;
   host.innerHTML = MIX.map(m => `
@@ -2163,8 +2220,9 @@ function paintMix(){
    in an order that looks like a closet: hanging at the ends where long
    clothes want the height, drawers in the middle at waist height, shoes
    next to them. */
-function buildForMe(){
+function buildForMe(restOverride){
   const want = Object.fromEntries(MIX.map(m => [m.k, m.v]));
+  const REST = restOverride && restOverride.length ? restOverride : MIX_PICK.rest;
   const walls = Object.keys(S.runs).filter(w => S.runs[w]?.on);
   if(!walls.length) return;
 
@@ -2207,15 +2265,16 @@ function buildForMe(){
     mid.sort((a, b) => Math.abs(a - (n - 1) / 2) - Math.abs(b - (n - 1) / 2));
     const place = (idxs, kind, howMany) => {
       let put = 0, seen = 0;
+      const from = kind === 'rest' ? REST : MIX_PICK[kind];
       for(const i of idxs){ if(put >= howMany) break;
         if(slots[i] != null) continue;
-        slots[i] = MIX_PICK[kind][seen++ % MIX_PICK[kind].length]; put++; }
+        slots[i] = from[seen++ % from.length]; put++; }
     };
     place(ends, 'hang', counts.hang);
     place(mid,  'draw', counts.draw);
     place(mid,  'shoe', counts.shoe);
     place(mid,  'rest', counts.rest);
-    for(let i = 0; i < n; i++) if(slots[i] == null) slots[i] = MIX_PICK.rest[0];
+    for(let i = 0; i < n; i++) if(slots[i] == null) slots[i] = REST[0];
 
     let at = 0;
     for(let i = 0; i < n; i++){
@@ -2327,9 +2386,11 @@ function towerGrid(bay, usable){
 
 function paintStack(){
   const box = $('#stack');
-  if(S.pick && PICK_FOR !== (S.sel ? S.sel.wall + '|' + S.sel.i : null)){
-    S.pick = null; PICK_FOR = null;
-  }
+  /* The open component and the open library belong to ONE tower. Select a
+     different tower and the panel goes back to being that tower, rather
+     than showing the shelf you opened in the last one. */
+  const selKey = S.sel ? S.sel.wall + '|' + S.sel.i : null;
+  if(PICK_FOR !== selKey){ S.part = null; S.lib = false; S.pick = null; PICK_FOR = selKey; }
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
     /* If the chosen wall exists but has nothing on it yet, STAY on it. This
@@ -2375,18 +2436,6 @@ function paintStack(){
   const sl = slots(bay.stack);
   const pick = S.pick;                                  // 'top' | 'bottom' | null
 
-  /* a small elevation of this tower, with one half lit up */
-  const dia = lit => {
-    const bH = sl.bottom ? (sl.bottom.m === 'DRAWERS'
-        ? drawerBankHeight(sl.bottom.o?.sizes || defaultDrawerSizes(sl.bottom.o?.n))
-        : (sl.bottom.h ?? MODULES[sl.bottom.m].defH)) : 0;
-    const tH = Math.max(8, usable - bH);
-    return `<span class="swapdia" aria-hidden="true">
-      ${sl.bottom ? `<span class="${lit==='bottom'?'on':''}" style="flex:${bH.toFixed(1)} 1 0"></span>` : ''}
-      ${sl.top || lit==='top' ? `<span class="${lit==='top'?'on':''}" style="flex:${tH.toFixed(1)} 1 0"></span>` : ''}
-      <span class="cap"></span></span>`;
-  };
-
   /* what the drawer bank is, drawer by drawer, in sizes he actually stocks */
   const drawerRows = st => {
     const sizes = (st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n));
@@ -2416,39 +2465,6 @@ function paintStack(){
     </div>`;
   };
 
-  /* ONE PART OF THE TOWER.
-     There used to be two empty cards here, "Nothing at the top yet" and
-     "Nothing underneath yet", and the way to fill a tower was to decide
-     which HALF you were filling before you knew what you wanted in it.
-     Nobody thinks about a closet in halves. The ready-made grid above
-     fills the whole tower in one press; these cards are what the tower
-     turned out to be, and each one can be changed on its own. An empty
-     half is not a card any more, it is just nothing. */
-  const half = (slot, st) => {
-    const open = pick === slot;
-    if(!st) return '';
-    const d = MODULES[st.m];
-    const isDrawers = !!d.sizes;
-    const hText = isDrawers
-      ? `${(st.o?.sizes?.length || defaultDrawerSizes(st.o?.n).length)} drawers`
-      : (st.h == null ? 'fills the space' : `${st.h}" tall`);
-    return `<div class="slotcard ${open?'on':''}">
-      <div class="slothd">
-        <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
-        <span class="sname"><b>${d.label}</b><i>${hText}</i></span>
-        <span class="slotrhs">
-          ${d.opt ? `<span class="sopt"><button data-opt="-1" data-slot="${slot}" title="Fewer">−</button><i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i><button data-opt="1" data-slot="${slot}" title="More">+</button></span>` : ''}
-          <button class="sswap ${open?'on':''}" type="button" data-pickslot="${slot}">Change</button>
-          ${slot === 'bottom' ? '<button class="slotx" type="button" data-clearslot="bottom" title="Take it out">×</button>' : ''}
-        </span>
-      </div>
-      ${isDrawers ? drawerRows(st) : ''}
-      ${d.inside ? insideRow(st, slot) : ''}
-      ${slot === 'bottom' ? `<label class="ctop"><input type="checkbox" data-counter="1" ${sl.counter?'checked':''}>
-        <span><b>A worktop over it</b>, a folding bench or a packing surface, 2" thick.</span></label>` : ''}
-    </div>`;
-  };
-
   /* ══ WHAT IS BEHIND THE DOOR ═══════════════════════════════════════
      A door used to be the end of the conversation: you picked it, a slab
      appeared, and the cupboard behind it was empty and unpriced. Nobody
@@ -2466,43 +2482,36 @@ function paintStack(){
     </div>`;
   };
 
-  /* only what can go in the half being changed */
-  /* Only what is buildable in THIS half right now. A half with the other one
-     filled is a short opening, so it gets the short-opening list; a half on
-     its own is the whole section and gets the whole-section list. Whatever is
-     already chosen always stays on the list, so changing an older design
-     never makes its own card disappear. */
-  const slotCards = slot => MODULE_IDS.filter(id => {
-    const here  = slot === 'top' ? sl.top : sl.bottom;
-    const other = slot === 'top' ? sl.bottom : sl.top;
-    return canOffer(id, slot, !!other) || here?.m === id;
-  }).map(id => {
-    const d = MODULES[id], img = d.img || id.toLowerCase().replace(/_/g,'-');
-    /* The part photo is 4:3 and its frame is 3:4, so object-fit:contain
-       letterboxes it top and bottom. The frame used to be a flat #E3E4DE,
-       a cool grey, against twenty-one photos shot on warm paper -- so every
-       card showed two colours and a visible seam where the photo ended.
-       These are the measured median of each photo's own top and bottom edge
-       rows, so the band and the photo are the same colour and the seam goes
-       away. Re-measure if the photos are ever reshot. */
-    const here = slot === 'top' ? sl.top : sl.bottom;
-    const on   = here?.m === id;
-    const other = slot === 'top' ? sl.bottom : sl.top;
-    const chk = on ? { ok:true } : canAdd(other ? [other] : [], id, usable, inCorner, slot);
-    const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
-    return `<button class="pcard" data-setslot="${slot}" data-m="${id}" aria-pressed="${on}"
-                    ${chk.ok?'':'disabled'} title="${tip}">
-      <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
-           width="420" height="315" style="background:${PART_TILE[img] || '#F1EEEA'}">
-      <i>${d.label}</i>
-      <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
-        <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
-      ${on ? '<span class="pbadge">Current</span>' : ''}
-      ${chk.ok ? '' : `<u class="full">${/corner/.test(chk.why) ? 'Not in a corner' : 'No room'}</u>`}</button>`;
-  }).join('');
+  /* ══════════════════════════════════════════════════════════════════
+     THE PANEL OPENS ON WHATEVER WAS CLICKED
 
-  box.innerHTML = towerGrid(bay, usable) + `
-    <div class="selhd"><b>${S.sel.wall[0].toUpperCase()+S.sel.wall.slice(1)} wall · tower ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
+     Three states, never two of them at once. Press a tower and the panel
+     is that tower: the ready-made grid, its width, its depth, and the
+     list of what is standing in it. Press a shelf, in the list or in the
+     drawing itself, and the whole panel becomes that shelf: its height,
+     how many, what goes behind it, what to swap it for. Press "Edit
+     components" and it becomes the library.
+
+     The old panel asked which HALF of the tower you were filling before
+     you knew what you wanted in it. Nobody thinks about a closet in
+     halves, and he said so about five times.
+     ══════════════════════════════════════════════════════════════════ */
+
+  /* the resolved bands for THIS tower: every row can print its real
+     height because the engine has already worked it out */
+  const bands = (cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands) || [];
+  const live = si => bands[si];
+  /* Number.toString already drops trailing zeros, so 40 prints as 40 and
+     40.25 prints as 40.25. Stripping zeros with a regex on top of that
+     turned 40 into 4, which is the kind of wrong a customer notices. */
+  const inches = v => (+v.toFixed(2)).toString() + '"';
+
+  const selRun = S.runs[S.sel.wall];
+  const dCap = wallDepthCap(S.sel.wall);
+  const dLo = SPEC.runDepthMin, dHi = Math.min(SPEC.runDepthMax, Math.round(dCap));
+  const dNow = Math.min(selRun?.depth ?? SPEC.hangDepth, dCap);
+
+  const head = `<div class="selhd"><b>${WALL_LABEL[S.sel.wall]} · tower ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
       <span class="selacts">
         <span class="wadj"><button data-bw="-2" title="Narrower">−</button><i>${bay.w.toFixed(0)}" wide</i><button data-bw="2" title="Wider">+</button></span>
         <span class="movw">
@@ -2510,26 +2519,165 @@ function paintStack(){
           <button data-move="1" ${S.sel.i>=S.runs[S.sel.wall].bays.length-1?'disabled':''} title="Move right along the wall">&#9654;</button>
         </span>
         <button class="rmsec" data-rmsec="1" title="Remove this tower">Remove tower</button>
-      </span></div>
+      </span></div>`;
 
-    <div class="halves">
-      <span class="halflbl">The top</span>
-      ${half('top', sl.top)}
-      <span class="halflbl">The bottom</span>
-      ${half('bottom', sl.bottom)}
-    </div>
+  /* DEPTH, WHICH THE PANEL NEVER SHOWED NEXT TO THE TOWER.
+     Wall to the front of the panel. It is a property of the run rather
+     than of one tower, because a run of cabinetry is one depth, and the
+     control says so instead of pretending otherwise. */
+  const depthRow = `<div class="twdepth">
+    <span class="tdlbl"><b>Depth</b><i>Wall to the front of the panel, ${dLo}" to ${dHi}" here. Shelves, rods, drawer boxes and baskets are all cut to it.</i></span>
+    <span class="tdpick">${[12,14,16,20,24].filter(v => v >= dLo && v <= dHi).map(v =>
+      `<button type="button" class="${Math.abs(dNow-v)<0.26?'on':''}" data-rundepth-set="${S.sel.wall}" data-v="${v}">${v}"</button>`).join('')}</span>
+    <label class="tdnum"><input type="number" data-rundepth="${S.sel.wall}" min="${dLo}" max="${dHi}"
+      step="0.5" value="${+dNow.toFixed(1)}" aria-label="Run depth in inches"><i>in</i></label>
+  </div>`;
 
-    ${pick ? `
-    <div class="swaphd">
-      ${dia(pick)}
-      <span class="swaptx">
-        <b>${pick === 'top' ? 'The top of this tower' : 'Underneath it'}</b>
-        <span>Everything below can go there. Anything that cannot is not shown.
-          <button class="swapback" data-pickclose="1" type="button">Close</button></span>
+  /* ── what is standing in this tower, top to bottom ── */
+  const compList = () => {
+    const rows = bay.stack.map((st, si) => ({ st, si }))
+      .filter(e => e.st.m !== 'COUNTER')
+      .reverse()
+      .map(({ st, si }) => {
+        const d = MODULES[st.m]; if(!d) return '';
+        const b = live(si);
+        const h = b ? (b.y1 - b.y0) : null;
+        const sub = d.sizes
+          ? `${(st.o?.sizes?.length || defaultDrawerSizes(st.o?.n).length)} drawers · ${h != null ? inches(h) : ''}`
+          : (h != null ? inches(h) + ' tall' : (st.h == null ? 'fills the space' : inches(st.h) + ' tall'));
+        return `<li><button type="button" class="comprow" data-part="${si}">
+          <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
+          <span class="compname"><b>${d.label}</b><i>${sub}</i></span>
+          <span class="compgo" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
+          </span></button></li>`;
+      }).join('');
+    return `<h4 class="subh">What is in this tower</h4>
+      <p class="note" style="margin:-2px 0 9px">Top to bottom. Press one to open it, or press it
+        in the drawing. Drag a shelf in the elevation to move it.</p>
+      <ol class="complist">${rows || '<li class="compnone">Nothing in this tower yet. Press Edit components.</li>'}</ol>
+      <div class="compacts">
+        <button type="button" class="btn btn-fill btn-sm" data-lib="1">Edit components</button>
+        <label class="ctop"><input type="checkbox" data-counter="1" ${sl.counter?'checked':''}>
+          <span>A worktop over it</span></label>
+      </div>`;
+  };
+
+  /* ── one component, opened ── */
+  const heightRow = (st, si, d) => {
+    if(d.sizes) return '';                    // a bank is as tall as its boxes
+    const b = live(si);
+    const now = b ? (b.y1 - b.y0) : (st.h ?? d.defH ?? 24);
+    const fills = st.h == null;
+    const lo = Math.max(4, d.minH ?? 6);
+    const hi = Math.max(lo + 1, Math.min(d.maxH ?? usable, usable));
+    return `<div class="hrow">
+      <span class="hlbl"><b>Height</b><i>${fills ? 'Takes whatever the rest of the tower leaves' : 'Set by you'}</i></span>
+      <label class="hfill"><input type="checkbox" data-hfill="${si}" ${fills?'checked':''}>
+        <span>Fill the space</span></label>
+      <span class="hslide">
+        <input type="range" data-hset="${si}" min="${lo}" max="${hi.toFixed(2)}" step="0.25"
+               value="${Math.min(hi, Math.max(lo, now)).toFixed(2)}" ${fills?'disabled':''}
+               aria-label="${d.label} height in inches">
+        <b data-hval="${si}">${inches(now)}</b>
       </span>
-    </div>
-    <div class="pgrid">${slotCards(pick)}</div>` : `
-    `}`;
+    </div>`;
+  };
+
+  const countRow = (st, si, d) => `<div class="hrow">
+      <span class="hlbl"><b>How many</b><i>${d.opt.lbl || ''}</i></span>
+      <span class="sopt"><button data-optpart="-1" data-si="${si}" title="Fewer">−</button>
+        <i>${(st.o?.[d.opt.key] ?? d.opt.def)}</i>
+        <button data-optpart="1" data-si="${si}" title="More">+</button></span>
+    </div>`;
+
+  /* what this one could be instead, with the reason shown when it cannot */
+  const swapCards = si => {
+    const st = bay.stack[si];
+    const slot = si === 0 ? 'bottom' : 'top';
+    const others = bay.stack.filter((_, j) => j !== si);
+    return MODULE_IDS.filter(id => canOffer(id, slot, others.length > 0) || st.m === id).map(id => {
+      const d = MODULES[id], img = d.img || id.toLowerCase().replace(/_/g,'-');
+      const on = st.m === id;
+      const chk = on ? { ok:true } : canAdd(others, id, usable, inCorner, slot);
+      const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
+      return `<button class="pcard" data-setpart="${si}" data-m="${id}" aria-pressed="${on}"
+                      ${chk.ok?'':'disabled'} title="${tip}">
+        <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
+             width="420" height="315" style="background:${PART_TILE[img] || '#F1EEEA'}">
+        <i>${d.label}</i>
+        <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
+          <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
+        ${on ? '<span class="pbadge">Current</span>' : ''}
+        ${chk.ok ? '' : `<u class="full">${/corner/.test(chk.why) ? 'Not in a corner' : 'No room'}</u>`}</button>`;
+    }).join('');
+  };
+
+  const partPanel = si => {
+    const st = bay.stack[si], d = MODULES[st.m];
+    const b = live(si);
+    return `<div class="pbar"><button type="button" class="pback" data-partback="1">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
+        Tower ${S.sel.i+1}</button></div>
+      <div class="phd">
+        <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
+        <span class="phdtx"><b>${d.label} options</b>
+          <i>${b ? inches(b.y1 - b.y0) + ' tall, ' + inches(b.y0) + ' off the floor' : ''}</i></span>
+      </div>
+      ${heightRow(st, si, d)}
+      ${d.opt ? countRow(st, si, d) : ''}
+      ${d.sizes ? drawerRows(st) : ''}
+      ${d.inside ? insideRow(st, si === 0 ? 'bottom' : 'top') : ''}
+      <h4 class="subh">Change it for something else</h4>
+      <div class="pgrid">${swapCards(si)}</div>
+      <div class="compacts">
+        <button type="button" class="btn btn-ghost btn-sm" data-rmpart="${si}">Take this one out</button>
+      </div>`;
+  };
+
+  /* ── the library ── */
+  const libPanel = () => {
+    const others = bay.stack;
+    const groups = LIB_GROUPS.map(g => {
+      const items = g.ids.filter(id => MODULES[id] && !MODULES[id].legacy);
+      if(!items.length) return '';
+      return `<div class="libgrp"><h6>${g.t}</h6><div class="pgrid">${items.map(id => {
+        const d = MODULES[id], img = d.img || id.toLowerCase().replace(/_/g,'-');
+        const chk = canAdd(others, id, usable, inCorner, 'top');
+        const tip = (chk.ok ? d.hint : chk.why).replace(/"/g,'&quot;');
+        return `<button class="pcard" data-addmod="${id}" ${chk.ok?'':'disabled'} title="${tip}">
+          <img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
+               width="420" height="315" style="background:${PART_TILE[img] || '#F1EEEA'}">
+          <i>${d.label}</i>
+          <span class="phov"><em>${(d.hint||'').replace(/"/g,'&quot;')}</em>
+            <b>${(d.spec||'').replace(/"/g,'&quot;')}</b></span>
+          ${chk.ok ? '' : `<u class="full">${/corner/.test(chk.why) ? 'Not in a corner' : 'No room'}</u>`}</button>`;
+      }).join('')}</div></div>`;
+    }).join('');
+    return `<div class="pbar"><button type="button" class="pback" data-libclose="1">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
+        Tower ${S.sel.i+1}</button></div>
+      <h4 class="subh">Components</h4>
+      <p class="note" style="margin:-2px 0 11px">Press one and it goes into this tower. Anything
+        that will not fit, or cannot be reached in a corner, says why instead of being offered.</p>
+      ${groups}`;
+  };
+
+  const mode = S.lib ? 'lib' : (S.part != null && bay.stack[S.part]) ? 'part:' + S.part : 'tower';
+  if(S.lib)                                    box.innerHTML = head + libPanel();
+  else if(S.part != null && bay.stack[S.part]) box.innerHTML = head + partPanel(S.part);
+  else                                         box.innerHTML = towerGrid(bay, usable) + head + depthRow + compList();
+
+  /* OPENING A COMPONENT PUTS YOU AT THE TOP OF IT.
+     The panel scrolls, and it keeps its scroll position across a repaint,
+     so pressing a shelf two thirds of the way down the list replaced the
+     content underneath you and left you looking at the middle of the new
+     panel with its heading somewhere above. */
+  if(mode !== LAST_MODE){
+    LAST_MODE = mode;
+    const sc = box.closest('.pscroll');
+    if(sc) sc.scrollTo({ top:0, behavior:'smooth' });
+  }
   /* The ready-made block used to sit under the two halves, offering eleven
      pre-assembled towers next to the very pickers that build them. Two ways
      to do one job, and the pre-made one quietly wrote BOTH halves, so picking
@@ -3062,17 +3210,97 @@ $('#bays').addEventListener('pointercancel', endTrackDrag);
 
 /* The drawer size pickers are <select>s and the worktop is a checkbox, so
    they report through change, not click. */
+/* The piece the panel is currently open on. Everything inside the part
+   panel edits this one and nothing else, which is the whole difference
+   between this panel and the two halves it replaced. */
+function openPart(bay){
+  return (S.part != null) ? bay.stack[S.part] : null;
+}
+
+/* A brand new piece of the right shape: a drawer bank arrives with four
+   boxes, anything with a count arrives with its default, and everything
+   else fills whatever the tower has left. */
+function freshPart(id){
+  const d = MODULES[id];
+  const made = { m:id, h:null, o:{} };
+  if(d.sizes)    made.o = { sizes: defaultDrawerSizes(4) };
+  else if(d.opt) made.o = { [d.opt.key]: d.opt.def };
+  if(d.fixed || d.sizes) made.h = null;
+  return made;
+}
+
+/* Put a piece into a tower. Whatever was filling the space gives it up so
+   the newcomer has somewhere to be, and the new piece takes the fill,
+   because the thing you just added is the thing you want to see. */
+function addPart(bay, id){
+  const d = MODULES[id];
+  if(id === 'COUNTER'){ setCounter(bay, true); return; }
+  const made = freshPart(id);
+  /* anything already set to fill keeps its resolved height instead, so the
+     tower does not silently rearrange itself around the new piece */
+  const bands = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands || [];
+  bay.stack.forEach((st, i) => {
+    if(st.h == null && !MODULES[st.m].sizes){
+      const b = bands[i];
+      const h = b ? +(b.y1 - b.y0).toFixed(2) : (MODULES[st.m].defH ?? 24);
+      st.h = Math.max(MODULES[st.m].minH ?? 4, Math.round(h / 2) * 2);
+    }
+  });
+  /* a front belongs across the whole tower, so it goes on the end; a drawer
+     bank and a hamper only sit on the floor, so they go underneath */
+  if(d.floorOnly || d.sizes || id === 'HAMPER') bay.stack.unshift(made);
+  else bay.stack.push(made);
+}
+
 $('#stack').addEventListener('change', e => {
-  const t = e.target.closest('[data-dsize],[data-counter]'); if(!t) return;
+  const t = e.target.closest('[data-dsize],[data-counter],[data-hfill],[data-rundepth]');
+  if(!t) return;
   const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
-  const sl = slots(bay.stack);
+  if(t.dataset.rundepth !== undefined){
+    const wall = t.dataset.rundepth, r = S.runs[wall];
+    if(r){ r.depth = clampDepth(t.value, wall);
+      if(wall === 'back'){ fitWall('left'); fitWall('right'); }
+      rebuild(true); }
+    return;
+  }
   if(t.dataset.counter !== undefined){ setCounter(bay, t.checked); rebuild(false); return; }
-  const st = sl.bottom || sl.top;
+  if(t.dataset.hfill !== undefined){
+    const si = +t.dataset.hfill, st = bay.stack[si]; if(!st) return;
+    if(t.checked) st.h = null;
+    else {
+      const b = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands?.[si];
+      const d = MODULES[st.m];
+      st.h = Math.max(d.minH ?? 6, Math.round(((b ? b.y1 - b.y0 : d.defH ?? 24)) * 4) / 4);
+    }
+    rebuild(false); paintStack(); return;
+  }
+  const st = openPart(bay);
   if(!st || !MODULES[st.m].sizes) return;
   const sz = (st.o?.sizes?.length ? [...st.o.sizes] : defaultDrawerSizes(st.o?.n));
   sz[+t.dataset.dsize] = +t.value;
   st.o = { ...st.o, sizes: sz };
   rebuild(false);
+});
+
+/* THE HEIGHT SLIDER REDRAWS WHILE IT MOVES.
+   A slider you have to let go of before anything happens is a form field.
+   This one writes the height on every move, so the shelf in the 3D view
+   and in the elevation travels with your thumb and the number beside it
+   counts. The panel itself is not repainted, or the slider would lose
+   the pointer halfway through the drag. */
+$('#stack').addEventListener('input', e => {
+  const i = e.target.closest('[data-hset]'); if(!i) return;
+  const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
+  const si = +i.dataset.hset, st = bay.stack[si]; if(!st) return;
+  st.h = Math.round(+i.value * 4) / 4;
+  const out = $(`[data-hval="${si}"]`);
+  if(out) out.textContent = (+st.h.toFixed(2)).toString() + '"';
+  DRAGGING = true;                 // keeps paintAll off the panel mid-drag
+  rebuild(false);
+});
+$('#stack').addEventListener('change', e => {
+  if(!e.target.closest('[data-hset]')) return;
+  DRAGGING = false; rebuild(false); paintStack();
 });
 
 paintMix();
@@ -3091,6 +3319,14 @@ $('#mixclear')?.addEventListener('click', () => {
 $('#stack').onclick=e=>{
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const t=e.target.closest('button'); if(!t) return;
+  /* the quick depths, which moved here with the depth control */
+  if(t.dataset.rundepthSet){
+    const wall = t.dataset.rundepthSet, r = S.runs[wall];
+    if(r){ r.depth = clampDepth(+t.dataset.v, wall);
+      if(wall === 'back'){ fitWall('left'); fitWall('right'); }
+      rebuild(true); }
+    return;
+  }
   /* a ready-made tower replaces the whole stack in one press */
   if(t.dataset.tower){
     const p = TOWER_PRESETS.find(x => x.id === t.dataset.tower);
@@ -3190,22 +3426,47 @@ $('#stack').onclick=e=>{
     }
     sortRun(wall); S.sel.i = S.runs[wall].bays.findIndex(b => b === bay);
   }
-  /* ── the two halves ──────────────────────────────────────────────────
-     Open one, and the grid under it shows only what can go there. */
-  else if(t.dataset.pickslot !== undefined){
-    const slot = t.dataset.pickslot;
-    S.pick = (S.pick === slot) ? null : slot;
-    PICK_FOR = S.sel ? S.sel.wall + '|' + S.sel.i : null;
+  /* ── one component, opened ───────────────────────────────────────────
+     Press a row in the list, or a shelf in the drawing, and the whole
+     panel becomes that component. */
+  else if(t.dataset.part !== undefined){
+    S.part = +t.dataset.part; S.lib = false;
     paintStack(); return;
   }
-  else if(t.dataset.pickclose !== undefined){ S.pick = null; paintStack(); return; }
-  else if(t.dataset.setslot !== undefined){
-    setSlot(bay, t.dataset.setslot, t.dataset.m);
-    S.pick = null;
+  else if(t.dataset.partback !== undefined){ S.part = null; paintStack(); return; }
+  else if(t.dataset.lib !== undefined){ S.lib = true; S.part = null; paintStack(); return; }
+  else if(t.dataset.libclose !== undefined){ S.lib = false; paintStack(); return; }
+
+  /* swap this component for another one */
+  else if(t.dataset.setpart !== undefined){
+    const si = +t.dataset.setpart, id = t.dataset.m;
+    if(!bay.stack[si] || !MODULES[id]) return;
+    bay.stack[si] = freshPart(id);
   }
-  else if(t.dataset.clearslot !== undefined){
-    clearSlot(bay, t.dataset.clearslot);
-    S.pick = null;
+  /* put a new component into the tower */
+  else if(t.dataset.addmod){
+    const id = t.dataset.addmod;
+    if(!MODULES[id]) return;
+    addPart(bay, id);
+    S.lib = false;
+    S.part = bay.stack.findIndex(x => x.m === id);
+  }
+  else if(t.dataset.rmpart !== undefined){
+    const si = +t.dataset.rmpart;
+    if(bay.stack[si]) bay.stack.splice(si, 1);
+    /* whatever is left has to fill the tower again, or it stands in a void */
+    if(bay.stack.length && !bay.stack.some(x => x.h == null && !MODULES[x.m].sizes)){
+      const last = bay.stack[bay.stack.length - 1];
+      if(!MODULES[last.m].sizes) last.h = null;
+    }
+    S.part = null;
+  }
+  else if(t.dataset.optpart !== undefined){
+    const st = bay.stack[+t.dataset.si]; if(!st) return;
+    const d = MODULES[st.m]; if(!d.opt) return;
+    st.o = st.o || {};
+    st.o[d.opt.key] = Math.max(d.opt.min, Math.min(d.opt.max,
+      (st.o[d.opt.key] ?? d.opt.def) + +t.dataset.optpart));
   }
   else if(t.dataset.counter !== undefined){
     setCounter(bay, t.checked);
@@ -3213,15 +3474,8 @@ $('#stack').onclick=e=>{
   /* ── the drawer bank, box by box ─────────────────────────────────────
      A bank is the boxes it is made of, so adding one makes the tower
      taller rather than squeezing the fronts down to a size nothing fits. */
-  else if(t.dataset.dsize !== undefined){
-    const st = slots(bay.stack).bottom || slots(bay.stack).top;
-    if(!st || !MODULES[st.m].sizes) return;
-    const sz = (st.o.sizes?.length ? [...st.o.sizes] : defaultDrawerSizes(st.o.n));
-    sz[+t.dataset.dsize] = +t.value;
-    st.o = { ...st.o, sizes: sz };
-  }
   else if(t.dataset.dadd !== undefined || t.dataset.drm !== undefined){
-    const st = slots(bay.stack).bottom || slots(bay.stack).top;
+    const st = openPart(bay);
     if(!st || !MODULES[st.m].sizes) return;
     const sz = (st.o.sizes?.length ? [...st.o.sizes] : defaultDrawerSizes(st.o.n));
     if(t.dataset.dadd !== undefined){ if(sz.length < 8) sz.push(sz[sz.length-1] ?? 7.5); }
@@ -3229,21 +3483,9 @@ $('#stack').onclick=e=>{
     st.o = { ...st.o, sizes: sz };
   }
   else if(t.dataset.inside){
-    const slot = t.dataset.slot;
-    const sl = slots(bay.stack);
-    const st = slot === 'bottom' ? sl.bottom : sl.top;
+    const st = openPart(bay);
     if(!st || !MODULES[st.m].inside) return;
     st.o = { ...st.o, inside: t.dataset.inside };
-  }
-  else if(t.dataset.opt){
-    const slot = t.dataset.slot;
-    const sl = slots(bay.stack);
-    const st = slot === 'bottom' ? sl.bottom : sl.top;
-    if(!st) return;
-    const d = MODULES[st.m]; if(!d.opt) return;
-    st.o = st.o || {};
-    st.o[d.opt.key] = Math.max(d.opt.min, Math.min(d.opt.max,
-      (st.o[d.opt.key] ?? d.opt.def) + +t.dataset.opt));
   }
   else return;
   rebuild(false);
@@ -3496,18 +3738,14 @@ function openGate(){
     const dw = Math.round(Number(form.door.value));
     /* A door opening only means something when there is a door in it. */
     if(Number.isFinite(dw) && dw > 0 && S.door !== 'none') S.doorW = dw;
-    /* NOTHING IS ADDED FOR THEM.
-       Filling every wall with towers was wrong twice over: it is not their
-       closet, and on a walk-in it packed the room so tightly that the
-       camera opened inside a panel. The room is drawn empty and they put
-       the first tower where they want it. */
+    /* THE CLOSET IS ALREADY STANDING THERE. See TYPE_START. */
     shut();
-    rebuild(true);
+    startingCloset(picked || S.type);
     setView('3d');
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
   });
 
-  $('#gateskip')?.addEventListener('click', () => { shut(); rebuild(true); setView('3d'); });
+  $('#gateskip')?.addEventListener('click', () => { shut(); startingCloset(picked || S.type); setView('3d'); });
   /* Escape steps back rather than dumping somebody into a builder they
      never chose a closet for. From step one it skips, as it always did.
      On document, not on the gate: stepping back hides the button that had
@@ -3516,7 +3754,7 @@ function openGate(){
   document.addEventListener('keydown', e => {
     if(e.key !== 'Escape' || gate.hidden) return;
     if(s2 && !s2.hidden){ show(1); return; }
-    shut(); rebuild(true); setView('3d');
+    shut(); startingCloset(picked || S.type); setView('3d');
   });
 }
 
@@ -3539,7 +3777,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=629b5c4c');
+  if(!DRAW) DRAW = await import('./drawing.js?v=e986eb90');
   return DRAW;
 }
 
@@ -3608,7 +3846,7 @@ function paintFlat(){
        buttons above it already say which wall this is, and a second title
        inside the drawing collided with the overall dimension across the top
        of it. On paper and on its own the caption stays. */
-    const opt = { width:boxW, height:boxH, pick:true, selected:S.sel, title:false };
+    const opt = { width:boxW, height:boxH, pick:true, selected:S.sel, part:S.part, title:false };
     let svg;
     if(VIEW === 'tower'){
       if(!selOk){ VIEW = 'wall'; paintFlat(); return; }
@@ -3632,7 +3870,17 @@ function setView(v){
     b.setAttribute('aria-selected', String(b.dataset.view === v)));
   /* the scene controls belong to the 3D view and mean nothing over a plan */
   const sc = $('#scene'); if(sc) sc.hidden = (v !== '3d');
-  const hint = document.querySelector('.bhint'); if(hint) hint.hidden = (v !== '3d');
+  /* The hint says what this view lets you do, because none of it is
+     discoverable: nothing about a drawing suggests you can pull a shelf. */
+  const hint = document.querySelector('.bhint');
+  if(hint){
+    hint.hidden = false;
+    hint.textContent = v === '3d'
+      ? 'Drag to orbit · scroll to zoom · press a shelf or a drawer to open it'
+      : v === 'wall'
+        ? 'Press a tower to open it · press a shelf inside it · drag the line between two parts to move it'
+        : 'Press a tower to open it · drag it along its wall';
+  }
   if(v === '3d'){ needsFrame = true; } else paintFlat();
 }
 
@@ -3679,7 +3927,56 @@ function flatScale(svg){
   return k * (box.width / own);              // screen pixels per inch
 }
 
+/* ══ DRAGGING A DIVISION IN THE ELEVATION ═══════════════════════════════
+   The bar between two components is the one thing in a closet a customer
+   points at and says "move that up a bit". Pull it and the piece below
+   takes the inches while the piece above gives them up, which is what
+   moving a shelf physically is. Both ends stop at the minimum height the
+   two pieces are allowed to be, so a drag can never build something he
+   does not build.
+
+   Anything above that was filling the space keeps filling it, so the
+   tower still adds up to its own height at the end of the drag. */
+let HDRAG = null;
+
 $('#v2dcanvas')?.addEventListener('pointerdown', e => {
+  const g = e.target.closest('[data-hdrag]');
+  if(g){
+    const wall = g.dataset.wall, i = +g.dataset.bay, n = +g.dataset.hdrag;
+    const bay = S.runs[wall]?.bays?.[i]; if(!bay) return;
+    const bands = cur?.bays?.find(x => x.wall === wall && x.bay === i)?.bands || [];
+    const below = bay.stack[n], above = bay.stack[n + 1];
+    if(!below || !above) return;
+    if(MODULES[below.m]?.sizes) return;          // a bank is its boxes, not a height
+    const host = $('#v2dcanvas');
+    const pxPerIn = flatScale(host.querySelector('svg'));
+    if(!pxPerIn) return;
+    /* fix every height that was floating, so only the two either side of
+       this bar move while the bar moves */
+    bay.stack.forEach((st, j) => {
+      if(st.h == null && !MODULES[st.m].sizes && bands[j])
+        st.h = +(bands[j].y1 - bands[j].y0).toFixed(2);
+    });
+    HDRAG = { wall, i, n, pxPerIn, y0:e.clientY,
+              hBelow: below.h, hAbove: above.h,
+              minB: MODULES[below.m].minH ?? 4, minA: MODULES[above.m].minH ?? 4 };
+    DRAGGING = true;
+    host.setPointerCapture?.(e.pointerId);
+    host.classList.add('dragging');
+    return;
+  }
+  /* one component inside the open tower */
+  const pp = e.target.closest('.pickpart');
+  if(pp){
+    S.sel = { wall:pp.dataset.wall, i:+pp.dataset.bay };
+    const si = +pp.dataset.si;
+    S.part = (S.part === si) ? null : si;
+    S.lib = false;
+    PICK_FOR = pp.dataset.wall + '|' + pp.dataset.bay;
+    rebuild(false);
+    if(typeof window.gotoStep === 'function') window.gotoStep('2');
+    return;
+  }
   const r = e.target.closest('.pick'); if(!r) return;
   const wall = r.dataset.wall, i = +r.dataset.bay;
   const run = S.runs[wall]; const bay = run?.bays?.[i];
@@ -3721,13 +4018,36 @@ const dragFlat = onFrame(() => {
   paintFlat();
 });
 
+const dragHeight = onFrame(() => {
+  if(!HDRAG) return;
+  const bay = S.runs[HDRAG.wall]?.bays?.[HDRAG.i]; if(!bay) return;
+  const below = bay.stack[HDRAG.n], above = bay.stack[HDRAG.n + 1];
+  if(!below || !above) return;
+  /* down the screen is less height below, so the sign flips */
+  let d = -HDRAG.dy / HDRAG.pxPerIn;
+  const pair = HDRAG.hBelow + HDRAG.hAbove;
+  let nb = Math.round((HDRAG.hBelow + d) * 4) / 4;
+  nb = Math.max(HDRAG.minB, Math.min(pair - HDRAG.minA, nb));
+  below.h = nb;
+  above.h = +(pair - nb).toFixed(2);
+  rebuild(false);
+  paintFlat();
+});
+
 $('#v2dcanvas')?.addEventListener('pointermove', e => {
+  if(HDRAG){ HDRAG.dy = e.clientY - HDRAG.y0; dragHeight(); return; }
   if(!FDRAG) return;
   FDRAG.delta = (FDRAG.axis === 'y' ? e.clientY : e.clientX) - FDRAG.p0;
   dragFlat();
 });
 
 const endFlatDrag = () => {
+  if(HDRAG){
+    HDRAG = null; DRAGGING = false;
+    $('#v2dcanvas')?.classList.remove('dragging');
+    rebuild(true); paintAll();
+    return;
+  }
   if(!FDRAG) return;
   const { moved, wall } = FDRAG;
   FDRAG = null; DRAGGING = false;
@@ -3901,7 +4221,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=629b5c4c');
+    const { downloadPdf } = await import('./drawing.js?v=e986eb90');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -3924,7 +4244,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=629b5c4c');
+    const { downloadPdf } = await import('./drawing.js?v=e986eb90');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

@@ -1965,11 +1965,13 @@ export function buildDesign(cfg, cat){
         parts.push(P('FIXED', 1, (inner*depth)/144, (inner+depth*2)/12,
                      `Fixed mid shelf at ${dy.toFixed(0)}"`));
         local.push({k:'shelf', p:[cx, dy - SPEC.panel/2, 0],
-                    s:[inner, SPEC.panel, depth], m:'carcass'});
+                    s:[inner, SPEC.panel, depth], m:'carcass', bay:bi, si:-1, mod:'FIXED'});
       }
 
       let y = floorY;
+      let si = -1;
       for(const s of mods){
+        si++;
         const sub = [];
         /* EVERY piece now has a fixed shelf over it: the bay's top shelf if it
            is the last one, the mid shelf above it otherwise. `capped` says so,
@@ -1991,7 +1993,15 @@ export function buildDesign(cfg, cat){
                               basketFinish: BASKET_FINISH[cfg.pullFinish] || 'Chrome',
                               warn: m => warnings.push(m) });
         for(let i=mark;i<parts.length;i++) parts[i].grp = s.m;
-        for(const g of sub) local.push({...g, p:[cx + g.p[0], y + g.p[1], g.p[2]]});
+        /* STAMP WHAT THIS PIECE BELONGS TO.
+
+           A shelf in the view is not just a shelf: it is the third thing in
+           the second tower on the back wall. Without that, clicking one in
+           the 3D or the elevation can only ever select the whole tower, and
+           dragging its height has nothing to write back to. The stamp costs
+           two numbers per piece and is what makes the view editable. */
+        for(const g of sub) local.push({...g, p:[cx + g.p[0], y + g.p[1], g.p[2]],
+                                        bay:bi, si, mod:s.m});
         y += s.H;
       }
       /* `x` is where this tower sits ALONG its own run. A side run does not
@@ -2015,8 +2025,9 @@ export function buildDesign(cfg, cat){
                          drawing of one tower writes its labels against. */
                       bands: (() => {
                         let by = floorY;
-                        return mods.map(m => {
+                        return mods.map((m, mi) => {
                           const band = { label: MODULES[m.m]?.label || m.m,
+                                         m: m.m, si: mi,
                                          y0: by, y1: by + m.H };
                           by += m.H;
                           return band;

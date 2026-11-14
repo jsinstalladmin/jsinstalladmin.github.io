@@ -259,10 +259,44 @@ export function elevation(design, wall, opt = {}){
   if(opt.pick){
     for(const b of sorted){
       const left = posOf(b) - b.w / 2;
+      const isSel = opt.selected && opt.selected.wall === wall && opt.selected.i === b.bay;
       picks += `<rect class="pick" data-wall="${esc(wall)}" data-bay="${b.bay}" data-axis="x"
-        ${opt.selected && opt.selected.wall === wall && opt.selected.i === b.bay ? 'data-on="1"' : ''}
+        ${isSel ? 'data-on="1"' : ''}
         x="${X(left).toFixed(1)}" y="${Y(b.top).toFixed(1)}"
         width="${(b.w * k).toFixed(1)}" height="${Math.max(8, b.h * k).toFixed(1)}"><title>Tower ${b.bay + 1}, ${inch(b.w)} wide. Drag it along the wall.</title></rect>`;
+
+      /* ══ INSIDE THE SELECTED TOWER ════════════════════════════════════
+         Only the tower being worked on opens up, or every elevation would
+         be a grid of invisible rectangles and dragging a tower along the
+         wall would be impossible. Within it: one hit area per component,
+         and a grab bar on each boundary between two of them.
+
+         Dragging the bar between two components moves the division: the
+         one below takes the inches, the one above gives them up, which is
+         exactly what moving a shelf means. The label beside the bar counts
+         while you drag. */
+      if(isSel && (b.bands || []).length){
+        for(const band of b.bands){
+          const bh = (band.y1 - band.y0) * k;
+          if(bh < 2) continue;
+          picks += `<rect class="pickpart${opt.part === band.si ? ' on' : ''}"
+            data-wall="${esc(wall)}" data-bay="${b.bay}" data-si="${band.si}"
+            x="${X(left).toFixed(1)}" y="${Y(band.y1).toFixed(1)}"
+            width="${(b.w * k).toFixed(1)}" height="${bh.toFixed(1)}"
+            ><title>${esc(band.label)}, ${inch(band.y1 - band.y0)} tall. Press to open it.</title></rect>`;
+        }
+        /* the boundaries, bottom one excluded: there is nothing under it */
+        for(let n = 0; n < b.bands.length - 1; n++){
+          const y = b.bands[n].y1;
+          picks += `<g class="hgrab" data-wall="${esc(wall)}" data-bay="${b.bay}" data-hdrag="${n}">
+            <rect x="${X(left).toFixed(1)}" y="${(Y(y) - 7).toFixed(1)}"
+                  width="${(b.w * k).toFixed(1)}" height="14" fill="transparent"/>
+            <path class="hbar" d="M${X(left).toFixed(1)} ${Y(y).toFixed(1)}h${(b.w * k).toFixed(1)}"/>
+            <path class="hgrip" d="M${(X(left) + b.w * k / 2 - 9).toFixed(1)} ${(Y(y) - 2.5).toFixed(1)}h18
+                                   M${(X(left) + b.w * k / 2 - 9).toFixed(1)} ${(Y(y) + 2.5).toFixed(1)}h18"/>
+            <title>Drag to move this division. ${inch(b.bands[n].y1 - b.bands[n].y0)} below it.</title></g>`;
+        }
+      }
     }
   }
   /* data-k is how many SVG units one inch is, so a drag in screen pixels can
