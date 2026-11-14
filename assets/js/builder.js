@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=d3a3996c';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=7a45f5b1';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=d3a3996c';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=7a45f5b1';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=d3a3996c';
+         clothMaterials, clearCaches } from './materials.js?v=7a45f5b1';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -831,13 +831,36 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
         needsFrame = true;
       }
     }
+    /* TWO WAYS A RUN GETS IN THE WAY, AND ONLY ONE WAS HANDLED.
+
+       The first is looking through it: you are across the room and that
+       run is between you and what you want to see. The dot product
+       catches that.
+
+       The second is standing IN it. Walk the camera into the near corner
+       of a walk-in and the left-hand run is not in front of you, it is
+       around you: its towers run forward past the camera and fill the
+       left third of the frame with the end of a panel. The direction you
+       are facing says nothing about that, because the run is beside you.
+       So a run also goes when the camera is inside its own depth of the
+       wall it stands on, which is the case where you are standing in it.
+
+       The run being edited never disappears, however you turn or stand. */
+    const { w:RW, d:RD } = S.room;
+    const camIn = {
+      back:  cam.position.z, left: cam.position.x,
+      right: RW - cam.position.x,
+    };
     for(const wall of ['back','left','right']){
       const list = RUNMESH[wall]; if(!list || !list.length) continue;
       const n = RUN_N[wall];
+      const dep = (S.runs[wall]?.depth ?? SPEC.hangDepth) + 10;
       /* 0.45 is about 63 degrees off the wall: square on to a run it is
          1, square on to its neighbour 0, so a run only clears out once
          you have genuinely swung behind it */
-      const vis = (S.sel?.wall === wall) || _look.dot(n) < 0.45;
+      const through = _look.dot(n) >= 0.45;
+      const inside  = camIn[wall] < dep;
+      const vis = (S.sel?.wall === wall) || !(through || inside);
       if(list[0].visible !== vis){
         for(const m of list) m.visible = vis;
         needsFrame = true;
@@ -1270,7 +1293,7 @@ function drawRoom(){
 const DOOR_H = 80;
 function drawDoor(X0, W, D, H){
   if(!S.door || S.door === 'none') return;
-  const ow = Math.min(W - 2, Math.max(0, +S.doorW || 0));
+  const ow = Math.min(W - 2, Math.max(0, +S.doorW || defaultDoorW(S.door, 0)));
   if(ow < 12) return;
   const z = D - 0.9;
   const h = Math.min(DOOR_H, H - 2);
@@ -3339,7 +3362,27 @@ $('#doors').onclick=e=>{const b=e.target.closest('[data-door]');if(!b)return;
   /* The door is a build constraint now, not a note: a bypass track takes 2½"
      off the depth and a bi-fold blocks the ends of the opening, so the whole
      design and the price have to be recomputed. */
-  S.door=b.dataset.door; rebuild(); };
+  S.door = b.dataset.door;
+  S.doorW = defaultDoorW(S.door, S.doorW);
+  rebuild(); };
+
+/* HOW WIDE THE OPENING IS, WHEN NOBODY HAS SAID.
+
+   Picking a door and then seeing no door is the obvious failure here,
+   and that is exactly what happened: the drawing needs an opening width
+   and the field starts at nought, so every door anybody chose was drawn
+   as nothing at all. A width they never typed is still a guess, so it is
+   a guess that is right for the type and that they can change: a bypass,
+   a bi-fold or a pair spans the closet, because that is the whole point
+   of them, and a single leaf is a doorway you walk through. */
+function defaultDoorW(id, now){
+  if(id === 'none') return 0;
+  if(now > 0) return now;                       // they said, so leave it
+  const W = S.room?.w || 72;
+  const spans = id === 'bypass' || id === 'bifold' || id === 'double';
+  return spans ? Math.max(24, Math.min(W - 4, 72))
+               : Math.max(24, Math.min(W - 8, 32));
+}
 $('#fittings').onclick=e=>{const b=e.target.closest('[data-fit]');if(!b)return;
   /* It lands UNPLACED. Dropping it straight onto the back wall at a made-up
      position stated a measurement the customer had never given, and now that
@@ -4251,6 +4294,8 @@ function openGate(){
     if(sh && SHAPES[sh]) applyShape(sh);
     const dt = form.doortype?.value;
     if(dt && DOORS.some(d => d.id === dt)) S.door = dt;
+    /* chosen in the gate, same rule */
+    S.doorW = defaultDoorW(S.door, S.doorW);
     const dw = Math.round(Number(form.door.value));
     /* A door opening only means something when there is a door in it. */
     if(Number.isFinite(dw) && dw > 0 && S.door !== 'none') S.doorW = dw;
@@ -4293,7 +4338,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=d3a3996c');
+  if(!DRAW) DRAW = await import('./drawing.js?v=7a45f5b1');
   return DRAW;
 }
 
@@ -4737,7 +4782,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=d3a3996c');
+    const { downloadPdf } = await import('./drawing.js?v=7a45f5b1');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -4760,7 +4805,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=d3a3996c');
+    const { downloadPdf } = await import('./drawing.js?v=7a45f5b1');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

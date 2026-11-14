@@ -192,7 +192,11 @@ export function garmentGeo(w, h, d){
   if(!g){
     /* radius 1 at the hem, 0.52 at the shoulder: the taper is the whole
        point. The caller scales it to the real width and depth. */
-    g = new THREE.CylinderGeometry(0.52, 1, 1, 7, 1, false);
+    /* 7 sides was cheap and it showed. A seven-sided hem seen from the
+       side is a staircase, and a rail of them reads as a row of torn
+       paper rather than as cloth. 14 costs 56 triangles instead of 28,
+       which is nothing, and the silhouette is a curve. */
+    g = new THREE.CylinderGeometry(0.52, 1, 1, 14, 1, false);
     garmentCache.set(k, g);
   }
   return g;

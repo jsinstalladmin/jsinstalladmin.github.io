@@ -1855,11 +1855,17 @@ function shoesOn(G, cx, shelfY, w, d, seed, tilt){
   const step = (w - 1) / n;
   const z = Math.min(1.2, Math.max(0, (d - 11) / 2));  // same set-back for all
   const depth = Math.min(d - 3.5, 10);
+  /* ON A SLANTED SHELF THE SHELF DROPS AS IT COMES FORWARD.
+     The shoes were pinned to one height and the shelf was not, so on
+     every angled shelf half of each pair hung in the air and the other
+     half sank into the board. They sit on the surface where the surface
+     actually is, which is the whole reason the shelf is angled. */
+  const drop = z * Math.sin(tilt || 0);
   for(let i = 0; i < n; i++){
     const x = cx - (w - 1) / 2 + step * (i + 0.5);
     for(const sx of [-1, 1])
       G.push({ k:'shoe', prop:true, tilt,
-               p:[x + sx * 1.6, shelfY + 1.6 + SPEC.panel / 2, z],
+               p:[x + sx * 1.6, shelfY + 1.6 + SPEC.panel / 2 - drop, z],
                s:[2.9, 3.0, depth], m:'shoe' });
   }
 }
