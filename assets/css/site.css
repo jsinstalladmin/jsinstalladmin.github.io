@@ -403,45 +403,6 @@ body[data-hero="dark"]  .hero-veil{background:
   letter-spacing:.34em;text-transform:uppercase;opacity:.7}
 .hero-scroll svg{animation:bob 2.4s var(--ease) infinite}
 @keyframes bob{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(7px);opacity:1}}
-.hero-toggle{position:absolute;top:calc(env(safe-area-inset-top,0px) + 86px);right:max(22px,4vw);z-index:5;
-  display:flex;gap:3px;padding:3px;border-radius:var(--r-pill);background:rgba(16,12,9,.42);
-  backdrop-filter:blur(13px);border:1px solid rgba(248,245,240,.18)}
-.hero-toggle button{border:0;background:transparent;color:rgba(248,245,240,.68);cursor:pointer;
-  font:inherit;font-size:.73rem;padding:.44em 1.05em;border-radius:var(--r-pill);transition:.3s var(--ease)}
-.hero-toggle button[aria-pressed="true"]{background:var(--paper);color:var(--ink)}
-
-/* ---------- VARIANT B: looping video behind a rounded box ---------- */
-/* The box used to sit dead centre over the footage, so the one thing the
-   video is there to show was behind a sheet of frosted glass. It now sits in
-   a left column and the closet stays visible down the right. */
-.vhero{position:relative;min-height:100svh;display:grid;align-items:center;
-  grid-template-columns:minmax(0,1fr) minmax(0,.85fr);
-  overflow:hidden;background:#0B0907;padding:124px max(22px,4vw) 74px}
-.vhero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
-/* a scrim weighted to the left, so the copy reads without veiling the closet */
-.vhero::after{content:'';position:absolute;inset:0;z-index:1;background:
-  linear-gradient(100deg,rgba(10,8,6,.82) 0%,rgba(10,8,6,.62) 34%,rgba(10,8,6,.12) 62%,rgba(10,8,6,0) 82%),
-  linear-gradient(180deg,rgba(10,8,6,.42) 0%,rgba(10,8,6,0) 30%,rgba(10,8,6,.44) 100%)}
-.vbox{position:relative;z-index:2;border-radius:var(--r-lg,22px);
-  background:rgba(14,11,8,.28);backdrop-filter:blur(16px) saturate(1.25);
-  border:1px solid rgba(248,245,240,.14);box-shadow:0 36px 96px rgba(0,0,0,.38);
-  padding:clamp(26px,3.3vw,44px);max-width:min(600px,100%);color:var(--paper)}
-.vbox h1{color:var(--paper);font-size:clamp(2.1rem,4.1vw,3.5rem);margin-bottom:.34em;max-width:16ch}
-.vbox .lede{color:rgba(248,245,240,.84);max-width:44ch;font-size:1rem}
-.vbox .acts{display:flex;gap:.65em;flex-wrap:wrap;margin-top:1.7em}
-/* four specs, even columns, never one orphaned on a second row */
-.vbox-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:1em;
-  margin-top:1.8em;padding-top:1.4em;border-top:1px solid rgba(248,245,240,.16)}
-.vbox-facts div b{display:block;font-family:'Archivo',sans-serif;font-weight:600;font-size:1.3rem;
-  line-height:1.1;color:var(--paper)}
-.vbox-facts div span{display:block;margin-top:.3em;font-size:.64rem;letter-spacing:.11em;
-  text-transform:uppercase;color:rgba(248,245,240,.56);line-height:1.35}
-@media(max-width:900px){
-  .vhero{grid-template-columns:1fr;align-items:end}
-  .vbox{max-width:100%}
-  .vhero::after{background:linear-gradient(180deg,rgba(10,8,6,.5) 0%,rgba(10,8,6,.1) 30%,rgba(10,8,6,.72) 100%)}
-}
-@media(max-width:560px){ .vbox-facts{grid-template-columns:repeat(2,1fr);gap:1.1em} }
 
 /* ---------- cards: hover = scrim + caption, never a zoom ---------- */
 .designs{display:grid;gap:clamp(14px,1.8vw,24px);
@@ -606,30 +567,6 @@ body[data-hero="dark"]  .hero-veil{background:
 .rghd span{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(248,245,240,.4)}
 .rgbase{margin:.15em 0 .35em;font-size:.78rem;letter-spacing:.11em;text-transform:uppercase;color:var(--accent)}
 .rgareas{margin:0;font-size:.86rem;color:rgba(248,245,240,.6);line-height:1.5}
-
-/* ---------- A / B homepage switcher -------------------------------------
-   This is a DEMO control so the two homepage options can be compared
-   side by side. Before the site goes live, delete this CSS block and the
-   one <div class="abflip"> ... </div> in index.html and home-video.html.
-   Nothing else references it. ------------------------------------------- */
-.abflip{position:fixed;z-index:60;left:max(18px,2.2vw);bottom:max(18px,2.2vw);
-  display:flex;align-items:center;gap:10px;padding:7px 8px 7px 15px;
-  border-radius:var(--r-pill);background:rgba(16,12,9,.52);
-  backdrop-filter:blur(16px) saturate(1.3);border:1px solid rgba(248,245,240,.17);
-  box-shadow:0 14px 44px rgba(0,0,0,.34);font-size:.72rem;
-  letter-spacing:.11em;text-transform:uppercase;color:rgba(248,245,240,.6)}
-.abflip-l{white-space:nowrap}
-.abflip-s{display:flex;gap:3px;padding:3px;border-radius:var(--r-pill);
-  background:rgba(248,245,240,.09)}
-.abflip-s a{text-decoration:none;color:rgba(248,245,240,.7);font:inherit;
-  padding:.42em 1em;border-radius:var(--r-pill);transition:.3s var(--ease);
-  letter-spacing:.09em}
-.abflip-s a:hover{color:var(--paper);background:rgba(248,245,240,.12)}
-.abflip-s a[aria-current="true"]{background:var(--paper);color:var(--ink)}
-@media(max-width:620px){
-  .abflip{left:50%;translate:-50% 0;bottom:14px;padding:6px 7px 6px 12px;font-size:.62rem}
-  .abflip-l{display:none}
-}
 
 /* ---------- SECTION RHYTHM ----------------------------------------------
    Two sections sharing the same background were each contributing their own
@@ -1490,22 +1427,11 @@ body.over-dark .hdr:not(.solid) .navbox > a:hover{color:#fff}
   .hero-acts .btn{flex:1 1 100%;justify-content:center;text-align:center}
   body[data-hero-mode="play"] .hero-scroll{opacity:.5}
 
-  /* NOTHING SCRUBS ON A PHONE, SO NOTHING CHOOSES EITHER.
-     The scroll-scrubbed hero is a desktop idea (see hero.js): on a phone the
-     film simply plays. That makes two controls meaningless and both were in
-     the way of the thumb:
-
-       .hero-toggle  Daylight / Evening -- it reloads a second video over a
-                     cellular connection to change a look the visitor cannot
-                     compare side by side. Desktop keeps it.
-       .abflip       the A-Scroll / B-Video chooser. It is a decision aid for
-                     Joseph, not a visitor control, and on a phone the two
-                     options render the same hero. It also sat fixed at the
-                     bottom centre, directly over the caption. Desktop keeps it.
-
-     Hidden, not deleted: the desktop page still needs both. */
-  .hero-toggle{display:none}
-  .abflip{display:none}
+  /* NOTHING SCRUBS ON A PHONE. The scroll-scrubbed hero is a desktop idea
+     (see hero.js); on a phone the film simply plays. The two controls that
+     used to be hidden here, Daylight / Evening and the A-Scroll / B-Video
+     chooser, are gone from the site altogether: one homepage, one hero
+     film, and it is the daylight one. */
 }
 
 /* ── "where it goes", at the top of every piece page ──
