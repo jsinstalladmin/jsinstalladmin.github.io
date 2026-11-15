@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=a9cfbf08';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=5dba15d5';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=a9cfbf08';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=5dba15d5';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=a9cfbf08';
+         clothMaterials, clearCaches } from './materials.js?v=5dba15d5';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -825,6 +825,8 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
      The run you are actually editing never disappears, however you turn. */
   _look.copy(ctl.target).sub(cam.position);
   if(_look.lengthSq() > 1e-6){
+    /* how steeply you are looking down, before the direction is flattened */
+    const pitch = -_look.y / _look.length();
     _look.y = 0; _look.normalize();
     for(const w of WALLS){
       const vis = _look.dot(w.n) < 0.15;
@@ -855,13 +857,43 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
        far thing and it stays, and the left-hand run beside you does not.
 
        The run being edited never disappears, however you turn or stand. */
+    /* ══════════════════════════════════════════════════════════════
+       THE WALL YOU ARE WORKING ON IS THE ONE YOU GET TO SEE
+
+       Three rules have been tried: which way am I facing, am I standing
+       in it, is it nearer than the point the camera is aimed at. All
+       three are about the CAMERA, and all three fall over the moment you
+       pull back and look at the whole closet from outside, because then
+       everything is far away and nothing qualifies as near.
+
+       The question was never really about the camera. It is: which wall
+       am I working on. That wall is in the panel on the right, it is the
+       one highlighted in the drawing, and it is the only thing anybody
+       is trying to see. So: show it, and take out anything standing
+       between it and the eye. A run closer to the camera than the run
+       being edited is, by definition, in front of it.
+
+       Pull back to the far side of the room and look at the back wall:
+       the two side runs are nearer than it, so they go, and you look
+       straight down the room at the thing you are editing. Swing round
+       to the right-hand run and the left one is nearer, so that goes
+       instead. It does not matter how far away you stand. */
+    const selWall = S.sel?.wall;
+    const selBox  = selWall ? RUNBOX[selWall] : null;
+    let selDist = null;
+    if(selBox){ selBox.clampPoint(cam.position, _near);
+                selDist = cam.position.distanceTo(_near); }
     const far = cam.position.distanceTo(ctl.target);
     for(const wall of ['back','left','right']){
       const list = RUNMESH[wall]; if(!list || !list.length) continue;
       const box = RUNBOX[wall]; if(!box) continue;
       box.clampPoint(cam.position, _near);
       const near = cam.position.distanceTo(_near);
-      const vis = (S.sel?.wall === wall) || near >= far * 0.5;
+      /* 4" of slack so a run level with the one being edited, which is
+         what the two ends of a corner are, does not flicker in and out */
+      const vis = (selWall === wall) ? true
+                : (selDist != null) ? near >= selDist - 4
+                : near >= far * 0.5;
       if(list[0].visible !== vis){
         for(const m of list) m.visible = vis;
         needsFrame = true;
@@ -875,8 +907,15 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
     const R = S.room;
     const out = cam.position.z > R.d || cam.position.z < 0
              || cam.position.x < 0  || cam.position.x > R.w;
-    if(DOORMESH.length && DOORMESH[0].visible !== out){
-      for(const m of DOORMESH) m.visible = out;
+    /* AND NOT FROM ABOVE.
+       Open at 86 degrees the leaf stands square into the room, which is
+       where an open door is and which is edge on from any head-on view.
+       Looking down into the closet from above you see its FACE instead,
+       cutting a white diagonal across the layout you came to look at.
+       Past about a third of the way to straight down it goes. */
+    const vis = out && pitch < 0.55;
+    if(DOORMESH.length && DOORMESH[0].visible !== vis){
+      for(const m of DOORMESH) m.visible = vis;
       needsFrame = true;
     }
   }
@@ -1326,7 +1365,7 @@ function drawDoor(X0, W, D, H){
      door from across the room. */
   const knobMat = new THREE.MeshStandardMaterial({
     color: 0xB9BDC0, roughness: 0.3, metalness: 0.85, envMapIntensity: 1.2 });
-  const keep = m => { DOORMESH.push(m); return m; };
+  const keep = m => { DOORMESH.push(m); m.userData.door = 1; return m; };
   const leaf = (w, cx, cy, cz, yaw, mat) => {
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.4), mat || leafMat);
@@ -1373,15 +1412,21 @@ function drawDoor(X0, W, D, H){
 
   switch(S.door){
     case 'swing-r': case 'swing-l': {
-      /* one leaf standing open at about 70 degrees off the opening */
-      const a = Math.PI * 0.39;
+      /* ALL THE WAY OPEN, NOT AJAR.
+         Seventy degrees leaves most of a leaf facing the camera, so from
+         outside the closet it reads as a door standing half shut and it
+         covers a third of the opening. A door anybody has actually walked
+         through is back against the wall. At 86 degrees it is edge on to
+         a head-on view: it is plainly there, plainly open, and it is not
+         in the way of the thing behind it. */
+      const a = Math.PI * 0.48;
       const hingeX = S.door === 'swing-r' ? x0 + ow : x0;
       const dir = S.door === 'swing-r' ? -1 : 1;
       leaf(ow, hingeX + dir * Math.cos(a) * ow / 2, y, z + Math.sin(a) * ow / 2, dir * -a);
       break;
     }
     case 'double': {
-      const a = Math.PI * 0.36, lw = ow / 2;
+      const a = Math.PI * 0.48, lw = ow / 2;
       leaf(lw, x0 + Math.cos(a) * lw / 2,        y, z + Math.sin(a) * lw / 2,  a);
       leaf(lw, x0 + ow - Math.cos(a) * lw / 2,   y, z + Math.sin(a) * lw / 2, -a);
       break;
@@ -1399,7 +1444,9 @@ function drawDoor(X0, W, D, H){
     }
     case 'bifold': {
       /* four panels, folded back on themselves at each end */
-      const pw = ow / 4, a = Math.PI * 0.33;
+      /* folded hard back against each jamb, which is where a bi-fold
+         actually sits once it is open */
+      const pw = ow / 4, a = Math.PI * 0.46;
       rail(ow + 2, x0 + ow / 2, h + 1.4, z);
       for(const side of [0, 1]){
         const hinge = side ? x0 + ow : x0, dir = side ? -1 : 1;
@@ -4365,7 +4412,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=a9cfbf08');
+  if(!DRAW) DRAW = await import('./drawing.js?v=5dba15d5');
   return DRAW;
 }
 
@@ -4809,7 +4856,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=a9cfbf08');
+    const { downloadPdf } = await import('./drawing.js?v=5dba15d5');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -4832,7 +4879,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=a9cfbf08');
+    const { downloadPdf } = await import('./drawing.js?v=5dba15d5');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
