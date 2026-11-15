@@ -1,5 +1,5 @@
-import { regionFor } from './enquiry.js?v=782c9991';
-import { SUPA_REST, SUPA_KEY } from './supa-config.js?v=782c9991';
+import { regionFor } from './enquiry.js?v=c1ef8560';
+import { SUPA_REST, SUPA_KEY } from './supa-config.js?v=c1ef8560';
 
 const f    = document.getElementById('leadform');
 const msg  = document.getElementById('formmsg');

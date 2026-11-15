@@ -390,11 +390,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=782c9991';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=c1ef8560';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=782c9991';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=c1ef8560';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=782c9991';
+         clothMaterials, clearCaches } from './materials.js?v=c1ef8560';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -2528,7 +2528,7 @@ function rebuild(reframe){
   if(DRAGGING) paintWhileDragging(); else paintAll();
   built = true;
 }
-function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintLTools(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps(); paintFlat();
+function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintLTools(); paintLPal(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps(); paintFlat();
   /* steps 3 and 5 look at one tower, so changing which one is selected has
      to move the camera too, not just the panel */
   const st = document.body.dataset.step;
@@ -3068,14 +3068,28 @@ function startingCloset(type){
   buildForMe(want.rest);
 }
 
+/* THE APPETITES ARE STILL THERE, THEY ARE JUST NOT A CONTROL.
+   MIX is what the closet type says the room usually wants, and that is
+   what "Recreate closet" builds from. It was never a good question to
+   put in front of somebody: they answer it by guessing, before they have
+   seen a single tower. What this block holds now is the two things that
+   are true of the whole run and that somebody really does reach for. */
 function paintMix(){
   const host = $('#mix'); if(!host) return;
-  host.innerHTML = MIX.map(m => `
-    <label class="mixrow" data-mix="${m.k}">
-      <span class="mixlbl">${m.label}<i>${m.note}</i></span>
-      <input type="range" min="0" max="3" step="1" value="${m.v}" aria-label="${m.label}">
-      <b>${MIX_LEVELS[m.v]}</b>
-    </label>`).join('');
+  const walls = Object.keys(S.runs).filter(w => S.runs[w]?.on);
+  const cap = walls.length ? Math.min(...walls.map(w => wallDepthCap(w))) : SPEC.runDepthMax;
+  const lo = SPEC.runDepthMin, hi = Math.max(lo, Math.min(SPEC.runDepthMax, Math.round(cap)));
+  const now = Math.min(hi, walls.length ? (S.runs[walls[0]].depth ?? SPEC.hangDepth) : SPEC.hangDepth);
+  const opts = DEPTHS.filter(v => v >= lo - 0.01 && v <= hi + 0.01);
+  host.innerHTML = `
+    <div class="orow"><span class="olab">Tower depth</span>
+      <label class="dsel"><select id="mixdepth" aria-label="Tower depth in inches">
+        ${opts.map(v => `<option value="${v}" ${Math.abs(now - v) < 0.26 ? 'selected' : ''}>${v}"</option>`).join('')}
+        ${opts.some(v => Math.abs(now - v) < 0.26) ? ''
+          : `<option value="${+now.toFixed(1)}" selected>${+now.toFixed(1)}"</option>`}
+      </select></label></div>
+    <label class="mixtgl"><input type="checkbox" id="mixprops" ${S.styled !== false ? 'checked' : ''}>
+      <span>Props<i>The clothes, shoes and folded stacks in the closet</i></span></label>`;
 }
 
 /* Share the towers out in the ratio asked for, then lay them along the wall
@@ -3254,13 +3268,77 @@ function towerGrid(bay, usable){
     ${groups}</div>`;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   THE WHOLE-CLOSET OPTIONS, OUT WHERE EVERYTHING CAN REACH THEM
+
+   They used to live inside paintStack, which meant they only existed
+   once a tower was selected: land in the room, press nothing, and the
+   right-hand column was an empty box with one grey sentence in it. They
+   are properties of the closet and the room, not of a tower, so they sit
+   out here and the panel prints them whether anything is open or not.
+   ══════════════════════════════════════════════════════════════════ */
+const dot = hex => `<span class="tdot" style="background:#${hex.toString(16).padStart(6,'0')}"></span>`;
+const toneRow = (k, now, label) => `<div class="orow">
+    <span class="olab">${label}</span>
+    <span class="opick">${ROOM_TONES[k].map(t2 => `<button type="button"
+      class="${t2.id === now ? 'on' : ''}" data-tone="${k}" data-v="${t2.id}"
+      title="${t2.label}" aria-label="${t2.label}" aria-pressed="${t2.id === now}">
+      ${dot(t2.hex)}</button>`).join('')}</span>
+  </div>`;
+
+const optionBlocks = () => {
+  const fin  = cat.finishes.find(f => f.n === S.finish) || cat.finishes[0];
+  const fNow = S.frontFinish || S.finish;
+  const fr   = cat.finishes.find(f => f.n === fNow) || fin;
+  const pull = PULLS.find(x => x.id === S.pull) || PULLS[1];
+  const pf   = PULL_FINISHES.find(x => x.id === S.pullFinish) || PULL_FINISHES[0];
+  const hasFronts = (cur?.parts || []).some(p2 => /DOOR|DRAWER|HAMPER/.test(p2.code || ''));
+  return `<div class="optblk">
+    <h4 class="subh">Closet options</h4>
+    <div class="orow"><span class="olab">Finish</span>
+      <button type="button" class="obtn" data-goto="3">
+        <span class="swc" style="${swStyle(fin)}"></span><i>${fin.n}</i></button></div>
+    <div class="orow"><span class="olab">Fronts</span>
+      <button type="button" class="obtn" data-goto="3" ${hasFronts ? '' : 'disabled'}>
+        <span class="swc" style="${swStyle(fr)}"></span>
+        <i>${hasFronts ? (S.frontFinish || 'Same as the carcass') : 'Nothing with a front yet'}</i></button></div>
+    <div class="orow"><span class="olab">Handle</span>
+      <span class="opick wide">${PULLS.map(p2 => `<button type="button"
+        class="${p2.id === pull.id ? 'on' : ''}" data-pullset="${p2.id}"
+        title="${p2.note.replace(/"/g,'&quot;')}" aria-pressed="${p2.id === pull.id}">
+        <span class="pz p-${p2.kind}"></span></button>`).join('')}</span></div>
+    <div class="orow"><span class="olab">Handle finish</span>
+      <span class="opick">${PULL_FINISHES.map(f2 => `<button type="button"
+        class="${f2.id === pf.id ? 'on' : ''}" data-pfset="${f2.id}"
+        title="${f2.name}" aria-label="${f2.name}" aria-pressed="${f2.id === pf.id}">
+        ${dot(f2.hex)}</button>`).join('')}</span></div>
+
+    <h4 class="subh">Room options</h4>
+    <p class="note" style="margin:-2px 0 9px">The room around the closet, so you can
+      see it against your own paint and floor. None of this is built or charged for.</p>
+    ${toneRow('wall',  S.wallTone,  'Wall colour')}
+    ${toneRow('floor', S.floorTone, 'Floor')}
+    ${toneRow('trim',  S.trimTone,  'Trim')}
+
+    <h4 class="subh">The door on this room</h4>
+    <div class="dgrid">${DOORS.map(x => `<button type="button" class="dcard ${x.id === S.door ? 'on' : ''}"
+      data-door="${x.id}" aria-pressed="${x.id === S.door}" title="${x.note}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${x.art}"/></svg>
+      <i>${x.label}</i></button>`).join('')}</div>
+    ${S.door && S.door !== 'none' ? `<div class="orow"><span class="olab">Opening</span>
+      <span class="wadj"><button data-dw="-2" title="Narrower">&minus;</button>
+        <i>${(+(S.doorW || 0)).toFixed(0)}" wide</i>
+        <button data-dw="2" title="Wider">+</button></span></div>` : ''}
+  </div>`;
+};
+
 function paintStack(){
   const box = $('#stack');
   /* The open component and the open library belong to ONE tower. Select a
      different tower and the panel goes back to being that tower, rather
      than showing the shelf you opened in the last one. */
   const selKey = S.sel ? S.sel.wall + '|' + S.sel.i : null;
-  if(PICK_FOR !== selKey){ S.part = null; S.add = null; S.carc = null; S.lib = false; S.grid = false; S.pick = null; PICK_FOR = selKey; }
+  if(PICK_FOR !== selKey){ S.part = null; S.add = null; S.carc = null; S.lib = false; S.pick = null; PICK_FOR = selKey; }
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
     /* If the chosen wall exists but has nothing on it yet, STAY on it. This
@@ -3271,13 +3349,23 @@ function paintStack(){
       /* The wall's own strip already says "Nothing on this wall yet. Pick a
          width below" right above this, so printing it again here was the same
          sentence twice in the same box. The picker just stays empty. */
-      box.innerHTML = '';
+      box.innerHTML = optionBlocks();
       dockStack();
       return;
     }
-    const wall = Object.keys(S.runs).find(k => S.runs[k]?.on && S.runs[k].bays.length);
-    if(wall){ S.sel = { wall, i:0 }; return paintStack(); }
-    box.innerHTML = `<p class="note emptysel">Add a tower above and its parts appear here.</p>`;
+    /* NOTHING SELECTED MEANS NOTHING SELECTED.
+       This used to hunt for the first wall with towers on it and open
+       that, so the panel could never be at rest: land in the room, press
+       nothing, and it had already picked a tower for you. With no
+       selection the column shows what is true of the whole closet, which
+       is the only thing that can be true when nothing is open. The hunt
+       is still here for the other case, a selection pointing at a tower
+       that has since been removed. */
+    if(S.sel){
+      const wall = Object.keys(S.runs).find(k => S.runs[k]?.on && S.runs[k].bays.length);
+      if(wall){ S.sel = { wall, i:0 }; return paintStack(); }
+    }
+    box.innerHTML = optionBlocks();
     dockStack();
     return;
   }
@@ -3653,60 +3741,6 @@ function paintStack(){
      Nothing here is a new control. The carcass colour written from this
      block is the same S.finish the finishes step writes, so the two can
      never disagree. */
-  const dot = hex => `<span class="tdot" style="background:#${hex.toString(16).padStart(6,'0')}"></span>`;
-  const toneRow = (k, now, label) => `<div class="orow">
-      <span class="olab">${label}</span>
-      <span class="opick">${ROOM_TONES[k].map(t2 => `<button type="button"
-        class="${t2.id === now ? 'on' : ''}" data-tone="${k}" data-v="${t2.id}"
-        title="${t2.label}" aria-label="${t2.label}" aria-pressed="${t2.id === now}">
-        ${dot(t2.hex)}</button>`).join('')}</span>
-    </div>`;
-
-  const optionBlocks = () => {
-    const fin  = cat.finishes.find(f => f.n === S.finish) || cat.finishes[0];
-    const fNow = S.frontFinish || S.finish;
-    const fr   = cat.finishes.find(f => f.n === fNow) || fin;
-    const pull = PULLS.find(x => x.id === S.pull) || PULLS[1];
-    const pf   = PULL_FINISHES.find(x => x.id === S.pullFinish) || PULL_FINISHES[0];
-    const hasFronts = (cur?.parts || []).some(p2 => /DOOR|DRAWER|HAMPER/.test(p2.code || ''));
-    return `<div class="optblk">
-      <h4 class="subh">Closet options</h4>
-      <div class="orow"><span class="olab">Finish</span>
-        <button type="button" class="obtn" data-goto="3">
-          <span class="swc" style="${swStyle(fin)}"></span><i>${fin.n}</i></button></div>
-      <div class="orow"><span class="olab">Fronts</span>
-        <button type="button" class="obtn" data-goto="3" ${hasFronts ? '' : 'disabled'}>
-          <span class="swc" style="${swStyle(fr)}"></span>
-          <i>${hasFronts ? (S.frontFinish || 'Same as the carcass') : 'Nothing with a front yet'}</i></button></div>
-      <div class="orow"><span class="olab">Handle</span>
-        <span class="opick wide">${PULLS.map(p2 => `<button type="button"
-          class="${p2.id === pull.id ? 'on' : ''}" data-pullset="${p2.id}"
-          title="${p2.note.replace(/"/g,'&quot;')}" aria-pressed="${p2.id === pull.id}">
-          <span class="pz p-${p2.kind}"></span></button>`).join('')}</span></div>
-      <div class="orow"><span class="olab">Handle finish</span>
-        <span class="opick">${PULL_FINISHES.map(f2 => `<button type="button"
-          class="${f2.id === pf.id ? 'on' : ''}" data-pfset="${f2.id}"
-          title="${f2.name}" aria-label="${f2.name}" aria-pressed="${f2.id === pf.id}">
-          ${dot(f2.hex)}</button>`).join('')}</span></div>
-
-      <h4 class="subh">Room options</h4>
-      <p class="note" style="margin:-2px 0 9px">The room around the closet, so you can
-        see it against your own paint and floor. None of this is built or charged for.</p>
-      ${toneRow('wall',  S.wallTone,  'Wall colour')}
-      ${toneRow('floor', S.floorTone, 'Floor')}
-      ${toneRow('trim',  S.trimTone,  'Trim')}
-
-      <h4 class="subh">The door on this room</h4>
-      <div class="dgrid">${DOORS.map(x => `<button type="button" class="dcard ${x.id === S.door ? 'on' : ''}"
-        data-door="${x.id}" aria-pressed="${x.id === S.door}" title="${x.note}">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${x.art}"/></svg>
-        <i>${x.label}</i></button>`).join('')}</div>
-      ${S.door && S.door !== 'none' ? `<div class="orow"><span class="olab">Opening</span>
-        <span class="wadj"><button data-dw="-2" title="Narrower">&minus;</button>
-          <i>${(+(S.doorW || 0)).toFixed(0)}" wide</i>
-          <button data-dw="2" title="Wider">+</button></span></div>` : ''}
-    </div>`;
-  };
 
   /* A FILLER HAS ONE QUESTION AND IT IS HOW WIDE. */
   const fillerPanel = () => `<div class="phd">
@@ -3827,7 +3861,13 @@ function paintStack(){
   else if(S.add != null && adds.some(a => a.i === S.add))
                                                box.innerHTML = head + addPanel(S.add);
   else if(S.part != null && bay.stack[S.part]) box.innerHTML = head + partPanel(S.part);
-  else                                         box.innerHTML = head + towerGrid(bay, usable)
+  /* THE CARDS ARE THE FIRST THING IN THE COLUMN.
+     "Tower 2 of 4", a width stepper, two arrows, a Remove and a depth
+     dropdown sat across the top of the panel, so pressing a tower showed
+     you a block of controls and the towers themselves started below the
+     fold. Press a tower, see the towers. Its own controls are still
+     there, directly under the row you came to look at. */
+  else                                         box.innerHTML = towerGrid(bay, usable) + head
                                                               + compList() + optionBlocks();
 
   /* OPENING A COMPONENT PUTS YOU AT THE TOP OF IT.
@@ -4588,11 +4628,21 @@ $('#stack').addEventListener('change', e => {
 });
 
 paintMix();
-$('#mix')?.addEventListener('input', e => {
-  const row = e.target.closest('[data-mix]'); if(!row) return;
-  const m = MIX.find(x => x.k === row.dataset.mix); if(!m) return;
-  m.v = Math.max(0, Math.min(3, +e.target.value || 0));
-  const b = row.querySelector('b'); if(b) b.textContent = MIX_LEVELS[m.v];
+$('#mix')?.addEventListener('change', e => {
+  if(e.target.id === 'mixdepth'){
+    const v = +e.target.value;
+    /* one run of cabinetry is one depth, and this is the whole closet */
+    for(const w of Object.keys(S.runs)) if(S.runs[w]?.on) S.runs[w].depth = clampDepth(v, w);
+    rebuild(true); paintMix(); return;
+  }
+  if(e.target.id === 'mixprops'){
+    S.styled = e.target.checked;
+    /* the same switch as the Empty button over the drawing, so the two
+       can never say different things about the same room */
+    const sb = document.querySelector('#scene [data-a="styled"]');
+    if(sb) sb.setAttribute('aria-pressed', String(!S.styled));
+    rebuild(true);
+  }
 });
 $('#mixgo')?.addEventListener('click', buildForMe);
 $('#mixclear')?.addEventListener('click', () => {
@@ -4886,11 +4936,20 @@ $('#ltools')?.addEventListener('click', e => {
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
     return;
   }
+  /* Towers is the one tool that works on an EMPTY wall, because an empty
+     wall is exactly when you want it. It faces the wall and opens the
+     choice beside it; it does not need anything selected first. */
+  if(a === 'grid'){
+    S.grid = !S.grid;
+    if(S.grid) setView('wall');
+    paintLPal(); paintLTools();
+    if(typeof window.gotoStep === 'function') window.gotoStep('2');
+    return;
+  }
   if(!S.runs[wall].bays.length) return;
   if(S.sel?.i == null || !S.runs[wall].bays[S.sel.i]) S.sel = { wall, i:0 };
   S.part = null; S.add = null; S.carc = null;
   S.lib  = a === 'lib';
-  S.grid = a === 'grid';
   PICK_FOR = S.sel.wall + '|' + S.sel.i;
   paintBays(); paintStack();
   if(typeof window.gotoStep === 'function') window.gotoStep('2');
@@ -4926,8 +4985,14 @@ function paintDims(){
   if(!DIMLAY) return;
   const off = () => { if(DIMLAY.firstChild) DIMLAY.textContent = ''; };
   const flat = document.getElementById('v2d');
-  if((flat && !flat.hidden) || !cur || !S.sel) return off();
-  const wall = S.sel.wall;
+  /* IT USED TO NEED A TOWER SELECTED. The room opens with nothing open
+     in it, which is the one moment somebody most wants to see how wide
+     the wall is, and that was the one moment the figures were missing.
+     With nothing selected it measures the first wall being built on. */
+  if((flat && !flat.hidden) || !cur) return off();
+  const wall = (S.sel?.wall && S.runs[S.sel.wall]?.on) ? S.sel.wall
+             : Object.keys(S.runs).find(w => S.runs[w]?.on && S.runs[w].bays.length);
+  if(!wall) return off();
   const run = RUNMESH[wall];
   if(!run || !run.length || !run[0].visible) return off();
   const list = (cur.bays || []).filter(b => b.wall === wall);
@@ -5000,7 +5065,7 @@ function paintDims(){
     const x1 = X(sg.a), x2 = X(sg.z);
     if(Math.abs(x2 - x1) < 26) continue;           // no room for the figure
     labels += `<text x="${((x1 + x2) / 2).toFixed(1)}" y="${(line - 5).toFixed(1)}"
-      class="${sg.gap ? 'gap' : (sg.i === S.sel.i ? 'on' : '')}">${(+sg.n.toFixed(1))}"</text>`;
+      class="${sg.gap ? 'gap' : (S.sel && sg.i === S.sel.i ? 'on' : '')}">${(+sg.n.toFixed(1))}"</text>`;
   }
   /* the whole wall, on its own line above */
   g += `<path d="M${X(0).toFixed(1)} ${over.toFixed(1)}H${X(span).toFixed(1)}"/>
@@ -5011,6 +5076,100 @@ function paintDims(){
   DIMLAY.innerHTML = `<svg viewBox="0 0 ${W.toFixed(0)} ${H.toFixed(0)}" width="${W.toFixed(0)}"
     height="${H.toFixed(0)}" aria-hidden="true"><g class="dim">${g}</g>${labels}</svg>`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE TOWERS OPEN ON THE LEFT
+
+   Two different questions were sharing one panel. "Which tower do I put
+   up next" is a thing you ask with nothing selected and an empty stretch
+   of wall in front of you; "what should THIS tower be instead" is a thing
+   you ask with a tower open. They are not the same question and they do
+   not belong in the same column.
+
+   So the rail's Towers button turns the wall to face you and opens the
+   choice right there beside it, filler on the end, and every card stands
+   a NEW tower up on the wall. Pressing a tower that is already there
+   still opens the swap cards on the right, where that tower lives.
+   ══════════════════════════════════════════════════════════════════════ */
+function lpalWall(){
+  return (S.sel?.wall && S.runs[S.sel.wall]?.on) ? S.sel.wall
+       : Object.keys(S.runs).find(w => S.runs[w]?.on);
+}
+
+/* Put the panel back to nothing open: the closet and the room, drawn
+   from in front, with the wall measured. */
+function clearSel(){
+  S.sel = null; S.part = null; S.add = null; S.carc = null; S.lib = false; S.pick = null;
+  PICK_FOR = null;
+  rebuild(true);
+  /* rebuild leaves the camera where the last selection put it, which on
+     the way in from the gate is nose up against tower one. The room gets
+     the room shot. */
+  frame(); dimDirty = true; needsFrame = true;
+}
+
+function paintLPal(){
+  const host = $('#lpal'); if(!host) return;
+  const wall = lpalWall();
+  if(!S.grid || !wall){
+    host.hidden = true; host.innerHTML = '';
+    document.querySelector('.bstage')?.classList.remove('palopen');
+    return;
+  }
+  const r = S.runs[wall];
+  const free = wallLength(wall) - r.bays.reduce((a, b) => a + b.w, 0);
+  const roomFor = free >= SPEC.bayMin, roomFill = free >= FILLER_MIN;
+  const floorY = baseHeight(S.mounting, placedFittings());
+  const usable = Math.max(SPEC.panel * 2 + 12, Math.min(S.cabTop, S.room.h - 2)) - floorY;
+
+  const groups = TOWER_GROUPS.map(g => {
+    const items = TOWER_PRESETS.filter(p => p.group === g);
+    if(!items.length) return '';
+    return `<div class="twgrp"><h6>${g}</h6><div class="twrow">${items.map(p => `
+      <button type="button" class="twcard" data-ltower="${p.id}" ${roomFor ? '' : 'disabled'}
+        title="${p.label}">${towerThumb(p.stack, usable)}<span>${p.label}</span></button>`).join('')}</div></div>`;
+  }).join('');
+
+  /* A FILLER IS NOT A TOWER, so it is not drawn as one. It is a blank
+     panel, and its card is a blank panel. */
+  const fillerCard = `<div class="twgrp"><h6>Filler</h6><div class="twrow">
+    <button type="button" class="twcard" data-lfiller="1" ${roomFill ? '' : 'disabled'}
+      title="A blank panel that closes a gap too narrow for a tower">
+      <svg class="twthumb" viewBox="0 0 24 32" fill="none" stroke="currentColor"
+        stroke-width="1.2" aria-hidden="true"><path d="${MODULES.FILLER.icon}"/></svg>
+      <span>Filler</span></button></div></div>`;
+
+  document.querySelector('.bstage')?.classList.add('palopen');
+  host.innerHTML = `<div class="lpalhd"><b>Towers</b>
+      <button type="button" class="lpalx" data-lpalclose="1" aria-label="Close the towers">&times;</button></div>
+    <div class="lpalbody">
+      ${roomFor ? '' : `<p class="note">This wall is full. Make a tower narrower, or take one
+        out, to open a gap wide enough for another.</p>`}
+      ${groups}${fillerCard}
+    </div>`;
+  host.hidden = false;
+}
+
+$('#lpal')?.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b || b.disabled) return;
+  if(b.dataset.lpalclose !== undefined){ S.grid = false; paintLPal(); paintLTools(); return; }
+  const wall = lpalWall(); if(!wall) return;
+  const r = S.runs[wall];
+  const free = wallLength(wall) - r.bays.reduce((a, c) => a + c.w, 0);
+  const fill = b.dataset.lfiller !== undefined;
+  if(free < (fill ? FILLER_MIN : SPEC.bayMin)) return;
+  const w = clampBay(Math.min(free, fill ? FILLER_MAX : SPEC.bayMax), fill);
+  const at = firstFit(wall, w); if(at == null) return;
+  const p = fill ? null : TOWER_PRESETS.find(x => x.id === b.dataset.ltower);
+  if(!fill && !p) return;
+  const b2 = makeBay(w, fill ? [{ m:'FILLER', h:null, o:{} }] : structuredClone(p.stack), true);
+  b2.at = at;
+  r.bays.push(b2); sortRun(wall);
+  S.sel = { wall, i:r.bays.findIndex(x => x === b2) };
+  S.part = null; S.add = null; S.carc = null; S.lib = false;
+  PICK_FOR = wall + '|' + S.sel.i;
+  rebuild(true);
+});
 
 function paintLTools(){
   const host = $('#ltools'); if(!host) return;
@@ -5307,11 +5466,14 @@ function openGate(){
     /* THE CLOSET IS ALREADY STANDING THERE. See TYPE_START. */
     shut();
     startingCloset(picked || S.type);
-    setView('3d');
+    /* The closet is standing there, and nothing in it is open, so the
+       panel opens on the closet and the room rather than on tower one. */
+    clearSel(); setView('3d');
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
   });
 
-  $('#gateskip')?.addEventListener('click', () => { shut(); startingCloset(picked || S.type); setView('3d'); });
+  $('#gateskip')?.addEventListener('click', () => { shut(); startingCloset(picked || S.type);
+    clearSel(); setView('3d'); });
   /* Escape steps back rather than dumping somebody into a builder they
      never chose a closet for. From step one it skips, as it always did.
      On document, not on the gate: stepping back hides the button that had
@@ -5320,7 +5482,7 @@ function openGate(){
   document.addEventListener('keydown', e => {
     if(e.key !== 'Escape' || gate.hidden) return;
     if(s2 && !s2.hidden){ show(1); return; }
-    shut(); startingCloset(picked || S.type); setView('3d');
+    shut(); startingCloset(picked || S.type); clearSel(); setView('3d');
   });
 }
 
@@ -5343,7 +5505,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=782c9991');
+  if(!DRAW) DRAW = await import('./drawing.js?v=c1ef8560');
   return DRAW;
 }
 
@@ -5907,7 +6069,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=782c9991');
+    const { downloadPdf } = await import('./drawing.js?v=c1ef8560');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -5930,7 +6092,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=782c9991');
+    const { downloadPdf } = await import('./drawing.js?v=c1ef8560');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

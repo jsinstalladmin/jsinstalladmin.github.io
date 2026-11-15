@@ -1668,18 +1668,18 @@ body[data-step="6"] .pacts{margin-top:0}
    controls were on screen behind it before anybody had said which closet
    they were building. There is nothing to step through yet. */
 .gate{position:fixed;inset:0;z-index:40;display:flex;align-items:flex-start;
-  justify-content:center;padding:84px 20px 28px;overflow:auto;
+  justify-content:center;padding:76px 20px 20px;overflow:auto;
   background:color-mix(in srgb, var(--paper) 96%, transparent);backdrop-filter:blur(10px)}
 .gate[hidden]{display:none}
 .gatebox{width:min(1020px,100%);margin:auto 0}
 .gatestep[hidden]{display:none}
-.gatekick{display:flex;align-items:center;gap:.8em;margin:0 0 .5em;
+.gatekick{display:flex;align-items:center;gap:.8em;margin:0 0 .35em;
   font-size:.7rem;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
 .gatelink{font:inherit;font-size:inherit;letter-spacing:inherit;text-transform:inherit;
   background:none;border:0;padding:0;color:var(--ink);cursor:pointer;
   border-bottom:1px solid var(--line-2)}
 .gatelink:hover{border-bottom-color:var(--ink)}
-.gatestep h2{margin:0 0 .22em;font-size:clamp(1.5rem,3.4vw,2.1rem);line-height:1.12;color:var(--ink)}
+.gatestep h2{margin:0 0 .18em;font-size:clamp(1.35rem,2.8vw,1.75rem);line-height:1.12;color:var(--ink)}
 .gatelede{margin:0 0 1.5em;max-width:46ch;font-size:.9rem;line-height:1.6;color:var(--muted)}
 
 /* STEP ONE: the five closets, as pictures you point at. */
@@ -1706,7 +1706,12 @@ body[data-step="6"] .pacts{margin-top:0}
 .gate2{display:grid;gap:26px;grid-template-columns:minmax(0,1fr) minmax(0,.84fr);
   align-items:start}
 .gateform{min-width:0}
-.gatehelp{margin:.8em 0 0;font-size:.78rem;line-height:1.55;color:var(--muted)}
+.gatehelp{margin:.6em 0 0;font-size:.74rem;line-height:1.45;color:var(--muted)}
+
+/* The wall choice and the buttons share one line, so neither of them is
+   below the fold. On a narrow screen they go back to being stacked. */
+.gatefoot{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:1.2em;flex-wrap:wrap;margin:.2em 0 0}
 .gateplan{margin:0;min-width:0;border:1px solid var(--line-2);border-radius:16px;
   background:var(--paper);padding:14px;display:flex;align-items:center;justify-content:center}
 .gateplan svg{width:100%;height:auto;display:block}
@@ -1739,22 +1744,22 @@ body[data-step="6"] .pacts{margin-top:0}
 .gaterow label > i{position:absolute;right:.9em;top:calc(50% + .72em);translate:0 -50%;
   font-style:normal;font-size:.76rem;color:var(--muted);pointer-events:none}
 .gaterow label.wide > i{display:none}
-.gateshape{border:0;padding:0;margin:1.1em 0 0;min-width:0}
-.gateshape legend{padding:0;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--muted);margin-bottom:.5em}
-.gatepick{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:.5em}
-.gatepick label{display:flex;flex-direction:column;gap:.15em;cursor:pointer;
-  padding:.7em .8em;border:1px solid var(--line-2);border-radius:12px;min-width:0}
+.gateshape{border:0;padding:0;margin:0;min-width:0;flex:1 1 auto}
+.gateshape legend{padding:0;font-size:.66rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.34em}
+.gatepick{display:flex;flex-wrap:wrap;gap:.4em}
+.gatepick label{display:flex;align-items:center;gap:.15em;cursor:pointer;
+  padding:.44em .85em;border:1px solid var(--line-2);border-radius:999px;min-width:0}
 /* display:flex beats the hidden attribute, so the custom-only choice
    was on screen for every type until this said otherwise */
 .gatepick label[hidden]{display:none}
 .gatepick input{position:absolute;opacity:0;pointer-events:none}
-.gatepick b{font-size:.9rem;font-weight:600;color:var(--ink)}
+.gatepick b{font-size:.84rem;font-weight:600;color:var(--ink);white-space:nowrap}
 .gatepick span{font-size:.72rem;color:var(--muted);line-height:1.4}
 .gatepick label:has(input:checked){border-color:var(--ink);
   background:color-mix(in srgb, var(--ink) 5%, transparent)}
 .gatepick label:has(input:focus-visible){outline:2px solid var(--accent,#A8824C);outline-offset:2px}
-.gateacts{display:flex;align-items:center;gap:.7em;flex-wrap:wrap;margin-top:1.4em}
+.gateacts{display:flex;align-items:center;gap:.7em;flex-wrap:wrap;margin-top:0}
 @media(max-width:860px){
   /* the drawing goes above the numbers rather than beside them, so the
      first thing on a phone is still the room and not a column of boxes */
@@ -1787,8 +1792,8 @@ body:has(.gate:not([hidden])){overflow:hidden}
      starts below it rather than under it. 74px is the header at its phone
      size: 13px of padding top and bottom either side of a 48px row. */
   .gate{position:fixed;inset:0;z-index:60;align-items:flex-start;
-    padding:calc(env(safe-area-inset-top,0px) + 86px) 14px
-            calc(env(safe-area-inset-bottom,0px) + 20px);
+    padding:calc(env(safe-area-inset-top,0px) + 74px) 14px
+            calc(env(safe-area-inset-bottom,0px) + 14px);
     background:var(--paper);backdrop-filter:none;-webkit-overflow-scrolling:touch}
   .gatecard{box-shadow:none;border:0;padding:8px 2px 2px}
 }
@@ -2208,13 +2213,22 @@ body[data-step="order"] .pfoot{display:block}
   .v2d{padding:10px 10px 50px}
 }
 
-/* The scene pill moves up out of the switcher's way. Bottom left and
-   bottom centre were fighting for the same six hundred pixels, and on
-   anything narrower than a laptop they overlapped outright. */
-.scene{bottom:auto;top:76px;left:18px}
+/* THE TOP OF THE STAGE BELONGS TO THE MEASUREMENTS.
+   The scene pill was parked at top left, which is exactly where the
+   dimension string runs: the width of the first tower came out from
+   behind the Evening button. The switcher is centred at the bottom and
+   the hint is bottom right, so the pill takes the bottom left corner
+   and the dimension band is left clear across the whole stage. */
+.scene{top:auto;bottom:18px;left:18px}
+/* ICONS, NOT WORDS. Five labelled buttons made a 375px strip, and the
+   view switcher is centred on the same bottom line: "Tour" ran under
+   "3D". Each one keeps its tooltip and its label for a screen reader. */
+.scene button span{position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.scene button{padding:.5em .62em;gap:0}
+.scene button svg{width:16px;height:16px}
 .bhint{bottom:22px}
 @media (max-width:1100px){
-  .scene{top:72px}
   .bhint{display:none}
 }
 @media (max-width:860px){
@@ -2299,9 +2313,9 @@ body[data-step="order"] .pfoot{display:block}
    wall, joined to it by a leader, the way a survey sheet is marked up.
    ══════════════════════════════════════════════════════════════════════ */
 .rdiag{display:grid;gap:0 0;align-items:center;justify-items:center;
-  grid-template-columns:minmax(96px,150px) 16px minmax(0,1fr) 16px minmax(96px,150px);
-  grid-template-rows:auto 18px minmax(0,1fr) auto;
-  margin:.2em 0 1.1em}
+  grid-template-columns:minmax(92px,140px) 14px minmax(0,1fr) 14px minmax(92px,140px);
+  grid-template-rows:auto 14px minmax(0,1fr) auto;
+  margin:.1em 0 .7em}
 .rf-top{grid-column:3;grid-row:1}
 .rdiag .lead-v{grid-column:3;grid-row:2}
 .rf-left{grid-column:1;grid-row:3}
@@ -2318,28 +2332,28 @@ body[data-step="order"] .pfoot{display:block}
   max-width:150px;padding:.1em 0}
 .rf > span{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;
   color:var(--ink-3);white-space:nowrap}
-.rf input{width:100%;min-width:0;font:inherit;font-size:1.02rem;font-variant-numeric:tabular-nums;
-  padding:.46em 1.9em .46em .62em;border:1px solid var(--line);border-radius:11px;
+.rf input{width:100%;min-width:0;font:inherit;font-size:.95rem;font-variant-numeric:tabular-nums;
+  padding:.36em 1.8em .36em .58em;border:1px solid var(--line);border-radius:11px;
   background:var(--paper);color:var(--ink);-moz-appearance:textfield;appearance:textfield}
 .rf input::-webkit-outer-spin-button,.rf input::-webkit-inner-spin-button{
   -webkit-appearance:none;margin:0}
 .rf input:focus-visible{outline:2px solid var(--accent,#A8824C);outline-offset:1px;
   border-color:var(--accent,#A8824C)}
-.rf > i{position:absolute;right:.6em;bottom:.62em;font-style:normal;font-size:.7rem;
+.rf > i{position:absolute;right:.56em;bottom:.5em;font-style:normal;font-size:.7rem;
   color:var(--ink-3);pointer-events:none}
 .rf.ro{opacity:.8}
-.rf.ro b{display:block;font-weight:500;font-size:1.02rem;font-variant-numeric:tabular-nums;
-  padding:.46em 1.9em .46em .62em;border:1px dashed var(--line);border-radius:11px;
+.rf.ro b{display:block;font-weight:500;font-size:.95rem;font-variant-numeric:tabular-nums;
+  padding:.36em 1.8em .36em .58em;border:1px dashed var(--line);border-radius:11px;
   background:transparent;color:var(--ink-2)}
 .rf-top,.rf-bottom{max-width:170px;text-align:center}
 .rf-top > span,.rf-bottom > span{text-align:center}
-.rf-bottom{margin-top:.7em}
-.rf-bl,.rf-br{margin-top:.7em}
+.rf-bottom{margin-top:.5em}
+.rf-bl,.rf-br{margin-top:.5em}
 
 /* the leader: a line to the wall, with the node on it */
 .lead{display:block;position:relative;background:none}
-.lead-v{width:1px;height:18px;background:var(--line-2)}
-.lead-h{width:16px;height:1px;background:var(--line-2)}
+.lead-v{width:1px;height:14px;background:var(--line-2)}
+.lead-h{width:14px;height:1px;background:var(--line-2)}
 .lead::after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;
   background:var(--accent,#A8824C);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#A8824C) 18%,transparent)}
 .lead-v::after{left:50%;bottom:-3px;transform:translateX(-50%)}
@@ -2347,9 +2361,9 @@ body[data-step="order"] .pfoot{display:block}
 .lead-h.rev::after{right:auto;left:-3px}
 
 /* the room itself */
-.rbox{width:100%;min-width:0;border:1px solid var(--line);border-radius:18px;
-  background:var(--paper);padding:.85em .9em .9em;display:grid;gap:.55em;
-  justify-items:stretch}
+.rbox{width:100%;min-width:0;border:1px solid var(--line);border-radius:16px;
+  background:var(--paper);padding:.6em .7em .65em;display:grid;gap:.4em;
+  grid-template-columns:minmax(0,1fr);justify-items:stretch}
 .rbox .rf-h{max-width:132px;margin:0 auto}
 /* THE PLAN IS GIVEN A WINDOW, NOT A WIDTH.
    Sized by width alone, a deep room came out taller than the screen:
@@ -2357,25 +2371,44 @@ body[data-step="order"] .pfoot{display:block}
    It is fitted into a fixed window instead, by whichever side runs out
    first, so a long thin run and a square walk-in both sit in the same
    card and the card never grows. */
-.rbox .gateplan{border:0;border-radius:12px;background:transparent;padding:.2em;
-  width:100%;height:clamp(160px,29vh,270px);margin:0;overflow:hidden;
-  display:flex;align-items:center;justify-content:center}
-.rbox .gateplan svg{max-width:100%;max-height:100%;width:auto;height:auto;display:block}
+/* THE PLAN FITS ITS WINDOW, IT DOES NOT FILL IT.
+   width:auto on an SVG with only a viewBox leaves the browser to guess an
+   intrinsic size, and it guesses too big: the drawing overflowed its own
+   window and `overflow:hidden` cut the dimension lines off all four
+   sides. Given a real width and height it letterboxes inside the window
+   on its own preserveAspectRatio, which is what it was always for. */
+.rbox .gateplan{border:0;border-radius:12px;background:transparent;padding:0;
+  width:100%;height:clamp(150px,30vh,300px);margin:0;overflow:hidden}
+.rbox .gateplan svg{width:100%;height:100%;display:block}
 
 /* how it opens, along the bottom of the room */
-.rdoors{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:5px;
-  width:100%;max-width:640px;margin:0 auto}
-.rdoor{display:grid;justify-items:center;gap:2px;padding:.45em .2em .4em;cursor:pointer;
+/* A GRID OF EIGHT TRACKS HAS A MIN-CONTENT OF EIGHT TRACKS.
+   repeat(auto-fit,minmax(74px,1fr)) reports 627px as the narrowest it can
+   be, which pushed the whole column wider than the card on a phone and
+   dragged the plan out past both edges with it. A wrapping flex row has
+   no such floor: the tiles go to two lines and nothing overflows. */
+.rdoors{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;
+  width:100%;min-width:0;max-width:640px;margin:0 auto}
+.rdoor{flex:1 1 68px;min-width:0;display:grid;justify-items:center;gap:1px;
+  padding:.32em .15em .3em;cursor:pointer;
   border:1px solid var(--line);border-radius:10px;background:var(--paper);
   color:var(--ink-3);font:inherit}
-.rdoor svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.3}
-.rdoor i{font-style:normal;font-size:.6rem;line-height:1.1;text-align:center}
+.rdoor svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.3}
+.rdoor i{font-style:normal;font-size:.56rem;line-height:1.1;text-align:center}
 .rdoor:hover{border-color:var(--ink-3);color:var(--ink)}
 .rdoor.on{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink);color:var(--ink);
   background:color-mix(in srgb,var(--ink) 5%,transparent)}
 
 @media (max-width:760px){
-  .rdiag{grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto auto;gap:.7em}
+  .rdiag{grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto auto;gap:.5em}
+  .rbox .gateplan{height:clamp(104px,14vh,146px)}
+  .gatefoot{gap:.6em}
+  /* the four chips stay on one line at phone width, so the custom type
+     does not push the button off the bottom of the screen */
+  .gatepick{gap:.3em}
+  .gatepick label{padding:.4em .52em}
+  .gatepick b{font-size:.76rem}
+  .rdoor{padding:.26em .1em .24em}
   .rdiag .lead{display:none}
   .rf-top{grid-column:1/-1;grid-row:1;max-width:none}
   .rbox{grid-column:1/-1;grid-row:2}
@@ -2385,3 +2418,51 @@ body[data-step="order"] .pfoot{display:block}
   .rf-bl,.rf-br{display:none}
   .rf{max-width:none}
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ROUND 13 · THE TOWERS, ON THE LEFT, BESIDE THE HAND THAT ASKED
+
+   The rail's Towers button opens this over the wall view. It is the
+   palette you build FROM: every card stands a new tower up. The cards
+   that swap a tower you already have stay on the right, in that tower's
+   own panel, because that is where that tower lives.
+   ══════════════════════════════════════════════════════════════════════ */
+.lpal{position:absolute;left:96px;top:50%;translate:0 -50%;z-index:7;
+  width:min(268px,38vw);max-height:min(76vh,620px);display:flex;flex-direction:column;
+  border:1px solid var(--line);border-radius:16px;
+  background:color-mix(in srgb, var(--paper) 95%, transparent);
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  box-shadow:0 14px 38px rgba(20,15,10,.12)}
+.lpal[hidden]{display:none}
+.lpalhd{display:flex;align-items:center;justify-content:space-between;gap:.6em;
+  padding:.62em .55em .5em .85em;border-bottom:1px solid var(--line)}
+.lpalhd b{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  font-weight:600}
+.lpalx{width:24px;height:24px;display:grid;place-items:center;border:0;border-radius:7px;
+  background:none;color:var(--ink-3);font-size:1.1rem;line-height:1;cursor:pointer}
+.lpalx:hover{background:var(--paper-2);color:var(--ink)}
+.lpalbody{overflow:auto;padding:.7em .85em .9em;display:grid;gap:.85em}
+.lpalbody .twgrp h6{margin:0 0 .4em;font-size:.66rem;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);font-weight:600}
+.lpalbody .twrow{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px}
+.lpalbody .note{margin:0}
+@media(max-width:1060px){
+  /* the rail is a strip across the top on a narrow screen, so the palette
+     drops under it rather than floating off the side of the drawing */
+  .lpal{position:static;translate:none;width:auto;max-height:46vh;margin:0 0 8px;
+    backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+}
+
+/* The two things that are true of the whole run, under Closet options. */
+.mixtgl{display:flex;align-items:flex-start;gap:.6em;cursor:pointer;padding:.15em 0 0}
+.mixtgl input{margin:.2em 0 0;flex:0 0 auto}
+.mixtgl span{font-size:.84rem;line-height:1.25;color:var(--ink)}
+.mixtgl i{display:block;font-style:normal;font-size:.72rem;line-height:1.4;color:var(--muted)}
+.mixrows .orow .dsel{margin:0}
+
+/* THE PALETTE SITS BESIDE THE WALL, NOT ON IT.
+   Floating it over the drawing hid the very towers it is there to add
+   to. With it open the flat views move over by its width, so the wall
+   you are building on stays whole. */
+.bstage.palopen .v2d{padding-left:304px}
+@media(max-width:1060px){ .bstage.palopen .v2d{padding-left:10px} }
