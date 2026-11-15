@@ -390,11 +390,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=7ecdf932';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=782c9991';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=7ecdf932';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=782c9991';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=7ecdf932';
+         clothMaterials, clearCaches } from './materials.js?v=782c9991';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -5118,12 +5118,38 @@ function openGate(){
   $('#gateback')?.addEventListener('click', () => show(1));
 
   /* ── step two: the numbers, with the room drawn beside them ───────── */
-  const sel = $('#gatedoor');
-  if(sel) sel.innerHTML = DOORS.map(d =>
-    `<option value="${d.id}"${d.id === S.door ? ' selected' : ''}>${d.label}</option>`).join('');
+  /* HOW IT OPENS, AS PICTURES, ON THE FRONT WALL OF THE ROOM.
+     A dropdown of eight words asks somebody to imagine eight doors. The
+     tiles sit along the bottom of the drawn room, which is where the
+     door is, and the plan above them redraws as each one is pressed. */
+  const dsel = $('#gatedoor'), dhost = $('#gatedoors');
+  if(dhost) dhost.innerHTML = DOORS.map(d =>
+    `<button type="button" class="rdoor${d.id === S.door ? ' on' : ''}" data-gd="${d.id}"
+       role="radio" aria-checked="${d.id === S.door}" title="${d.note}">
+       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d.art}"/></svg>
+       <i>${d.label}</i></button>`).join('');
+  if(dsel) dsel.value = S.door || 'none';
+  dhost?.addEventListener('click', e => {
+    const b = e.target.closest('[data-gd]'); if(!b) return;
+    if(dsel) dsel.value = b.dataset.gd;
+    dhost.querySelectorAll('.rdoor').forEach(x => {
+      const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on);
+    });
+    /* a door with no width is no door, so picking one proposes a width
+       for it the way the builder does when nobody has typed one */
+    if(b.dataset.gd !== 'none' && !(+form.door.value > 0))
+      form.door.value = defaultDoorW(b.dataset.gd, 0);
+    drawGatePlan();
+  });
+
+  /* the two side walls are one measurement, so they stay the same number */
+  const mirror = (from, to) => { if(form[to]) form[to].value = form[from].value; };
+  form.d?.addEventListener('input',  () => mirror('d', 'd2'));
+  form.d2?.addEventListener('input', () => mirror('d2', 'd'));
 
   function fill(){
     form.w.value = S.room.w; form.d.value = S.room.d; form.h.value = S.room.h;
+    if(form.d2) form.d2.value = S.room.d;
     const shape = form.querySelector(`input[name="shape"][value="${S.shape}"]`);
     if(shape) shape.checked = true;
     const h2 = $('#gate2h');
@@ -5155,7 +5181,7 @@ function openGate(){
        plan is reserved for the widest thing the chosen door does. */
     const dt0 = form.doortype?.value || 'none';
     const sweeps = dt0 === 'swing-l' || dt0 === 'swing-r' || dt0 === 'double';
-    const PAD = { l:52, r:54, t:40, b:(sweeps && dw > 0) ? 104 : 64 }, BOX = 360;
+    const PAD = { l:30, r:32, t:26, b:(sweeps && dw > 0) ? 86 : 44 }, BOX = 420;
     const k = Math.min((BOX - PAD.l - PAD.r) / W, (BOX - PAD.t - PAD.b) / Math.max(D, 1));
     const w = W * k, d = D * k, x0 = PAD.l, y0 = PAD.t;
     const VW = Math.round(w + PAD.l + PAD.r), VH = Math.round(d + PAD.t + PAD.b);
@@ -5219,20 +5245,29 @@ function openGate(){
         <text x="${x0 + w / 2}" y="${y0 + d + 40}" fill="${DIM}" font-size="11" text-anchor="middle">${dw}" ${lab.toLowerCase()}</text>`;
     })();
 
+    /* the returns are not asked for, they are what is left of the front
+       wall once the opening is taken out of the middle of it */
+    const ret = Math.max(0, (W - dw) / 2);
+    const rl = document.getElementById('retL'), rr = document.getElementById('retR');
+    if(rl) rl.textContent = (+ret.toFixed(1)).toString();
+    if(rr) rr.textContent = (+ret.toFixed(1)).toString();
+
     fig.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}"
       role="img" aria-label="${W} inches wide by ${D} inches deep, ${H} inch ceiling"
       font-family="Archivo, system-ui, sans-serif">
-      <rect width="${VW}" height="${VH}" fill="#F7F6F3"/>
+      
       <rect x="${x0}" y="${y0}" width="${w}" height="${d}" fill="#FFFFFF" stroke="${INK}" stroke-width="1.6"/>
       ${band.join('')}
       ${door}
-      <path d="M${x0} ${y0 - 16}h${w}M${x0} ${y0 - 21}v10M${x0 + w} ${y0 - 21}v10" stroke="${DIM}" stroke-width="1.1"/>
-      <text x="${x0 + w / 2}" y="${y0 - 22}" fill="${DIM}" font-size="12" text-anchor="middle">${W}" wall</text>
-      <path d="M${x0 - 16} ${y0}v${d}M${x0 - 21} ${y0}h10M${x0 - 21} ${y0 + d}h10" stroke="${DIM}" stroke-width="1.1"/>
-      <text x="${x0 - 22}" y="${y0 + d / 2}" fill="${DIM}" font-size="12" text-anchor="middle"
-            transform="rotate(-90 ${x0 - 22} ${y0 + d / 2})">${D}" deep</text>
-      <text x="${VW - PAD.r + 8}" y="${y0 + d / 2}" fill="${DIM}" font-size="12" text-anchor="middle"
-            transform="rotate(90 ${VW - PAD.r + 8} ${y0 + d / 2})">${H}" ceiling</text>
+      ${/* THE FIGURES ARE ON THE FIELDS, NOT ON THE PLAN.
+             Each measurement now sits against its own wall outside the
+             box, so printing it on the drawing as well said the same
+             number twice and left the plan looking like a worksheet. The
+             dimension lines stay, because they are what tells you which
+             wall each field is talking about. */''}
+      <path d="M${x0} ${y0 - 14}h${w}M${x0} ${y0 - 19}v10M${x0 + w} ${y0 - 19}v10" stroke="${DIM}" stroke-width="1.1" opacity=".7"/>
+      <path d="M${x0 - 14} ${y0}v${d}M${x0 - 19} ${y0}h10M${x0 - 19} ${y0 + d}h10" stroke="${DIM}" stroke-width="1.1" opacity=".7"/>
+      <path d="M${x0 + w + 14} ${y0}v${d}M${x0 + w + 9} ${y0}h10M${x0 + w + 9} ${y0 + d}h10" stroke="${DIM}" stroke-width="1.1" opacity=".7"/>
     </svg>`;
   }
 
@@ -5308,7 +5343,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=7ecdf932');
+  if(!DRAW) DRAW = await import('./drawing.js?v=782c9991');
   return DRAW;
 }
 
@@ -5872,7 +5907,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=7ecdf932');
+    const { downloadPdf } = await import('./drawing.js?v=782c9991');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -5895,7 +5930,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=7ecdf932');
+    const { downloadPdf } = await import('./drawing.js?v=782c9991');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

@@ -2289,3 +2289,99 @@ body[data-step="order"] .pfoot{display:block}
 
 /* the rule between the three things you can be doing and the add tools */
 .ltools .lsep{border:0;border-top:1px solid var(--line);margin:3px 6px;width:auto}
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE ROOM, DRAWN, WITH EVERY FIGURE ON THE WALL IT MEASURES
+
+   A column of number fields makes somebody hold a picture of their room
+   in their head and hope it matches the one the builder has. The room is
+   drawn in the middle instead and each measurement sits against its own
+   wall, joined to it by a leader, the way a survey sheet is marked up.
+   ══════════════════════════════════════════════════════════════════════ */
+.rdiag{display:grid;gap:0 0;align-items:center;justify-items:center;
+  grid-template-columns:minmax(96px,150px) 16px minmax(0,1fr) 16px minmax(96px,150px);
+  grid-template-rows:auto 18px minmax(0,1fr) auto;
+  margin:.2em 0 1.1em}
+.rf-top{grid-column:3;grid-row:1}
+.rdiag .lead-v{grid-column:3;grid-row:2}
+.rf-left{grid-column:1;grid-row:3}
+.rdiag .lead-h{grid-column:2;grid-row:3}
+.rbox{grid-column:3;grid-row:3}
+.rdiag .lead-h.rev{grid-column:4;grid-row:3}
+.rf-right{grid-column:5;grid-row:3}
+.rf-bl{grid-column:1;grid-row:4}
+.rf-bottom{grid-column:3;grid-row:4}
+.rf-br{grid-column:5;grid-row:4}
+
+/* a measurement, on its wall */
+.rf{display:flex;flex-direction:column;gap:.25em;position:relative;width:100%;
+  max-width:150px;padding:.1em 0}
+.rf > span{font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);white-space:nowrap}
+.rf input{width:100%;min-width:0;font:inherit;font-size:1.02rem;font-variant-numeric:tabular-nums;
+  padding:.46em 1.9em .46em .62em;border:1px solid var(--line);border-radius:11px;
+  background:var(--paper);color:var(--ink);-moz-appearance:textfield;appearance:textfield}
+.rf input::-webkit-outer-spin-button,.rf input::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0}
+.rf input:focus-visible{outline:2px solid var(--accent,#A8824C);outline-offset:1px;
+  border-color:var(--accent,#A8824C)}
+.rf > i{position:absolute;right:.6em;bottom:.62em;font-style:normal;font-size:.7rem;
+  color:var(--ink-3);pointer-events:none}
+.rf.ro{opacity:.8}
+.rf.ro b{display:block;font-weight:500;font-size:1.02rem;font-variant-numeric:tabular-nums;
+  padding:.46em 1.9em .46em .62em;border:1px dashed var(--line);border-radius:11px;
+  background:transparent;color:var(--ink-2)}
+.rf-top,.rf-bottom{max-width:170px;text-align:center}
+.rf-top > span,.rf-bottom > span{text-align:center}
+.rf-bottom{margin-top:.7em}
+.rf-bl,.rf-br{margin-top:.7em}
+
+/* the leader: a line to the wall, with the node on it */
+.lead{display:block;position:relative;background:none}
+.lead-v{width:1px;height:18px;background:var(--line-2)}
+.lead-h{width:16px;height:1px;background:var(--line-2)}
+.lead::after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;
+  background:var(--accent,#A8824C);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#A8824C) 18%,transparent)}
+.lead-v::after{left:50%;bottom:-3px;transform:translateX(-50%)}
+.lead-h::after{top:50%;right:-3px;transform:translateY(-50%)}
+.lead-h.rev::after{right:auto;left:-3px}
+
+/* the room itself */
+.rbox{width:100%;min-width:0;border:1px solid var(--line);border-radius:18px;
+  background:var(--paper);padding:.85em .9em .9em;display:grid;gap:.55em;
+  justify-items:stretch}
+.rbox .rf-h{max-width:132px;margin:0 auto}
+/* THE PLAN IS GIVEN A WINDOW, NOT A WIDTH.
+   Sized by width alone, a deep room came out taller than the screen:
+   the drawing keeps its own proportions, so 108 by 140 is a portrait.
+   It is fitted into a fixed window instead, by whichever side runs out
+   first, so a long thin run and a square walk-in both sit in the same
+   card and the card never grows. */
+.rbox .gateplan{border:0;border-radius:12px;background:transparent;padding:.2em;
+  width:100%;height:clamp(160px,29vh,270px);margin:0;overflow:hidden;
+  display:flex;align-items:center;justify-content:center}
+.rbox .gateplan svg{max-width:100%;max-height:100%;width:auto;height:auto;display:block}
+
+/* how it opens, along the bottom of the room */
+.rdoors{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:5px;
+  width:100%;max-width:640px;margin:0 auto}
+.rdoor{display:grid;justify-items:center;gap:2px;padding:.45em .2em .4em;cursor:pointer;
+  border:1px solid var(--line);border-radius:10px;background:var(--paper);
+  color:var(--ink-3);font:inherit}
+.rdoor svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.3}
+.rdoor i{font-style:normal;font-size:.6rem;line-height:1.1;text-align:center}
+.rdoor:hover{border-color:var(--ink-3);color:var(--ink)}
+.rdoor.on{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink);color:var(--ink);
+  background:color-mix(in srgb,var(--ink) 5%,transparent)}
+
+@media (max-width:760px){
+  .rdiag{grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto auto;gap:.7em}
+  .rdiag .lead{display:none}
+  .rf-top{grid-column:1/-1;grid-row:1;max-width:none}
+  .rbox{grid-column:1/-1;grid-row:2}
+  .rf-left{grid-column:1;grid-row:3}
+  .rf-right{grid-column:2;grid-row:3}
+  .rf-bottom{grid-column:1/-1;grid-row:4;max-width:none}
+  .rf-bl,.rf-br{display:none}
+  .rf{max-width:none}
+}
