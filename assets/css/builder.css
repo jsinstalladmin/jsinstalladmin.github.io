@@ -2216,3 +2216,16 @@ body[data-step="order"] .pfoot{display:block}
 @media (max-width:860px){
   .scene{top:auto;bottom:56px;left:10px}
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ROUND 7 · ONE LINE WHERE THE MINI DRAWING USED TO BE
+   ══════════════════════════════════════════════════════════════════════ */
+.wallline{display:flex;align-items:baseline;gap:.6em;flex-wrap:wrap;
+  padding:0 0 .7em;margin:0 0 .2em;border-bottom:1px solid var(--line)}
+.wallline b{font-size:.86rem;font-weight:500;color:var(--ink)}
+.wallline i{font-style:normal;font-size:.74rem;color:var(--ink-3)}
+.wallline i.full{color:#B4453A}
+.wallline .wacts{margin-left:auto;display:flex;gap:5px}
+
+/* the drawn part illustrations sit exactly where a photograph would */
+.pcard .partart{display:block;width:100%;aspect-ratio:3/4;background:#D3BB97}

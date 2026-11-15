@@ -13,6 +13,119 @@ const PART_TILE = {
   'shoe-slant':'#F0ECE9', 'shoes':'#F4F1ED', 'short-hang':'#F2ECE8'
 };
 
+
+/* ══════════════════════════════════════════════════════════════════════
+   DRAWN PICTURES FOR THE PARTS THAT HAVE NO PHOTOGRAPH
+
+   Six accessories were added before Joseph had studio shots of them, so
+   their cards fell back on the twenty-four pixel line icon that labels a
+   row in a list, blown up on an empty tile. A hairline drawing floating
+   in the middle of a blank square tells a customer nothing about what
+   the thing is, and next to four real photographs it reads as broken.
+
+   These are proper illustrations: the part drawn at the size it is, in
+   the section it lives in, with the board behind it, the chrome shaded
+   and something hung on it so the scale reads. Same four to three box
+   as the photographs, so the grid does not jump. When the photographs
+   arrive they take over and this file loses six functions.
+   ══════════════════════════════════════════════════════════════════════ */
+/* Portrait, because the part cards are portrait: a landscape drawing in a
+   3:4 box is either cropped down its sides or letterboxed into a stamp. */
+const ART_BG = `
+  <defs>
+    <linearGradient id="aw" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E9DAC2"/><stop offset="1" stop-color="#D3BB97"/></linearGradient>
+    <linearGradient id="am" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EFF1F3"/><stop offset=".42" stop-color="#BBC1C6"/>
+      <stop offset=".58" stop-color="#99A0A6"/><stop offset="1" stop-color="#D6DADD"/></linearGradient>
+    <linearGradient id="ag" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F3F5F6"/><stop offset=".5" stop-color="#C6CFD4"/>
+      <stop offset="1" stop-color="#EEF1F2"/></linearGradient>
+  </defs>
+  <rect width="120" height="160" fill="url(#aw)"/>
+  <rect x="0" y="0" width="11" height="160" fill="#C4A57C"/>
+  <rect x="109" y="0" width="11" height="160" fill="#CCAE86"/>
+  <rect x="11" y="0" width="3" height="160" fill="#000" opacity=".07"/>
+  <rect x="106" y="0" width="3" height="160" fill="#000" opacity=".05"/>
+  <rect x="11" y="150" width="98" height="10" fill="#B99B74"/>`;
+const artSvg = inner => `<svg class="partart" viewBox="0 0 120 160"
+  preserveAspectRatio="xMidYMid slice" aria-hidden="true">${ART_BG}${inner}</svg>`;
+
+/* a pull-out peg rack: the glide frame across, n pegs hanging off it */
+const artRack = (n, pegLen, draped) => {
+  let g = `<rect x="16" y="40" width="88" height="6" rx="2" fill="url(#am)"/>
+    <rect x="16" y="46" width="88" height="2.6" fill="#000" opacity=".13"/>
+    <rect x="16" y="34" width="6" height="12" rx="2" fill="#AEB5BA"/>
+    <rect x="98" y="34" width="6" height="12" rx="2" fill="#AEB5BA"/>`;
+  const step = 84 / (n + 1);
+  for(let i = 0; i < n; i++){
+    const x = 18 + step * (i + 1);
+    g += `<rect x="${(x - 1.2).toFixed(1)}" y="45" width="2.4" height="${pegLen}" rx="1.2" fill="url(#ag)"/>
+          <circle cx="${x.toFixed(1)}" cy="${(45 + pegLen).toFixed(1)}" r="1.9" fill="#DADEE1"/>`;
+  }
+  return g + draped;
+};
+
+const PART_ART = {
+  /* a chrome rod that pulls out of a plate on the back, with tomorrow on it */
+  VALET: artSvg(`
+    <rect x="18" y="40" width="12" height="20" rx="3" fill="url(#am)"/>
+    <circle cx="24" cy="45" r="1.3" fill="#8E959A"/><circle cx="24" cy="55" r="1.3" fill="#8E959A"/>
+    <rect x="28" y="47" width="74" height="4.6" rx="2.3" fill="url(#am)"/>
+    <rect x="28" y="51.6" width="74" height="1.8" fill="#000" opacity=".13"/>
+    <circle cx="102" cy="49.3" r="3" fill="#D7DBDE" stroke="#9AA1A6" stroke-width=".7"/>
+    <path d="M66 49.3v7" stroke="#9AA1A6" stroke-width="1.5" fill="none"/>
+    <path d="M56 62h20l10 54H46Z" fill="#54637A"/>
+    <path d="M66 56c-6 1-10 4-10 6h20c0-2-4-5-10-6Z" fill="#44526A"/>
+    <path d="M56 62h20l2 12H54Z" fill="#000" opacity=".07"/>
+    <path d="M46 116h40l-2 8H48Z" fill="#000" opacity=".06"/>`),
+
+  /* thirty ties in three inches, so the pegs are short and there are many */
+  TIE_RACK: artSvg(artRack(11, 13, `
+    <path d="M33 58c0 12-3 18-3 26l4 8 4-8c0-8-3-14-3-26Z" fill="#3E4C60"/>
+    <path d="M58 58c0 12-3 18-3 26l4 8 4-8c0-8-3-14-3-26Z" fill="#8A7C6A"/>
+    <path d="M83 58c0 12-3 18-3 26l4 8 4-8c0-8-3-14-3-26Z" fill="#5E6B55"/>`)),
+
+  /* the same frame, longer pegs, belts coiled over them */
+  BELT_RACK: artSvg(artRack(7, 19, `
+    <path d="M30 64c0 16-4 20-4 30h8c0-10-4-14-4-30Z" fill="#6A4B32"/>
+    <rect x="25" y="94" width="8" height="6" rx="1" fill="#C9A96A"/>
+    <path d="M62 64c0 16-4 20-4 30h8c0-10-4-14-4-30Z" fill="#2E2A27"/>
+    <rect x="57" y="94" width="8" height="6" rx="1" fill="#C3C7CA"/>`)),
+
+  /* wide loops, because a scarf creases over a peg */
+  SCARF_RACK: artSvg(`
+    <rect x="16" y="40" width="88" height="6" rx="2" fill="url(#am)"/>
+    <rect x="16" y="46" width="88" height="2.6" fill="#000" opacity=".13"/>
+    ${[0,1,2,3].map(i => {
+      const x = 24 + i * 22;
+      return `<path d="M${x} 46v8a7 8 0 1 0 13 0v-8" fill="none" stroke="#C3C9CD" stroke-width="2.4"/>`;
+    }).join('')}
+    <path d="M30 56c7 16 3 30-4 40 9 3 16-1 20-7 5 10 12 14 19 10-8-10-11-26-7-43Z"
+      fill="#A4514C" opacity=".93"/>`),
+
+  /* arms that pull out, trousers hanging full length off two of them */
+  PANTS_RACK: artSvg(`
+    <rect x="16" y="22" width="6" height="110" rx="2" fill="url(#am)"/>
+    <rect x="98" y="22" width="6" height="110" rx="2" fill="url(#am)"/>
+    ${[0,1,2,3,4,5].map(i => {
+      const y = 28 + i * 15;
+      return `<rect x="21" y="${y}" width="78" height="3.2" rx="1.6" fill="url(#ag)"/>
+              <circle cx="97" cy="${y + 1.6}" r="2.1" fill="#D9DDE0"/>`;
+    }).join('')}
+    <path d="M30 31h22l-3 86h-7l-3.5-54-3.5 54h-7Z" fill="#43505F" opacity=".95"/>
+    <path d="M66 46h22l-3 72h-7l-3.5-44-3.5 44h-7Z" fill="#8E8273" opacity=".95"/>`),
+
+  /* a mirrored front: what it shows is the whole point of it */
+  MIRROR: artSvg(`
+    <rect x="16" y="8" width="88" height="144" rx="3" fill="#B49C78"/>
+    <rect x="21" y="13" width="78" height="134" rx="2" fill="url(#ag)"/>
+    <rect x="21" y="13" width="78" height="134" fill="#AFC2CB" opacity=".42"/>
+    <path d="M21 124 99 36v30L21 142Z" fill="#FFFFFF" opacity=".3"/>
+    <path d="M21 58 99 13v13L21 78Z" fill="#FFFFFF" opacity=".22"/>
+    <rect x="92" y="74" width="3.6" height="13" rx="1.8" fill="#C3C7CA"/>`)
+};
+
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS, PRESET_ALIAS,
          presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit, wallGap,
@@ -20,11 +133,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=4d433c21';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=716881c9';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=4d433c21';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=716881c9';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=4d433c21';
+         clothMaterials, clearCaches } from './materials.js?v=716881c9';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -828,67 +941,49 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
   const moving = (MOVING && (performance.now() - MOVING < 130)) || DRAGGING;
   if(!moving && MOVING){ MOVING = 0; needsFrame = true; }
   /* the one frame where the expensive passes are worth paying for */
-  /* Drop any wall the camera has moved behind, so nothing is ever drawn
-     between the viewer and the cabinetry.
-
-     This flipped .visible but did not ask for a frame, so the change sat in
-     the scene graph unrendered and the wall stayed on screen until something
-     else happened to trigger a draw. Culling a wall IS a change to the
-     picture, so it has to say so. */
   /* ══════════════════════════════════════════════════════════════════
-     WHATEVER IS BETWEEN YOU AND THE CLOSET GETS OUT OF THE WAY
+     NOTHING STANDS BETWEEN YOU AND THE RUN YOU ARE WORKING ON
 
-     The old rule asked where the camera was STANDING: outside this
-     wall's plane or inside it. That only answers the head-on case. Swing
-     round to look at the right-hand run and the camera is usually still
-     inside the room, so the left-hand wall counted as "inside", stayed
-     drawn, and so did the whole run of cabinetry standing against it,
-     filling a third of the frame with the back of a tower you are not
-     working on.
+     Five rules have been tried here. Each one was true and each one was
+     only half the answer, which is why something has been left standing
+     in the frame every single round.
 
-     The rule is now about where you are LOOKING. Take the direction from
-     the camera to what it is pointed at, and anything whose inward
-     normal agrees with that direction is a thing you are looking
-     through: it is between you and the room. Walls go first, and the
-     cabinetry standing against them goes with them, because a run seen
-     edge-on blocks just as much as a wall does.
+     Half one: a run is bolted to a wall, so if you are looking THROUGH
+     that wall you are looking through its cabinetry as well. Take the
+     direction the camera points and drop anything whose inward normal
+     agrees with it. That gets rid of the run you have walked behind.
 
-     The run you are actually editing never disappears, however you turn. */
-  /* ══════════════════════════════════════════════════════════════════
-     A RUN BELONGS TO ITS WALL, AND THEY GO AWAY TOGETHER
+     Half two, the one that was missing: a run can be side-on to the
+     camera, not behind you at all, and still be planted squarely between
+     you and the wall you are trying to read. Standing out past the front
+     left corner and looking at the back wall, the left-hand run is
+     side-on. Its normal says nothing. It is simply in the way.
 
-     Four rules were tried and all four were inventions: which side of the
-     plane the camera stands on, which way it faces, how far the run is
-     from the point it is aimed at, how far it is compared with the run
-     being edited. Every one of them could keep a wall and drop its run,
-     or drop a wall and keep its run, which is the thing that has been
-     standing in the way of every view for five rounds.
+     So both: a run is drawn when you are not looking through its wall
+     AND it is not nearer to you than the run you have open. Nearer is
+     measured to the closest corner of each run's own box, which is one
+     clamp rather than a walk over sixty panels, and it does not care
+     about angles at all, which is exactly why it works where five angle
+     rules did not.
 
-     17squares does something far simpler and it is obviously right. A
-     run of cabinetry is not a separate object floating in a room. It is
-     bolted to a wall, it is as tall and as long as that wall, and from
-     any angle where you are looking THROUGH that wall you are looking
-     through the cabinetry on it as well. So there is one test, not two:
-     take the direction the camera is pointing, and anything whose inward
-     normal agrees with it is behind you or beside you and is in the way.
-     Wall, baseboard and the whole run on it go out as one thing.
+     With nothing selected there is no "the run you are working on", so
+     only the first half applies and the whole room is drawn.
 
-     Looking straight down the room at the back wall: the near wall and
-     its door go, the two side walls are edge-on and stay, so do their
-     runs. Swing round to the right-hand run: the left wall and the left
-     run go together, and nothing is left standing in the frame. Climb
-     straight up over the room: every normal is square to the view, so
-     everything stays and you read the layout from above.
-
-     The look vector is NOT flattened. Flattening it meant a steep
-     overhead view normalised a near-zero vector into whatever rounding
-     left behind, which is why the picture changed as you tilted. Used
-     whole, a steep view simply brings every dot toward zero, which is
-     the right answer: from overhead, nothing is in front of anything. */
+     The look vector is NOT flattened. Flattened, a steep overhead view
+     normalises a near-zero vector into whatever rounding leaves behind.
+     Used whole, a steep view brings every dot toward zero, which is the
+     right answer: from overhead nothing is in front of anything. */
   _look.copy(ctl.target).sub(cam.position);
   if(_look.lengthSq() > 1e-6){
     _look.normalize();
     let frontVis = true;
+    /* how far away the run being edited is, or null when none is open */
+    const selWall = S.sel?.wall;
+    let selDist = null;
+    if(selWall && RUNBOX[selWall]){
+      RUNBOX[selWall].clampPoint(cam.position, _near);
+      selDist = cam.position.distanceTo(_near);
+    }
     for(const w of WALLS){
       const vis = _look.dot(w.n) < 0.15;
       if(w.tag === 'front') frontVis = vis;
@@ -900,9 +995,18 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
       }
       /* and the cabinetry standing on it */
       const list = RUNMESH[w.tag];
-      if(list && list.length && list[0].visible !== vis){
-        for(const m of list) m.visible = vis;
+      if(!list || !list.length) continue;
+      let rv = vis;
+      if(rv && selDist != null && w.tag !== selWall && RUNBOX[w.tag]){
+        RUNBOX[w.tag].clampPoint(cam.position, _near);
+        /* 2" of slack so two runs level with each other, which is what
+           the two ends of a corner are, do not flicker in and out */
+        if(cam.position.distanceTo(_near) < selDist - 2) rv = false;
+      }
+      if(list[0].visible !== rv){
+        for(const m of list) m.visible = rv;
         needsFrame = true;
+        dimDirty = true;
       }
     }
     /* THE DOOR IS PART OF THE NEAR WALL.
@@ -1520,19 +1624,46 @@ function drawCloset(res){
        selectable, and it is not part of anything the workshop cuts. */
     if(!g.prop && g.wall && g.bay != null)
       m.userData = { wall:g.wall, i:g.bay, si:g.si, mod:g.mod, part:true };
-    /* The clothes, the folded stacks and the shoes belong to the run they
-       are standing in, so they leave with it. Culling the cabinetry and
-       leaving its shoes behind put a dozen pairs on the bare floor in the
-       middle of the room. An appliance carries no bay, so it stays: it
-       belongs to the room, not to a run. */
-    if(g.bay != null && RUNMESH[g.wall]) RUNMESH[g.wall].push(m);
+    /* ══════════════════════════════════════════════════════════════
+       EVERYTHING ON A WALL LEAVES WITH THAT WALL. EVERYTHING.
+
+       THIS is what has been standing in the way for twelve rounds, and
+       it was never the culling rule. It was this line. It said `g.bay
+       != null`, and a bay number is only stamped on the pieces INSIDE a
+       tower: the shelves, the rods, the drawer boxes, the shoes. The
+       carcass itself carries no bay. The partitions, the top shelf and
+       the toe kick are cut from the run, not from a tower, so they were
+       never put on this list and never culled.
+
+       So every rule I wrote did exactly what it said, and what you saw
+       was a run with its insides taken out and its box still standing
+       there in front of you. He described it precisely two rounds ago:
+       "you remove the stuff from inside the closet but you left the
+       closet towers still there in the front." The towers WERE the
+       carcass.
+
+       A piece belongs to the run on its wall. That is the whole test.
+       The washer and the dryer go too: a machine standing against a
+       wall you are looking through is in the way exactly as much as a
+       panel is, and leaving it behind floats it in an empty room, which
+       is the same bug the baseboard had. */
+    if(g.wall && RUNMESH[g.wall]) RUNMESH[g.wall].push(m);
     root.add(m);
   });
   // invisible pick volumes, one per bay, so you can click the closet to edit it
   const run = r => cfg().runs.find(x=>x.wall===r);
   res.bays.forEach(b=>{
     const r=run(b.wall); if(!r) return;
-    const g=new THREE.Mesh(new THREE.BoxGeometry(b.w-1, b.h, b.depth),
+    /* A SIDE RUN IS TURNED NINETY DEGREES AND ITS PICK BOX WAS NOT.
+       This was built as width-across-X and depth-through-Z for every
+       wall, so on a left or right run the invisible box you click was
+       lying across the room instead of along the wall: 27" deep into
+       the room and 24" along it, for a tower that is the other way
+       round. Clicking near the end of a side tower hit nothing, and the
+       selection outline drawn from this same box was the wrong shape. */
+    const px = b.wall === 'back' ? b.w - 1 : b.depth;
+    const pz = b.wall === 'back' ? b.depth : b.w - 1;
+    const g=new THREE.Mesh(new THREE.BoxGeometry(px, b.h, pz),
       new THREE.MeshBasicMaterial({visible:false}));
     const y=baseHeight(S.mounting, placedFittings())+b.h/2;
     const local={p:[b.x,y,0]};
@@ -1563,7 +1694,8 @@ function drawCloset(res){
      edges, so the selection reads as a crisp outline on cabinetry. */
   if(S.sel){
     const hit=picks.children.find(o=>o.userData.wall===S.sel.wall&&o.userData.i===S.sel.i);
-    if(hit){
+    const b2 = res.bays.find(x => x.wall === S.sel.wall && x.bay === S.sel.i);
+    if(hit && b2){
       /* depthTest:false drew this outline straight THROUGH the cabinetry, so
          every panel looked see-through and the whole drawing read as a wire
          sketch rather than solid boxes. The outline now respects depth and is
@@ -1571,18 +1703,44 @@ function drawCloset(res){
          crisp on the near faces without ghosting through the far ones. */
       const outline = new THREE.LineSegments(
         new THREE.EdgesGeometry(hit.geometry, 1),
-        new THREE.LineBasicMaterial({ color:0xCDA96E, transparent:true, opacity:.95,
+        new THREE.LineBasicMaterial({ color:0xB4852F, transparent:false,
           depthTest:true, depthWrite:false,
           polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 }));
       outline.position.copy(hit.position);
-      outline.scale.set(1.006, 1.002, 1.006);
+      outline.scale.set(1.008, 1.003, 1.008);
       root.add(outline);
 
-      /* There used to be a translucent gold box over the whole section as
-         well. On a tower with cabinetry in it you barely saw it; on an EMPTY
-         one there was nothing behind it, so the three faces you see at once
-         stacked up into a solid yellow block sitting in the room. The outline
-         says which section is selected on its own. */
+      /* ══════════════════════════════════════════════════════════════
+         AND A WASH OVER THE FRONT OF IT
+
+         An outline alone is four hairlines on a wall of hairlines: on a
+         closet of eight towers you cannot see at a glance which one the
+         panel is talking about. A translucent box over the WHOLE tower
+         was tried and is worse, because on an empty tower the three
+         faces you see at once stack into a solid yellow block standing
+         in the room.
+
+         So it is one pane, on the front of the tower only, the way
+         17squares washes the one you have picked. Thin, depth-tested,
+         and it never writes depth, so the cabinetry behind it is read
+         straight through it. */
+      const fw = b2.wall === 'back' ? b2.w - 1 : 0.6;
+      const fd = b2.wall === 'back' ? 0.6 : b2.w - 1;
+      const wash = new THREE.Mesh(new THREE.BoxGeometry(fw, b2.h, fd),
+        new THREE.MeshBasicMaterial({ color:0xC79A4B, transparent:true, opacity:.2,
+          depthWrite:false }));
+      wash.position.copy(hit.position);
+      const halfD = (b2.depth || 24) / 2;
+      if(b2.wall === 'back')  wash.position.z += halfD;
+      if(b2.wall === 'left')  wash.position.x += halfD;
+      if(b2.wall === 'right') wash.position.x -= halfD;
+      root.add(wash);
+
+      /* It belongs to the run it marks, so it leaves with it. Left out
+         of this list, a gold outline stayed hanging in mid air after
+         its own cabinetry had been culled out of the way. */
+      const rl = RUNMESH[S.sel.wall];
+      if(rl){ rl.push(outline); rl.push(wash); }
     }
   }
   /* The shadow map is 2560 square and every rebuild asked for a fresh one.
@@ -2474,124 +2632,41 @@ function paintBays(){
     const len  = wallLength(wall);
     const used = r.bays.reduce((a,b)=>a+b.w,0);
     const left = len - used;
-    /* ONE WALL OPEN AT A TIME, ALWAYS.
-       An empty wall used to stay open "because there is nothing to fold",
-       which meant a fresh three-wall room opened with all three unfolded,
-       three sets of widths and depths on screen, and no clue which one you
-       were supposed to start on. The back wall is open, the others are a
-       line you press. */
-    const open = true;                       // only the selected wall is drawn
     const d=document.createElement('div');
     d.className='runblk' + (walls.length > 1 ? ' chipped' : '');
     d.dataset.wall=wall;
 
-    /* which preset widths still fit in what is left of this wall */
-    const fits = BAY_PRESETS.filter(w => w <= left + 0.01);
-    const pct  = len ? Math.min(100, (used/len)*100) : 0;
+    /* ══════════════════════════════════════════════════════════════
+       THE MINI DRAWING AT THE TOP OF THE PANEL IS GONE
 
-    /* ---- the wall, drawn to scale ---------------------------------------
-       Every section sits at its real distance from the left corner and can be
-       dragged anywhere along the wall, corner to corner, with the inches
-       shown while you move it. The bare wall between towers is drawn as a
-       gap you can click to drop a tower straight into. */
-    const pc = v => ((v / Math.max(1, len)) * 100).toFixed(3) + '%';
-    /* Gaps and towers are measured along the same wall, so they are rounded
-       together: left to right, every number whole, and the row adds up to the
-       wall underneath it. */
-    const tape = wholeTape(
-      [...gapsOn(wall).map(g => ({ kind:'gap', w:g.w, at:g.at })),
-       ...layout(wall).map(sb => ({ kind:'bay', w:sb.w, at:sb.at, sb }))]
-        .sort((a,b) => a.at - b.at),
-      len);
-    const strip = r.bays.length
-      ? `<div class="baytrack" data-track="${wall}">
-          ${tape.filter(t => t.kind === 'gap' && t.w > 1.5).map(g => {
-            const fits = g.w >= SPEC.bayMin - 0.01;
-            return `<button class="gapslot ${fits ? 'can' : ''}"
-              style="left:${pc(g.at)};width:${pc(g.w)}"
-              data-bay="${fits ? 'addgap' : 'nofit'}" data-wall="${wall}"
-              data-at="${g.at.toFixed(1)}" data-gw="${g.w.toFixed(1)}"
-              title="${fits
-                ? `${g.n}&quot; of bare wall, ${Math.round(g.at)}&quot; from the corner. Click to put a tower here.`
-                : `${g.n}&quot; of wall, under the ${SPEC.bayMin}&quot; minimum for a tower.`}">
-              <span class="gapn">${g.n}"</span>
-              ${fits ? '<span class="gapadd">+</span>' : ''}</button>`;
-          }).join('')}
-          ${tape.filter(t => t.kind === 'bay').map(t => { const sb = t.sb;
-            return `<button class="bay ${S.sel?.wall===wall&&S.sel?.i===sb.i?'on':''}"
-            style="left:${pc(sb.at)};width:${pc(sb.w)}"
-            data-wall="${wall}" data-i="${sb.i}" data-drag="1"
-            title="${sb.bay.stack.length ? sb.bay.stack.length+' item'+(sb.bay.stack.length===1?'':'s') : 'empty'} &middot; ${Math.round(sb.at)}&quot; from the corner. Drag it anywhere along the wall.">
-            <span class="bstack">${miniStack(sb.bay)}</span>
-            <span class="bw">${t.n}"</span>
-            <span class="bat">${Math.round(sb.at + baseGap())}"</span></button>`;
-          }).join('')}
-        </div>
-        <div class="bruler"><span>${Math.round(baseGap())}"</span>
-          ${baseGap() ? `<em>measured from the wall corner, the run starts ${baseGap()}" out at the baseboard</em>` : ''}
-          <span>${Math.round(len + baseGap())}"</span></div>`
-      : `<p class="note emptyrun">Nothing on this wall yet. Pick a width below and it lands in the left corner, where you can drag it anywhere along the wall.</p>`;
+       A scale strip of the wall with a chip per tower, a progress bar,
+       a ruler under it, a row of widths to add, "into the corner",
+       "space them evenly" and a notice when the wall was full. All of
+       it a second, smaller, worse copy of the drawing already filling
+       two thirds of the screen, and all of it above the thing you had
+       actually pressed. 17squares has none of it and is the clearer
+       page for it: you pick a tower by pressing the tower.
 
-    /* The width buttons used to be five bare numbers with a little bar, which
-       says nothing about why you would pick one. Each now says what that width
-       is actually for, and the "rest of the wall" option is spelled out. */
-    const WHY = {
-      24:'The narrowest we build. A drawer bank, shoes, or a tight return.',
-      28:'A single hanging section without wasting wall.',
-      30:'The usual drawer and hanging width. Fits a 30" drawer box.',
-      32:'Roomy hanging, or four drawers across.',
-      36:'The widest a ¾" shelf spans without bowing.'
-    };
-    /* ADDING A TOWER WAS FIVE BIG CARDS WITH A PARAGRAPH EACH.
-       Six hundred pixels of panel to answer "how wide", on a step where
-       the thing being worked on is the tower already selected. It is a
-       row of widths now, each one carrying its reason as its tooltip,
-       and the reasons are not gone, they are just not shouting. */
-    const addBlock = !r.bays.length || left >= SPEC.bayMin
-      ? `<div class="addrow2">
-          <span class="addlb"><b>${r.bays.length ? 'Add a tower' : 'Add your first tower'}</b>
-            <i>${left.toFixed(0)}" free</i></span>
-          <span class="addw">
-            ${fits.map(w=>`<button data-bay="addw" data-wall="${wall}" data-w="${w}"
-              title="${(WHY[w]||'').replace(/"/g,'&quot;')}">${w}"</button>`).join('')}
-            ${left >= SPEC.bayMin ? `<button class="fill" data-bay="addfill" data-wall="${wall}"
-              title="Fill what is left of the wall in one tower.">${clampBay(left).toFixed(0)}" fill</button>` : ''}
-          </span>
-        </div>`
-      : `<div class="addrow2 full">
-          <span class="addlb"><b>This wall is full</b>
-            <i>All ${len.toFixed(0)}" used. Narrow a tower to make room.</i></span>
-          ${r.bays.length > 1 ? `<span class="addw"><button data-bay="even" data-wall="${wall}">Equal widths</button></span>` : ''}
-        </div>`;
-
-    d.innerHTML = `<div class="runhd2">
+       What is left is one line that says how much of the wall is used,
+       because that is a fact you cannot read off the drawing, and the
+       two tidy-up buttons, which have no equivalent anywhere else.
+       Adding a tower is the button on the rail beside the drawing. */
+    const full = left < SPEC.bayMin;
+    d.innerHTML = `<div class="wallline">
         <b>${WALL_LABEL[wall]}</b>
-        <span class="runmeta ${left < -0.5 ? 'over' : ''}">
-          <span class="runbar"><span style="width:${pct.toFixed(1)}%"></span></span>
-          <i>${Math.round(used)}" of ${Math.round(len)}"${left>0.5?` &middot; ${Math.round(left)}" free`:''}</i>
-        </span></div>
-      <div class="runbody">
-        ${/* DEPTH MOVED. It used to sit at the top of every wall block,
-             which is a long way from the tower it changes. It is now in
-             the panel for the selected tower, where the reference software
-             puts it, and printing it in both places meant two controls for
-             one number. */''}
-        ${strip}
-        ${r.bays.length > 0 ? `<div class="trackacts">
+        <i class="${full ? 'full' : ''}">${Math.round(used)}" of ${Math.round(len)}" used${
+          full ? '' : ` &middot; ${Math.round(left)}" free`}</i>
+        ${r.bays.length > 1 ? `<span class="wacts">
           <button class="btn-mini" data-bay="tidy" data-wall="${wall}"
             title="Push every tower back into the left corner, shoulder to shoulder">Into the corner</button>
-          ${r.bays.length > 1 ? `<button class="btn-mini" data-bay="even" data-wall="${wall}"
-            title="Equal towers with equal air between them, across the whole wall">Space them evenly</button>` : ''}
-        </div>` : ''}
-        ${/* THE WALL FIRST, THEN THE TOWER.
-             "Add a tower" and "this wall is full" are about the WALL, so
-             they belong with the strip that draws it. They were printing
-             underneath the tower panel, which put a note about the wall
-             four hundred pixels below the thing it was talking about and
-             after every option on the page. */''}
-        ${addBlock}
-        <div class="stackslot"></div>
-      </div>`;
+          <button class="btn-mini" data-bay="even" data-wall="${wall}"
+            title="Equal towers with equal air between them, across the whole wall">Space them evenly</button>
+        </span>` : ''}
+      </div>
+      ${r.bays.length ? '' : `<p class="note emptyrun">Nothing on this wall yet.
+        Press <b>Add tower</b> on the rail beside the drawing and it lands in the left corner,
+        where you can drag it anywhere along the wall.</p>`}
+      <div class="stackslot"></div>`;
     host.appendChild(d);
   }
   $('#bayNote').textContent = PROP_NOTE
@@ -3203,6 +3278,8 @@ function paintStack(){
      no other change. */
   const partArt = (d, id) => {
     const img = d.img || id.toLowerCase().replace(/_/g,'-');
+    /* a drawn illustration where there is no photograph yet */
+    if(PART_ART[id]) return PART_ART[id];
     if(d.nopic) return `<span class="pdraw" aria-hidden="true">
       <svg viewBox="0 0 24 32" fill="none" stroke="currentColor"><path d="${d.icon}"/></svg></span>`;
     return `<img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
@@ -4376,43 +4453,99 @@ $('#ltools')?.addEventListener('click', e => {
 
 /* nothing to put components into until there is a tower */
 function paintDims(){
-  /* looked up each time rather than held in a module const: this runs from
-     the render loop, which starts its first frame before the bottom half of
-     this file has finished evaluating. */
+  /* ══════════════════════════════════════════════════════════════════
+     THE SIZES ONLY GO ON WHEN THEY MEAN SOMETHING
+
+     Written on every frame for every tower, they came apart: labels
+     landing on top of each other, labels for a run that had been culled
+     away, labels floating over the face of a panel you had zoomed into.
+     A measurement you cannot trust the position of is worse than no
+     measurement, so there are four gates now.
+
+     The run has to actually be on screen. The camera has to be outside
+     it rather than nose against a panel. The whole wall has to fit the
+     frame, because a figure for a tower whose edges are off both sides
+     of the screen is pointing at nothing. And no two labels may overlap:
+     where they would, the nearer tower keeps its figure and the other
+     drops, which is what a draughtsman does on paper.
+
+     Looked up fresh each call rather than held in a module const: this
+     runs from the render loop, which starts its first frame before the
+     bottom half of this file has finished evaluating. */
   const DIMLAY = document.getElementById('dimlay');
   if(!DIMLAY) return;
-  const _pv = new THREE.Vector3();
+  const off = () => { if(DIMLAY.firstChild) DIMLAY.textContent = ''; };
   const flat = document.getElementById('v2d');
-  if((flat && !flat.hidden) || !cur || !S.sel){ if(DIMLAY.childNodes.length) DIMLAY.textContent = ''; return; }
+  if((flat && !flat.hidden) || !cur || !S.sel) return off();
   const wall = S.sel.wall;
+  /* gate 1: the run is drawn */
+  const run = RUNMESH[wall];
+  if(!run || !run.length || !run[0].visible) return off();
   const list = (cur.bays || []).filter(b => b.wall === wall);
-  if(!list.length){ DIMLAY.textContent = ''; return; }
+  if(!list.length) return off();
+  /* gate 2: the camera is outside the cabinetry, not inside a panel */
+  const box = RUNBOX[wall];
+  if(box){
+    box.clampPoint(cam.position, _near);
+    if(cam.position.distanceTo(_near) < 12) return off();
+  }
   const cv = renderer.domElement.getBoundingClientRect();
   const W = cv.width, H = cv.height;
-  if(!W || !H){ return; }
+  if(!W || !H) return;
   const RW = S.room.w, RD = S.room.d;
-  /* where a point on this wall's run is in the room */
+  const _pv = new THREE.Vector3();
   const at = (along, y, dep) => wall === 'back'  ? [along, y, dep]
                               : wall === 'left'  ? [dep, y, along]
                               :                    [RW - dep, y, along];
-  const put = (along, y, dep, text, cls) => {
+  const screen = (along, y, dep) => {
     const w3 = at(along, y, dep);
     _pv.set(w3[0], w3[1], w3[2]).project(cam);
-    if(_pv.z > 1) return '';                       // behind the camera
-    const x = (_pv.x * 0.5 + 0.5) * W, yy = (-_pv.y * 0.5 + 0.5) * H;
-    if(x < -60 || x > W + 60 || yy < -40 || yy > H + 40) return '';
-    return `<b class="${cls}" style="left:${x.toFixed(0)}px;top:${yy.toFixed(0)}px">${text}</b>`;
+    if(_pv.z > 1) return null;                       // behind the camera
+    return { x:(_pv.x * 0.5 + 0.5) * W, y:(-_pv.y * 0.5 + 0.5) * H };
   };
   const along = b => wall === 'back' ? b.x : (b.alongRoom != null ? b.alongRoom : (b.start || 0) + b.x);
-  const num = v => (+v.toFixed(1)).toString() + '"';
-  let top = 0, html = '';
-  for(const b of list){
-    top = Math.max(top, b.top);
-    html += put(along(b), b.top + 3, (b.depth || 24) / 2, num(b.w),
-                'bw' + (S.sel.i === b.bay ? ' tot' : ''));
-  }
   const span = wall === 'back' ? RW : RD;
-  html += put(span / 2, top + 11, (list[0].depth || 24) / 2, num(span) + ' wall', 'tot');
+  const dep  = (list[0].depth || 24) / 2;
+  let top = 0; for(const b of list) top = Math.max(top, b.top);
+
+  /* gate 3: the whole wall is in the frame */
+  const a = screen(0, top, dep), z = screen(span, top, dep);
+  if(!a || !z) return off();
+  const runPx = Math.abs(z.x - a.x);
+  if(runPx > W * 1.6 || runPx < 40) return off();
+
+  /* gate 4: no two figures on top of each other */
+  const marks = [];
+  for(const b of list){
+    const pt = screen(along(b), b.top + 3, dep); if(!pt) continue;
+    if(pt.x < 2 || pt.x > W - 2 || pt.y < 2 || pt.y > H - 2) continue;
+    marks.push({ ...pt, t:(+b.w.toFixed(1)) + '"', sel:S.sel.i === b.bay,
+                 d:Math.abs(pt.x - (a.x + z.x) / 2) });
+  }
+  marks.sort((m, n) => m.x - n.x);
+  const kept = [];
+  for(const m of marks){
+    const halfW = m.t.length * 4 + 9;
+    const last = kept[kept.length - 1];
+    if(last && m.x - last.x < halfW + last.t.length * 4 + 9){
+      /* the one nearer the middle of the wall is the one worth keeping */
+      if(m.d < last.d) kept[kept.length - 1] = m;
+      continue;
+    }
+    kept.push(m);
+  }
+  /* ON ONE LINE, THE WAY A DIMENSION STRING IS DRAWN.
+     Each figure sat at its own tower's projected top, so perspective
+     spread four numbers across sixty pixels of height and the row read
+     as scattered rather than as a measurement. They share a line now:
+     the topmost of them, pushed down clear of the page title and the
+     scene controls, with the overall figure on its own line above. */
+  if(!kept.length) return off();
+  const row = Math.max(186, Math.min(H - 26, Math.min(...kept.map(m => m.y))));
+  let html = kept.map(m => `<b class="${m.sel ? 'tot' : ''}" style="left:${m.x.toFixed(0)}px;top:${row.toFixed(0)}px">${m.t}</b>`).join('');
+  const tot = screen(span / 2, top, dep);
+  if(tot && tot.x > 2 && tot.x < W - 2)
+    html += `<b class="tot" style="left:${tot.x.toFixed(0)}px;top:${(row - 26).toFixed(0)}px">${(+span.toFixed(1))}" wall</b>`;
   DIMLAY.innerHTML = html;
 }
 
@@ -4711,7 +4844,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=4d433c21');
+  if(!DRAW) DRAW = await import('./drawing.js?v=716881c9');
   return DRAW;
 }
 
@@ -5167,7 +5300,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=4d433c21');
+    const { downloadPdf } = await import('./drawing.js?v=716881c9');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -5190,7 +5323,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=4d433c21');
+    const { downloadPdf } = await import('./drawing.js?v=716881c9');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
