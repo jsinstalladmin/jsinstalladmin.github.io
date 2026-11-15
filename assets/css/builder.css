@@ -2108,3 +2108,111 @@ body[data-step="order"] .pfoot{display:block}
 .tdnum input::-webkit-outer-spin-button,
 .tdnum input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .tdnum i{font-style:normal;font-size:.68rem;color:var(--ink-3)}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ROUND 6 · THE PANEL REORGANISED THE WAY 17SQUARES HAS IT
+
+   Depth is a dropdown in the tower's own header instead of a row of
+   chips four lines deep. The ready-made towers are the tower panel
+   rather than something hidden behind a sentence. And the two things
+   that are true of the whole closet, its colour and hardware, and the
+   room it stands in, sit at the foot of the column where they can
+   always be reached.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* depth, in the header */
+.dsel{display:inline-flex;align-items:center;gap:.45em;font-size:.72rem;
+  letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.dsel select{font:inherit;font-size:.78rem;letter-spacing:0;text-transform:none;
+  color:var(--ink);background:var(--paper);border:1px solid var(--line);
+  border-radius:8px;padding:.3em 1.5em .3em .55em;line-height:1.1;cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%238a8278' stroke-width='1.3'><path d='M1 1.3 5 4.7 9 1.3'/></svg>");
+  background-repeat:no-repeat;background-position:right .5em center;background-size:9px}
+.dsel select:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+/* the option blocks at the foot of the panel */
+.optblk{margin-top:1.4em;padding-top:1.1em;border-top:1px solid var(--line)}
+.orow{display:flex;align-items:center;gap:.7em;justify-content:space-between;
+  padding:.42em 0;flex-wrap:wrap}
+.olab{font-size:.78rem;color:var(--ink-2);flex:0 0 auto}
+.opick{display:flex;gap:6px;flex-wrap:wrap}
+.opick button{width:26px;height:26px;padding:0;border:1px solid var(--line);
+  border-radius:50%;background:var(--paper);cursor:pointer;display:grid;place-items:center}
+.opick.wide button{width:auto;min-width:40px;height:26px;border-radius:8px;padding:0 .45em}
+.opick button:hover{border-color:var(--ink-3)}
+.opick button.on{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.tdot{width:16px;height:16px;border-radius:50%;display:block;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.obtn{display:inline-flex;align-items:center;gap:.5em;border:1px solid var(--line);
+  background:var(--paper);border-radius:9px;padding:.3em .6em .3em .3em;cursor:pointer;
+  font:inherit;font-size:.78rem;color:var(--ink);max-width:62%}
+.obtn:hover{border-color:var(--ink-3)}
+.obtn[disabled]{opacity:.5;cursor:default}
+.obtn .swc{width:20px;height:20px;border-radius:5px;display:block;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);flex:0 0 auto}
+.obtn i{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* the door, as pictures */
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:7px;margin:.3em 0 .5em}
+.dcard{border:1px solid var(--line);border-radius:11px;background:var(--paper);
+  padding:.55em .3em .45em;cursor:pointer;display:grid;gap:.3em;justify-items:center;
+  font:inherit;color:var(--ink-2);text-align:center}
+.dcard svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.3}
+.dcard i{font-style:normal;font-size:.68rem;line-height:1.15}
+.dcard:hover{border-color:var(--ink-3);color:var(--ink)}
+.dcard.on{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink);color:var(--ink)}
+
+/* the X that takes a tower off, right on the drawing */
+.towerx{position:absolute;z-index:4;width:22px;height:22px;border-radius:50%;
+  border:1px solid var(--line);background:var(--paper);color:var(--ink-2);
+  display:grid;place-items:center;cursor:pointer;padding:0;
+  box-shadow:0 1px 4px rgba(0,0,0,.14)}
+.towerx svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:1.8}
+.towerx:hover{border-color:#B4453A;color:#B4453A}
+
+/* the sizes written across the top of the 3D */
+.dimlay{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}
+.dimlay b{position:absolute;transform:translate(-50%,-50%);font-weight:500;
+  font-size:.68rem;letter-spacing:.01em;color:var(--ink);background:rgba(255,253,250,.86);
+  border:1px solid var(--line);border-radius:6px;padding:.1em .38em;white-space:nowrap}
+.dimlay b.tot{font-size:.74rem;background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+/* the X on the selected tower in the flat drawing */
+.towerkill{cursor:pointer}
+.towerkill circle{fill:var(--paper);stroke:var(--line);stroke-width:1}
+.towerkill path{stroke:var(--ink-2);stroke-width:1.5;fill:none;stroke-linecap:round}
+.towerkill:hover circle{stroke:#B4453A}
+.towerkill:hover path{stroke:#B4453A}
+
+/* ══════════════════════════════════════════════════════════════════════
+   OVERHEAD · WALL · 3D GOES TO THE BOTTOM
+
+   It sat across the top, where it covered the title and, on the flat
+   views, the overall dimension printed above the drawing. 17squares puts
+   it along the bottom edge and that is plainly the right place: the
+   drawing gets the whole of the stage and the way you change what you
+   are looking at is the last thing in reading order rather than the
+   first. The scene toolbar keeps the bottom left, so the switcher is
+   centred on what is left of the width rather than on the stage, and on
+   a phone the two stack instead of overlapping.
+   ══════════════════════════════════════════════════════════════════════ */
+.vswitch{top:auto;bottom:14px}
+.v2d{padding-top:14px;padding-bottom:58px}
+@media (max-width:860px){
+  .vswitch{bottom:8px;top:auto}
+  .v2d{padding:10px 10px 50px}
+}
+
+/* The scene pill moves up out of the switcher's way. Bottom left and
+   bottom centre were fighting for the same six hundred pixels, and on
+   anything narrower than a laptop they overlapped outright. */
+.scene{bottom:auto;top:76px;left:18px}
+.bhint{bottom:22px}
+@media (max-width:1100px){
+  .scene{top:72px}
+  .bhint{display:none}
+}
+@media (max-width:860px){
+  .scene{top:auto;bottom:56px;left:10px}
+}

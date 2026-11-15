@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=5dba15d5';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=4d433c21';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=5dba15d5';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=4d433c21';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=5dba15d5';
+         clothMaterials, clearCaches } from './materials.js?v=4d433c21';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -161,8 +161,29 @@ const S = {
      null for neither. */
   pick:null,
   /* [{k, wall, at}] where at is inches along that wall from its left end */
-  fittings:[]
+  fittings:[],
+  /* THE ROOM IS NOT THE CLOSET, AND IT IS NOT FIXED EITHER.
+     A closet drawn against one grey wall on one oak floor reads as a
+     picture of a showroom rather than a picture of their room. These
+     three change the shell only: no part, no price, no cut list. */
+  wallTone:'greige', floorTone:'oak', trimTone:'white'
 };
+const DEPTHS = [12, 14, 16, 18, 20, 22, 24];
+const ROOM_TONES = {
+  wall: [ { id:'greige', label:'Greige',   hex:0xC3BDB4 },
+          { id:'white',  label:'Off white',hex:0xE8E4DD },
+          { id:'grey',   label:'Grey',     hex:0x9DA2A4 },
+          { id:'sage',   label:'Sage',     hex:0xA7B0A1 },
+          { id:'navy',   label:'Navy',     hex:0x4A5666 } ],
+  floor:[ { id:'oak',    label:'Oak',      hex:0xFFFFFF },
+          { id:'walnut', label:'Walnut',   hex:0xB08455 },
+          { id:'ash',    label:'Pale ash', hex:0xE6D8C3 },
+          { id:'grey',   label:'Grey wash',hex:0xAFACA6 } ],
+  trim: [ { id:'white',  label:'White',    hex:0xFFFFFF },
+          { id:'soft',   label:'Soft white',hex:0xF0ECE4 },
+          { id:'black',  label:'Black',    hex:0x2A2A2C } ]
+};
+const tone = (k, id) => (ROOM_TONES[k].find(x => x.id === id) || ROOM_TONES[k][0]);
 /* how far off the wall the run really stands, in inches */
 const baseGap = () => wallGap(S.base);
 const qp=new URLSearchParams(location.search);
@@ -227,8 +248,17 @@ function clampDepth(v, wall){
   const n = Math.round(Number(v) * 2) / 2;
   return Math.min(cap, Math.max(SPEC.runDepthMin, Number.isFinite(n) ? n : SPEC.hangDepth));
 }
-function clampBay(v){
-  return Math.min(SPEC.bayMax, Math.max(SPEC.bayMin, Math.round(v * 2) / 2));
+/* A FILLER IS MEASURED BY DIFFERENT RULES THAN A TOWER.
+   A tower is 24" to 36" because of what has to fit inside it and how far
+   a 3/4" shelf will span. A filler holds nothing and spans nothing: it is
+   whatever is left over, from an inch to about ten, and past ten you
+   should have built a tower. */
+const FILLER_MIN = 1, FILLER_MAX = 10;
+const isFiller = b => !!b && b.stack?.length === 1 && b.stack[0].m === 'FILLER';
+function clampBay(v, filler){
+  const n = Math.round(v * 2) / 2;
+  return filler ? Math.min(FILLER_MAX, Math.max(FILLER_MIN, n))
+                : Math.min(SPEC.bayMax, Math.max(SPEC.bayMin, n));
 }
 function freeSpace(wall){
   const r = S.runs[wall]; if(!r) return 0;
@@ -775,7 +805,8 @@ const _camV = new THREE.Vector3();
    render loop below reads it on its very first frame, and a `let` further
    down the file is in its temporal dead zone at that moment. */
 let DRAGGING = false;
-const stir = () => { MOVING = performance.now(); needsFrame = true; };
+let dimDirty = true;
+const stir = () => { MOVING = performance.now(); needsFrame = true; dimDirty = true; };
 ctl.addEventListener('change', stir);
 canvas.addEventListener('pointerdown', stir);
 addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:true });
@@ -823,102 +854,80 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
      edge-on blocks just as much as a wall does.
 
      The run you are actually editing never disappears, however you turn. */
+  /* ══════════════════════════════════════════════════════════════════
+     A RUN BELONGS TO ITS WALL, AND THEY GO AWAY TOGETHER
+
+     Four rules were tried and all four were inventions: which side of the
+     plane the camera stands on, which way it faces, how far the run is
+     from the point it is aimed at, how far it is compared with the run
+     being edited. Every one of them could keep a wall and drop its run,
+     or drop a wall and keep its run, which is the thing that has been
+     standing in the way of every view for five rounds.
+
+     17squares does something far simpler and it is obviously right. A
+     run of cabinetry is not a separate object floating in a room. It is
+     bolted to a wall, it is as tall and as long as that wall, and from
+     any angle where you are looking THROUGH that wall you are looking
+     through the cabinetry on it as well. So there is one test, not two:
+     take the direction the camera is pointing, and anything whose inward
+     normal agrees with it is behind you or beside you and is in the way.
+     Wall, baseboard and the whole run on it go out as one thing.
+
+     Looking straight down the room at the back wall: the near wall and
+     its door go, the two side walls are edge-on and stay, so do their
+     runs. Swing round to the right-hand run: the left wall and the left
+     run go together, and nothing is left standing in the frame. Climb
+     straight up over the room: every normal is square to the view, so
+     everything stays and you read the layout from above.
+
+     The look vector is NOT flattened. Flattening it meant a steep
+     overhead view normalised a near-zero vector into whatever rounding
+     left behind, which is why the picture changed as you tilted. Used
+     whole, a steep view simply brings every dot toward zero, which is
+     the right answer: from overhead, nothing is in front of anything. */
   _look.copy(ctl.target).sub(cam.position);
   if(_look.lengthSq() > 1e-6){
-    /* how steeply you are looking down, before the direction is flattened */
-    const pitch = -_look.y / _look.length();
-    _look.y = 0; _look.normalize();
+    _look.normalize();
+    let frontVis = true;
     for(const w of WALLS){
       const vis = _look.dot(w.n) < 0.15;
+      if(w.tag === 'front') frontVis = vis;
       if(w.m.visible !== vis){
         w.m.visible = vis;
         /* its baseboard is part of the wall, not part of the room */
         for(const b of w.base) b.visible = vis;
         needsFrame = true;
       }
-    }
-    /* ══════════════════════════════════════════════════════════════
-       ANYTHING NEARER THAN THE THING YOU ARE LOOKING AT GOES AWAY
-
-       Two rules were tried and both were about ANGLES: is this run in
-       the direction I am facing, am I standing within its depth. Angles
-       answer the square-on cases and nothing else, which is why a run
-       down the side of a walk-in kept standing in the left of the frame
-       while the camera looked straight down the room past it. It is not
-       in front of you by any angle. It is simply nearer than what you
-       are trying to see, and that is the whole of the question.
-
-       So: measure to the closest corner of each run's own bounding box,
-       measure to the point the camera is pointed at, and take out any
-       run that sits at less than half that distance. Standing in the
-       middle of a walk-in and looking at the back wall, the two side
-       runs are a few inches away and the back wall is eight feet: they
-       go. Looking at the right-hand run from across the room, it is the
-       far thing and it stays, and the left-hand run beside you does not.
-
-       The run being edited never disappears, however you turn or stand. */
-    /* ══════════════════════════════════════════════════════════════
-       THE WALL YOU ARE WORKING ON IS THE ONE YOU GET TO SEE
-
-       Three rules have been tried: which way am I facing, am I standing
-       in it, is it nearer than the point the camera is aimed at. All
-       three are about the CAMERA, and all three fall over the moment you
-       pull back and look at the whole closet from outside, because then
-       everything is far away and nothing qualifies as near.
-
-       The question was never really about the camera. It is: which wall
-       am I working on. That wall is in the panel on the right, it is the
-       one highlighted in the drawing, and it is the only thing anybody
-       is trying to see. So: show it, and take out anything standing
-       between it and the eye. A run closer to the camera than the run
-       being edited is, by definition, in front of it.
-
-       Pull back to the far side of the room and look at the back wall:
-       the two side runs are nearer than it, so they go, and you look
-       straight down the room at the thing you are editing. Swing round
-       to the right-hand run and the left one is nearer, so that goes
-       instead. It does not matter how far away you stand. */
-    const selWall = S.sel?.wall;
-    const selBox  = selWall ? RUNBOX[selWall] : null;
-    let selDist = null;
-    if(selBox){ selBox.clampPoint(cam.position, _near);
-                selDist = cam.position.distanceTo(_near); }
-    const far = cam.position.distanceTo(ctl.target);
-    for(const wall of ['back','left','right']){
-      const list = RUNMESH[wall]; if(!list || !list.length) continue;
-      const box = RUNBOX[wall]; if(!box) continue;
-      box.clampPoint(cam.position, _near);
-      const near = cam.position.distanceTo(_near);
-      /* 4" of slack so a run level with the one being edited, which is
-         what the two ends of a corner are, does not flicker in and out */
-      const vis = (selWall === wall) ? true
-                : (selDist != null) ? near >= selDist - 4
-                : near >= far * 0.5;
-      if(list[0].visible !== vis){
+      /* and the cabinetry standing on it */
+      const list = RUNMESH[w.tag];
+      if(list && list.length && list[0].visible !== vis){
         for(const m of list) m.visible = vis;
         needsFrame = true;
       }
     }
-    /* THE DOOR IS A THING IN THE ROOM, AND IT IS IN THE WAY FROM INSIDE.
-       It swings into the room, so standing in the closet and looking at
-       the back wall put an open leaf and its handle across the corner of
-       the frame. It belongs to the view from outside, looking in, which
-       is the only view it tells you anything in. */
-    const R = S.room;
-    const out = cam.position.z > R.d || cam.position.z < 0
-             || cam.position.x < 0  || cam.position.x > R.w;
-    /* AND NOT FROM ABOVE.
-       Open at 86 degrees the leaf stands square into the room, which is
-       where an open door is and which is edge on from any head-on view.
-       Looking down into the closet from above you see its FACE instead,
-       cutting a white diagonal across the layout you came to look at.
-       Past about a third of the way to straight down it goes. */
-    const vis = out && pitch < 0.55;
-    if(DOORMESH.length && DOORMESH[0].visible !== vis){
-      for(const m of DOORMESH) m.visible = vis;
+    /* THE DOOR IS PART OF THE NEAR WALL.
+       It hangs in that wall's opening, so the moment that wall is taken
+       out of the way to let you look in, the door goes with it. From
+       inside looking out, and from either side, the wall is there and so
+       is the door, open on its hinge at the width that was chosen. */
+    if(DOORMESH.length && DOORMESH[0].visible !== frontVis){
+      for(const m of DOORMESH) m.visible = frontVis;
       needsFrame = true;
     }
   }
+  /* ══════════════════════════════════════════════════════════════════
+     THE SIZES, WRITTEN ON THE 3D
+
+     The flat views have carried every dimension from the start and the
+     3D carried none, so the view a customer actually spends their time
+     in was the one view you could not read a measurement off. 17squares
+     writes them straight on to the picture and that is plainly right.
+
+     Each tower's width over the top of it, the whole wall above that,
+     projected through the same camera so the labels travel with it. Only
+     on a settled frame: doing it per frame while the camera is moving is
+     a layout thrash for labels nobody can read mid-swing anyway. */
+  if(!moving && dimDirty && built){ dimDirty = false; paintDims(); }
   if(!moving && shadowDirty){
     shadowDirty = false; renderer.shadowMap.needsUpdate = true; needsFrame = true;
   }
@@ -1187,7 +1196,7 @@ function drawRoom(){
      down. At this tone the back wall, the returns, the baseboard and the
      floor all separate from each other and from the page. */
   const wallMat = () => new THREE.MeshStandardMaterial({
-    map: T.wall, color: 0xC3BDB4, roughness: .95, metalness: 0,
+    map: T.wall, color: tone('wall', S.wallTone).hex, roughness: .95, metalness: 0,
     envMapIntensity: .45, side: THREE.FrontSide });
 
   const plane = (w, h, px, py, pz, rx, ry, mat) => {
@@ -1235,6 +1244,7 @@ function drawRoom(){
     const m = new THREE.Mesh(new THREE.BoxGeometry(sx, h, sz), mat);
     m.position.set(px - nx * (WT/2 + EPS), py, pz - nz * (WT/2 + EPS));
     m.receiveShadow = true;
+    m.userData.roomwall = tag;
     shell.add(m);
     WALLS.push({ m, tag, base:[], p:new THREE.Vector3(px, py, pz),
                  n:new THREE.Vector3(nx, 0, nz) });
@@ -1255,6 +1265,7 @@ function drawRoom(){
      repeat together or the grain slides off its own shadow. */
   const fmat = new THREE.MeshStandardMaterial({
     map: T.floor, normalMap: T.floorNor, roughnessMap: T.floorRgh,
+    color: tone('floor', S.floorTone).hex,
     roughness: 1, metalness: 0, envMapIntensity: .55 });
   fmat.normalScale = new THREE.Vector2(0.55, 0.55);
   for(const k of ['map','normalMap','roughnessMap']){
@@ -1271,8 +1282,8 @@ function drawRoom(){
   fl.receiveShadow = true;
 
   // baseboard — the single detail that stops this reading as a grey box
-  const bmat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: .62, metalness: 0,
-    envMapIntensity: .45 });
+  const bmat = new THREE.MeshStandardMaterial({ color: tone('trim', S.trimTone).hex,
+    roughness: .62, metalness: 0, envMapIntensity: .45 });
   /* A BASEBOARD BELONGS TO ITS WALL.
      Culling a wall left its white baseboard behind, floating in mid air
      where the wall used to be, which from outside the room reads as the
@@ -1938,6 +1949,36 @@ function view(step){
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   PICK A WALL AND THE CAMERA GOES AND LOOKS AT IT
+
+   Free orbit is fine once you know where you are and useless while you
+   do not. Every bad view in this build has been the camera parked at an
+   oblique angle where one run stands edge-on across another. 17squares
+   never lets that happen, because choosing a wall takes you to it, and
+   choosing a wall here does the same now: square on, far enough out
+   that the whole run is in frame, a little above the middle so the top
+   shelf and the toe kick can both be read.
+
+   It is a starting position and nothing more. Drag and you take over,
+   the same as every other camera move on this page. */
+function faceWall(wall, ms = 620){
+  const W = S.room.w, D = S.room.d, H = S.room.h;
+  const len = wall === 'back' ? W : D;
+  const r = fitDist(H * 1.2, len * 1.12);
+  const t = wall === 'back' ? [W/2, H*0.45, 0]
+          : wall === 'left' ? [0,   H*0.45, D/2]
+          :                   [W,   H*0.45, D/2];
+  const p = wall === 'back' ? [W/2,   H*0.52, r]
+          : wall === 'left' ? [r,     H*0.52, D/2]
+          :                   [W - r, H*0.52, D/2];
+  fly = { t0: performance.now(), ms,
+          p0: cam.position.clone(), t0v: ctl.target.clone(),
+          p1: new THREE.Vector3(...p), t1: new THREE.Vector3(...t) };
+  needsFrame = true;
+}
+window.__face = faceWall;
+
 const easeInOut = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3) / 2;
 
 function flyTo(step, ms = 760){
@@ -1987,6 +2028,7 @@ let cur=null;
 
 function rebuild(reframe){
   cur=buildDesign(cfg(),cat);
+  dimDirty = true;
   /* ?audit=1 hands the built design to a test runner so a sweep can check
      that nothing was placed outside the room it was drawn for. It is off
      unless asked for, so nothing is exposed to an ordinary visitor. */
@@ -2541,8 +2583,14 @@ function paintBays(){
           ${r.bays.length > 1 ? `<button class="btn-mini" data-bay="even" data-wall="${wall}"
             title="Equal towers with equal air between them, across the whole wall">Space them evenly</button>` : ''}
         </div>` : ''}
-        <div class="stackslot"></div>
+        ${/* THE WALL FIRST, THEN THE TOWER.
+             "Add a tower" and "this wall is full" are about the WALL, so
+             they belong with the strip that draws it. They were printing
+             underneath the tower panel, which put a note about the wall
+             four hundred pixels below the thing it was talking about and
+             after every option on the page. */''}
         ${addBlock}
+        <div class="stackslot"></div>
       </div>`;
     host.appendChild(d);
   }
@@ -2754,6 +2802,72 @@ function buildForMe(restOverride){
 
    The drawing is generated from the stack itself, not drawn by hand, so a
    tower added to the list cannot end up with the wrong picture. */
+/* ══════════════════════════════════════════════════════════════════
+   RAISING ONE PIECE TAKES THE INCHES OFF ITS NEIGHBOURS
+
+   The slider wrote its number straight on to the piece and the height
+   solver adds set heights up without asking whether they fit. In a
+   tower with 40" free, asking for 80" drew the band from 43.75" up to
+   124", forty inches out through the top of an 84" carcass. The carcass
+   does not grow, so the tower on screen looked identical and only the
+   figure in the panel moved. That is the whole of "the aside raised and
+   the tower did not".
+
+   A tower is a fixed height, so the inches have to come from somewhere.
+   They come from the other pieces, the farthest one first, each down to
+   the minimum it can honestly be built at. What cannot be found that
+   way is refused, and the slider stops where the tower stops. */
+/* the inches this tower actually has, the same number paintStack shows */
+function bayUsable(){
+  if(!S.sel) return 80;
+  const floorY = baseHeight(S.mounting, placedFittings());
+  return (cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.h)
+    ?? (Math.max(SPEC.panel * 2 + 12, Math.min(S.cabTop, S.room.h - 2)) - floorY);
+}
+const bankH = st => {
+  const sz = (Array.isArray(st.o?.sizes) && st.o.sizes.length) ? st.o.sizes : defaultDrawerSizes(st.o?.n);
+  return drawerBankHeight(sz);
+};
+/* the least this piece can be built at */
+const minNeed = st => MODULES[st.m].sizes ? bankH(st) : (MODULES[st.m].minH ?? 6);
+/* the inches it is asking for right now; a filler asks for nothing and
+   takes whatever the others leave */
+const setNeed = st => {
+  const d = MODULES[st.m];
+  if(d.sizes) return bankH(st);
+  if(st.h != null) return Math.max(d.minH ?? 6, Math.min(d.maxH ?? 96, st.h));
+  return d.fill ? 0 : (d.defH ?? 24);
+};
+/* how tall the piece at `pin` can be made, once everything else in the
+   tower has the minimum it needs */
+function headroom(stack, pin, usable){
+  const d = MODULES[stack[pin].m];
+  let other = 0;
+  stack.forEach((st, j) => { if(j !== pin) other += minNeed(st); });
+  return Math.max(d.minH ?? 6, Math.min(d.maxH ?? usable, usable - other));
+}
+/* make the stack fit inside the tower, taking it off everything but `pin` */
+function squeeze(stack, pin, usable){
+  let over = stack.reduce((a, st) => a + setNeed(st), 0) - usable;
+  if(over <= 0.01) return;
+  const order = stack.map((_, j) => j).filter(j => j !== pin)
+                     .sort((a, b) => Math.abs(b - pin) - Math.abs(a - pin));
+  for(const j of order){
+    if(over <= 0.01) break;
+    const st = stack[j], d = MODULES[st.m];
+    if(d.sizes) continue;                   // a bank is the sum of its boxes
+    const give = setNeed(st) - minNeed(st);
+    if(give <= 0.01) continue;
+    const take = Math.min(give, over);
+    st.h = Math.round((setNeed(st) - take) * 4) / 4;
+    over -= take;
+  }
+  if(over > 0.01){
+    const p = stack[pin], pd = MODULES[p.m];
+    if(!pd.sizes) p.h = Math.max(pd.minH ?? 6, Math.round((setNeed(p) - over) * 4) / 4);
+  }
+}
+
 function towerThumb(stack, usable = 80){
   const W = 44, H = 74, PAD = 3, TK = 3;
   const inner = H - PAD * 2 - TK;
@@ -2891,7 +3005,7 @@ function paintStack(){
     const sizes = (st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n));
     const bank  = drawerBankHeight(sizes);
     return `<div class="dsizes">
-      <span class="dlbl">Top to bottom, the way it is drawn &middot; ${(+bank.toFixed(2))}" of bank</span>
+      <span class="dlbl">The way it is drawn &middot; ${(+bank.toFixed(2))}" of bank</span>
       <ol class="dlist">
         ${sizes.map((h, i) => ({ h, i })).reverse().map(({ h, i }) => `<li>
           <b>${i + 1}${i === sizes.length - 1 ? ' · top' : i === 0 ? ' · bottom' : ''}</b>
@@ -2969,22 +3083,21 @@ function paintStack(){
           <button data-move="1" ${S.sel.i>=S.runs[S.sel.wall].bays.length-1?'disabled':''} title="Move right along the wall">&#9654;</button>
         </span>
         <button class="rmsec" data-rmsec="1" title="Remove this tower">Remove tower</button>
-      </span></div>`;
+      </span>
+      <label class="dsel"><span>Depth</span>
+        <select data-rundepth="${S.sel.wall}" aria-label="Run depth in inches">
+          ${DEPTHS.filter(v => v >= dLo - 0.01 && v <= dHi + 0.01).map(v =>
+            `<option value="${v}" ${Math.abs(dNow - v) < 0.26 ? 'selected' : ''}>${v}"</option>`).join('')}
+          ${DEPTHS.some(v => Math.abs(dNow - v) < 0.26) ? ''
+            : `<option value="${+dNow.toFixed(1)}" selected>${+dNow.toFixed(1)}"</option>`}
+        </select></label></div>`;
 
-  /* DEPTH, WHICH THE PANEL NEVER SHOWED NEXT TO THE TOWER.
-     Wall to the front of the panel. It is a property of the run rather
-     than of one tower, because a run of cabinetry is one depth, and the
-     control says so instead of pretending otherwise. */
-  const depthRow = `<div class="prow">
-    <span class="prowl"><b>Depth</b><i>Wall to the front of the panel</i></span>
-    <span class="prowc">
-      <span class="tdpick">${[12,14,16,20,24].filter(v => v >= dLo && v <= dHi).map(v =>
-        `<button type="button" class="${Math.abs(dNow-v)<0.26?'on':''}" data-rundepth-set="${S.sel.wall}" data-v="${v}">${v}"</button>`).join('')}</span>
-      <label class="tdnum"><input type="number" data-rundepth="${S.sel.wall}" min="${dLo}" max="${dHi}"
-        step="0.5" value="${+dNow.toFixed(1)}" aria-label="Run depth in inches"><i>in</i></label>
-    </span>
-  </div>`;
-
+  /* DEPTH IS A DROPDOWN IN THE HEADER, NOT A ROW OF CHIPS.
+     Five buttons and a number box for one answer took four lines of the
+     panel and read as a decision to agonise over. It is wall to the front
+     of the panel, it is a property of the run because a run of cabinetry
+     is one depth, and it belongs beside the tower's name where you can
+     see it without looking for it. */
   /* ── what is standing in this tower, top to bottom ── */
   const compList = () => {
     const rows = bay.stack.map((st, si) => ({ st, si }))
@@ -3018,12 +3131,11 @@ function paintStack(){
           </span></li>`;
       }).join('');
     return `<h4 class="subh">What is in this tower</h4>
-      <p class="note" style="margin:-2px 0 9px">Top to bottom. Press one to open it, or press it
-        in the drawing. Drag a shelf in the elevation to move it.</p>
+      <p class="note" style="margin:-2px 0 9px">Press one to open it, or press it in the
+        drawing. Drag a shelf in the elevation to move it.</p>
       <ol class="complist">${rows || '<li class="compnone">Nothing in this tower yet. Press Edit components.</li>'}</ol>
       <div class="compacts">
         <button type="button" class="btn btn-fill btn-sm" data-lib="1">Edit components</button>
-        <button type="button" class="btn btn-ghost btn-sm" data-grid="1">Replace the whole tower</button>
       </div>
       <label class="ctop"><input type="checkbox" data-counter="1" ${sl.counter?'checked':''}>
         <span>A worktop over it</span></label>`;
@@ -3036,7 +3148,10 @@ function paintStack(){
     const now = b ? (b.y1 - b.y0) : (st.h ?? d.defH ?? 24);
     const fills = st.h == null;
     const lo = Math.max(4, d.minH ?? 6);
-    const hi = Math.max(lo + 1, Math.min(d.maxH ?? usable, usable));
+    /* not the whole tower: the whole tower LESS what everything else in
+       it needs, so the slider can never ask for inches that are not
+       there and then quietly not get them */
+    const hi = Math.max(lo + 0.25, headroom(bay.stack, si, usable));
     return `<div class="prow">
       <span class="prowl"><b>Height</b><i>${fills ? 'Takes what the rest of the tower leaves' : 'Set by you'}</i></span>
       <span class="prowc">
@@ -3174,14 +3289,101 @@ function paintStack(){
       ${groups}`;
   };
 
+  /* ══════════════════════════════════════════════════════════════════
+     THE TWO THINGS THAT ARE TRUE OF THE WHOLE CLOSET
+
+     Colour, handle and the room around it were on a step of their own
+     three clicks away, so a customer filled a tower, walked off, and
+     never saw them. They are properties of the whole job rather than of
+     one tower, so they sit at the foot of the panel where they are
+     always reachable and never in the way of the thing being edited.
+
+     Nothing here is a new control. The carcass colour written from this
+     block is the same S.finish the finishes step writes, so the two can
+     never disagree. */
+  const dot = hex => `<span class="tdot" style="background:#${hex.toString(16).padStart(6,'0')}"></span>`;
+  const toneRow = (k, now, label) => `<div class="orow">
+      <span class="olab">${label}</span>
+      <span class="opick">${ROOM_TONES[k].map(t2 => `<button type="button"
+        class="${t2.id === now ? 'on' : ''}" data-tone="${k}" data-v="${t2.id}"
+        title="${t2.label}" aria-label="${t2.label}" aria-pressed="${t2.id === now}">
+        ${dot(t2.hex)}</button>`).join('')}</span>
+    </div>`;
+
+  const optionBlocks = () => {
+    const fin  = cat.finishes.find(f => f.n === S.finish) || cat.finishes[0];
+    const fNow = S.frontFinish || S.finish;
+    const fr   = cat.finishes.find(f => f.n === fNow) || fin;
+    const pull = PULLS.find(x => x.id === S.pull) || PULLS[1];
+    const pf   = PULL_FINISHES.find(x => x.id === S.pullFinish) || PULL_FINISHES[0];
+    const hasFronts = (cur?.parts || []).some(p2 => /DOOR|DRAWER|HAMPER/.test(p2.code || ''));
+    return `<div class="optblk">
+      <h4 class="subh">Closet options</h4>
+      <div class="orow"><span class="olab">Finish</span>
+        <button type="button" class="obtn" data-goto="3">
+          <span class="swc" style="${swStyle(fin)}"></span><i>${fin.n}</i></button></div>
+      <div class="orow"><span class="olab">Fronts</span>
+        <button type="button" class="obtn" data-goto="3" ${hasFronts ? '' : 'disabled'}>
+          <span class="swc" style="${swStyle(fr)}"></span>
+          <i>${hasFronts ? (S.frontFinish || 'Same as the carcass') : 'Nothing with a front yet'}</i></button></div>
+      <div class="orow"><span class="olab">Handle</span>
+        <span class="opick wide">${PULLS.map(p2 => `<button type="button"
+          class="${p2.id === pull.id ? 'on' : ''}" data-pullset="${p2.id}"
+          title="${p2.note.replace(/"/g,'&quot;')}" aria-pressed="${p2.id === pull.id}">
+          <span class="pz p-${p2.kind}"></span></button>`).join('')}</span></div>
+      <div class="orow"><span class="olab">Handle finish</span>
+        <span class="opick">${PULL_FINISHES.map(f2 => `<button type="button"
+          class="${f2.id === pf.id ? 'on' : ''}" data-pfset="${f2.id}"
+          title="${f2.name}" aria-label="${f2.name}" aria-pressed="${f2.id === pf.id}">
+          ${dot(f2.hex)}</button>`).join('')}</span></div>
+
+      <h4 class="subh">Room options</h4>
+      <p class="note" style="margin:-2px 0 9px">The room around the closet, so you can
+        see it against your own paint and floor. None of this is built or charged for.</p>
+      ${toneRow('wall',  S.wallTone,  'Wall colour')}
+      ${toneRow('floor', S.floorTone, 'Floor')}
+      ${toneRow('trim',  S.trimTone,  'Trim')}
+
+      <h4 class="subh">The door on this room</h4>
+      <div class="dgrid">${DOORS.map(x => `<button type="button" class="dcard ${x.id === S.door ? 'on' : ''}"
+        data-door="${x.id}" aria-pressed="${x.id === S.door}" title="${x.note}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${x.art}"/></svg>
+        <i>${x.label}</i></button>`).join('')}</div>
+      ${S.door && S.door !== 'none' ? `<div class="orow"><span class="olab">Opening</span>
+        <span class="wadj"><button data-dw="-2" title="Narrower">&minus;</button>
+          <i>${(+(S.doorW || 0)).toFixed(0)}" wide</i>
+          <button data-dw="2" title="Wider">+</button></span></div>` : ''}
+    </div>`;
+  };
+
+  /* A FILLER HAS ONE QUESTION AND IT IS HOW WIDE. */
+  const fillerPanel = () => `<div class="phd">
+      <span class="sico"><svg viewBox="0 0 24 32"><path d="${MODULES.FILLER.icon}"/></svg></span>
+      <span class="phdtx"><b>Filler panel</b><i>${bay.w.toFixed(1)}" wide, floor to top shelf</i></span>
+    </div>
+    <p class="note">A blank panel that closes a gap too narrow for a tower. It is cut on
+      site and finished to match, so it can be any width from ${FILLER_MIN}" to ${FILLER_MAX}".</p>
+    <div class="prow"><span class="prowl"><b>Width</b><i>Half an inch at a time</i></span>
+      <span class="prowc"><input type="range" data-fillw="1" min="${FILLER_MIN}" max="${FILLER_MAX}"
+        step="0.5" value="${bay.w}" aria-label="Filler width in inches">
+        <b class="hval">${bay.w.toFixed(1)}"</b></span></div>`;
+
   const mode = S.lib ? 'lib' : S.grid ? 'grid' : (S.part != null && bay.stack[S.part]) ? 'part:' + S.part : 'tower';
-  if(S.lib)                                    box.innerHTML = head + libPanel();
+  /* ══════════════════════════════════════════════════════════════════
+     PRESS A TOWER AND THE TOWER LIST IS WHAT YOU GET
+
+     The ready-made towers were behind a button called "Replace the whole
+     tower", which is a sentence rather than a control, and nobody found
+     them. 17squares does the obvious thing: you press a tower and the
+     towers appear, as pictures, and you press the one you want. So that
+     is the tower panel now: the grid first, what is in it underneath,
+     and the whole-closet options at the foot of the column where they
+     are always reachable. */
+  if(isFiller(bay))                            box.innerHTML = head + fillerPanel() + optionBlocks();
+  else if(S.lib)                               box.innerHTML = head + libPanel();
   else if(S.part != null && bay.stack[S.part]) box.innerHTML = head + partPanel(S.part);
-  else if(S.grid)                              box.innerHTML = head + `<div class="pbar">
-      <button type="button" class="pback" data-gridclose="1">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
-        Tower ${S.sel.i+1}</button></div>` + towerGrid(bay, usable);
-  else                                         box.innerHTML = head + depthRow + compList();
+  else                                         box.innerHTML = head + towerGrid(bay, usable)
+                                                              + compList() + optionBlocks();
 
   /* OPENING A COMPONENT PUTS YOU AT THE TOP OF IT.
      The panel scrolls, and it keeps its scroll position across a repaint,
@@ -3620,11 +3822,14 @@ $('#bays').onclick=e=>{
   if(fold){
     const w=fold.dataset.fold;
     if(!S.runs[w]?.on) return;
-    if(S.sel?.wall === w) return;
+    /* pressing the wall you are already on is "take me back to it", which
+       is the quickest way out of a view that has got away from you */
+    if(S.sel?.wall === w){ faceWall(w); return; }
     S.sel = { wall:w, i:0 };
     S.part = null; S.lib = false; S.grid = false;
     PICK_FOR = w + '|0';
     rebuild(true);
+    faceWall(w);
     return;
   }
   /* one of the quick depths beside the box */
@@ -3855,18 +4060,32 @@ $('#stack').addEventListener('change', e => {
    counts. The panel itself is not repainted, or the slider would lose
    the pointer halfway through the drag. */
 $('#stack').addEventListener('input', e => {
+  const fw = e.target.closest('[data-fillw]');
+  if(fw){
+    const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
+    const was = bay.w;
+    bay.w = clampBay(+fw.value, true);
+    /* it grows into the bare wall beside it, never through a neighbour */
+    const free = freeSpace(S.sel.wall) + was;
+    if(bay.w > free) bay.w = clampBay(free, true);
+    const out = fw.parentElement?.querySelector('.hval');
+    if(out) out.textContent = bay.w.toFixed(1) + '"';
+    DRAGGING = true; rebuild(false);
+    return;
+  }
   const i = e.target.closest('[data-hset]'); if(!i) return;
   const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const si = +i.dataset.hset, st = bay.stack[si]; if(!st) return;
   st.h = Math.round(+i.value * 4) / 4;
+  squeeze(bay.stack, si, bayUsable());
   const out = $(`[data-hval="${si}"]`);
   if(out) out.textContent = (+st.h.toFixed(2)).toString() + '"';
   DRAGGING = true;                 // keeps paintAll off the panel mid-drag
   rebuild(false);
 });
 $('#stack').addEventListener('change', e => {
-  if(!e.target.closest('[data-hset]')) return;
-  DRAGGING = false; rebuild(false); paintStack();
+  if(!e.target.closest('[data-hset],[data-fillw]')) return;
+  DRAGGING = false; rebuild(true); paintStack();
 });
 
 paintMix();
@@ -3883,8 +4102,39 @@ $('#mixclear')?.addEventListener('click', () => {
 });
 
 $('#stack').onclick=e=>{
+  const t0=e.target.closest('button');
+  /* ── the whole-closet options at the foot of the panel ──────────────
+     They are not about the tower you have open, so they are answered
+     before the tower is looked up: changing the wall colour with nothing
+     selected used to fall at the first line and do nothing at all. */
+  if(t0){
+    if(t0.dataset.tone){
+      const k = t0.dataset.tone;
+      if(k === 'wall')  S.wallTone  = t0.dataset.v;
+      if(k === 'floor') S.floorTone = t0.dataset.v;
+      if(k === 'trim')  S.trimTone  = t0.dataset.v;
+      rebuild(false); paintStack(); return;
+    }
+    if(t0.dataset.pullset){ S.pull = t0.dataset.pullset; paintPulls(); rebuild(false); paintStack(); return; }
+    if(t0.dataset.pfset){
+      S.pullFinish = t0.dataset.pfset;
+      const f = PULL_FINISHES.find(x => x.id === S.pullFinish);
+      if(f){ PULLMAT = hardwareMaterial(); PULLMAT.color.setHex(f.hex); PULLMAT.roughness = f.rough; }
+      paintPulls(); rebuild(false); paintStack(); return;
+    }
+    if(t0.dataset.door){
+      S.door = t0.dataset.door; S.doorW = defaultDoorW(S.door, S.doorW);
+      paintDoors(); rebuild(true); return;
+    }
+    if(t0.dataset.dw){
+      const W = S.room.w;
+      S.doorW = Math.max(12, Math.min(W - 2, (+S.doorW || 0) + (+t0.dataset.dw)));
+      rebuild(false); paintStack(); return;
+    }
+    if(t0.dataset.goto){ window.gotoStep?.(t0.dataset.goto); return; }
+  }
   const bay=S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
-  const t=e.target.closest('button'); if(!t) return;
+  const t=t0; if(!t) return;
   /* the quick depths, which moved here with the depth control */
   if(t.dataset.rundepthSet){
     const wall = t.dataset.rundepthSet, r = S.runs[wall];
@@ -3938,7 +4188,7 @@ $('#stack').onclick=e=>{
     /* the ±6" slack let a tower be pushed to 18" or 42" — neither of which
        he can build. 18" is under the narrowest drawer box he stocks, and a
        3/4" shelf bows past 36". Clamp to what the shop can actually cut. */
-    const next = clampBay(bay.w + d);
+    const next = clampBay(bay.w + (isFiller(bay) ? d / 2 : d), isFiller(bay));
     const delta = next - bay.w;
     /* Growing into the free wall beside it is what you mean when you widen a
        section you have just dropped into a gap. Only once the wall is full
@@ -4092,18 +4342,19 @@ $('#ltools')?.addEventListener('click', e => {
   const wall = (S.sel?.wall && S.runs[S.sel.wall]?.on) ? S.sel.wall
              : Object.keys(S.runs).find(w => S.runs[w]?.on);
   if(!wall) return;
-  if(a === 'add'){
+  if(a === 'add' || a === 'filler'){
     /* the widest tower the bare wall on this run will take */
     const len = wallLength(wall), r = S.runs[wall];
     const free = len - r.bays.reduce((x, y) => x + y.w, 0);
-    if(free < SPEC.bayMin) return;
-    const w = clampBay(Math.min(free, SPEC.bayMax));
+    const fill = a === 'filler';
+    if(free < (fill ? FILLER_MIN : SPEC.bayMin)) return;
+    const w = clampBay(Math.min(free, fill ? FILLER_MAX : SPEC.bayMax), fill);
     const at = firstFit(wall, w);
     if(at == null) return;
-    const b2 = makeBay(w, [], true); b2.at = at;
+    const b2 = makeBay(w, fill ? [{ m:'FILLER', h:null, o:{} }] : [], true); b2.at = at;
     r.bays.push(b2); sortRun(wall);
     S.sel = { wall, i:r.bays.findIndex(x => x === b2) };
-    S.part = null; S.lib = true; S.grid = false;
+    S.part = null; S.lib = !fill; S.grid = false;
     PICK_FOR = wall + '|' + S.sel.i;
     rebuild(true);
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
@@ -4117,9 +4368,54 @@ $('#ltools')?.addEventListener('click', e => {
   PICK_FOR = S.sel.wall + '|' + S.sel.i;
   paintBays(); paintStack();
   if(typeof window.gotoStep === 'function') window.gotoStep('2');
+  /* the door lives at the foot of the panel with the other things that
+     are true of the whole room, so the button takes you to it */
+  if(a === 'door') requestAnimationFrame(() =>
+    document.querySelector('#stack .dgrid')?.scrollIntoView({ block:'center', behavior:'smooth' }));
 });
 
 /* nothing to put components into until there is a tower */
+function paintDims(){
+  /* looked up each time rather than held in a module const: this runs from
+     the render loop, which starts its first frame before the bottom half of
+     this file has finished evaluating. */
+  const DIMLAY = document.getElementById('dimlay');
+  if(!DIMLAY) return;
+  const _pv = new THREE.Vector3();
+  const flat = document.getElementById('v2d');
+  if((flat && !flat.hidden) || !cur || !S.sel){ if(DIMLAY.childNodes.length) DIMLAY.textContent = ''; return; }
+  const wall = S.sel.wall;
+  const list = (cur.bays || []).filter(b => b.wall === wall);
+  if(!list.length){ DIMLAY.textContent = ''; return; }
+  const cv = renderer.domElement.getBoundingClientRect();
+  const W = cv.width, H = cv.height;
+  if(!W || !H){ return; }
+  const RW = S.room.w, RD = S.room.d;
+  /* where a point on this wall's run is in the room */
+  const at = (along, y, dep) => wall === 'back'  ? [along, y, dep]
+                              : wall === 'left'  ? [dep, y, along]
+                              :                    [RW - dep, y, along];
+  const put = (along, y, dep, text, cls) => {
+    const w3 = at(along, y, dep);
+    _pv.set(w3[0], w3[1], w3[2]).project(cam);
+    if(_pv.z > 1) return '';                       // behind the camera
+    const x = (_pv.x * 0.5 + 0.5) * W, yy = (-_pv.y * 0.5 + 0.5) * H;
+    if(x < -60 || x > W + 60 || yy < -40 || yy > H + 40) return '';
+    return `<b class="${cls}" style="left:${x.toFixed(0)}px;top:${yy.toFixed(0)}px">${text}</b>`;
+  };
+  const along = b => wall === 'back' ? b.x : (b.alongRoom != null ? b.alongRoom : (b.start || 0) + b.x);
+  const num = v => (+v.toFixed(1)).toString() + '"';
+  let top = 0, html = '';
+  for(const b of list){
+    top = Math.max(top, b.top);
+    html += put(along(b), b.top + 3, (b.depth || 24) / 2, num(b.w),
+                'bw' + (S.sel.i === b.bay ? ' tot' : ''));
+  }
+  const span = wall === 'back' ? RW : RD;
+  html += put(span / 2, top + 11, (list[0].depth || 24) / 2, num(span) + ' wall', 'tot');
+  DIMLAY.innerHTML = html;
+}
+
 function paintLTools(){
   const host = $('#ltools'); if(!host) return;
   const wall = (S.sel?.wall && S.runs[S.sel.wall]?.on) ? S.sel.wall
@@ -4128,7 +4424,10 @@ function paintLTools(){
   const has = !!r?.bays.length;
   const free = r ? wallLength(wall) - r.bays.reduce((x, y) => x + y.w, 0) : 0;
   host.querySelectorAll('button').forEach(b => {
-    b.disabled = b.dataset.l === 'add' ? free < SPEC.bayMin : !has;
+    b.disabled = b.dataset.l === 'add'    ? free < SPEC.bayMin
+               : b.dataset.l === 'filler' ? free < FILLER_MIN
+               : b.dataset.l === 'door'   ? false
+               : !has;
     b.setAttribute('aria-pressed', String(
       (b.dataset.l === 'lib' && !!S.lib) || (b.dataset.l === 'grid' && !!S.grid)));
   });
@@ -4412,7 +4711,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=5dba15d5');
+  if(!DRAW) DRAW = await import('./drawing.js?v=4d433c21');
   return DRAW;
 }
 
@@ -4522,6 +4821,7 @@ function setView(v){
 $('#vswitch')?.addEventListener('click', e => {
   const b = e.target.closest('button[data-view]'); if(!b) return;
   setView(b.dataset.view);
+  dimDirty = true; needsFrame = true;
 });
 $('#v2dwalls')?.addEventListener('click', e => {
   const w = e.target.closest('button[data-flatwall]');
@@ -4598,6 +4898,17 @@ $('#v2dcanvas')?.addEventListener('pointerdown', e => {
     DRAGGING = true;
     host.setPointerCapture?.(e.pointerId);
     host.classList.add('dragging');
+    return;
+  }
+  /* the X on the tower itself */
+  const kill = e.target.closest('.towerkill');
+  if(kill){
+    const wall = kill.dataset.wall, i = +kill.dataset.bay;
+    const bays = S.runs[wall]?.bays; if(!bays?.[i]) return;
+    bays.splice(i, 1);
+    S.sel = bays.length ? { wall, i:Math.min(i, bays.length - 1) } : null;
+    S.part = null; S.lib = false;
+    rebuild(true);
     return;
   }
   /* one component inside the open tower */
@@ -4856,7 +5167,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=5dba15d5');
+    const { downloadPdf } = await import('./drawing.js?v=4d433c21');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -4879,7 +5190,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=5dba15d5');
+    const { downloadPdf } = await import('./drawing.js?v=4d433c21');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

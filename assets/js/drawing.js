@@ -275,6 +275,19 @@ export function elevation(design, wall, opt = {}){
          one below takes the inches, the one above gives them up, which is
          exactly what moving a shelf means. The label beside the bar counts
          while you drag. */
+      /* ══ AN X ON THE TOWER YOU HAVE OPEN ══════════════════════════════
+         "Remove tower" was a word at the far end of the right-hand panel.
+         17squares puts an X on the tower itself, which is where anybody
+         looks for it, so this one does too: top right corner of the
+         selected tower, in the drawing, next to the thing it removes. */
+      if(isSel){
+        const cx = X(left) + b.w * k - 11, cy = Y(b.top) + 11;
+        picks += `<g class="towerkill" data-wall="${esc(wall)}" data-bay="${b.bay}" data-kill="1">
+          <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9"/>
+          <path d="M${(cx-3.4).toFixed(1)} ${(cy-3.4).toFixed(1)}l6.8 6.8
+                   M${(cx+3.4).toFixed(1)} ${(cy-3.4).toFixed(1)}l-6.8 6.8"/>
+          <title>Take tower ${b.bay + 1} out</title></g>`;
+      }
       if(isSel && (b.bands || []).length){
         for(const band of b.bands){
           const bh = (band.y1 - band.y0) * k;

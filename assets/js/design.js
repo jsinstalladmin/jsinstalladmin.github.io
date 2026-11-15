@@ -1293,6 +1293,32 @@ export const MODULES = {
       G.push({k:'counter', p:[0, y+h/2, 0], s:[w, h, d], m:'carcass'});
     }
   },
+  /* ══════════════════════════════════════════════════════════════
+     A FILLER IS NOT A TOWER, IT IS THE GAP CLOSED
+
+     Walls are never a whole number of towers. Three 27" towers on a
+     wall of 84" leaves three inches, and three inches is too narrow to
+     hang anything in and too wide to leave as a slot you can lose a
+     sock down. Every closet shop makes the same thing for it: a blank
+     scribe panel, cut on site, floor to top shelf, finished to match.
+
+     It is a bay of its own rather than a part inside one, because that
+     is what it is on the wall and that is how it is cut, priced and
+     installed. It is never offered in the component library, because
+     nobody puts a filler INSIDE a tower: there is no SLOT entry for
+     it, so canOffer refuses it on its own. */
+  FILLER: {
+    label:'Filler panel',
+    hint:'A blank panel that closes a gap too narrow for a tower.',
+    spec:'Scribe filler · 1" to 10" wide · floor to top shelf',
+    icon:'M9 2h6v28H9zM6 2h12M6 30h12',
+    defH:null, minH:6, maxH:96, fill:true, filler:true,
+    build(c){
+      const {w,d,y,h,G,parts} = c;
+      parts.push(P('FIXED', 1, (w * h) / 144, (h * 2) / 12, 'Filler panel, scribed on site'));
+      G.push({ k:'panel', p:[0, y + h/2, 0], s:[w, h, d], m:'carcass' });
+    }
+  },
   DOOR: {
     label:'Closed door', hint:'A slab door over the whole bay.',
     spec:'Slab front · 12\"–84\" tall',
@@ -1918,6 +1944,29 @@ function resolveHeights(stack, total){
     else if(s.def.fill){ fillers.push(s); }
     else { s.H = s.def.defH; used += s.H; }
   }
+  /* ══════════════════════════════════════════════════════════════
+     A TOWER CANNOT HOLD MORE THAN IT IS TALL
+
+     Set heights were added up and used as given. Ask for three pieces
+     that come to 120" in an 84" carcass and the bands were laid out
+     from the floor to 120", so the top one ran clean out through the
+     top shelf while the carcass stayed the height it always was. The
+     drawing then disagreed with the panel, and the panel was wrong.
+
+     Nothing invented, nothing refused silently: the set heights are
+     brought back in proportion until they fit, so what is drawn is
+     always what the tower can hold. */
+  if(used > total + 0.01){
+    const shrinkable = mods.filter(s => !s.def.sizes && s.H != null);
+    const fixedPart = mods.reduce((a, s) => a + ((s.def.sizes || s.H == null) ? (s.H || 0) : 0), 0);
+    const pool = shrinkable.reduce((a, s) => a + s.H, 0);
+    const room = Math.max(0, total - fixedPart);
+    if(pool > 0){
+      const k = room / pool;
+      shrinkable.forEach(s => { s.H = Math.max(0, s.H * k); s.squeezed = true; });
+      used = mods.reduce((a, s) => a + (s.H || 0), 0);
+    }
+  }
   const left = Math.max(0, total - used);
   if(fillers.length){
     /* Give each filler its minimum first, then share whatever is genuinely
@@ -2057,7 +2106,9 @@ export function buildDesign(cfg, cat){
       if(bay.gap){ closeIsland(); x += bay.w; return; }
       const bi = secN++;
       if(islandStart === null) islandStart = x;
-      if(bay.w < SPEC.bayMin) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}", under the ${SPEC.bayMin}" minimum.`);
+      /* a filler is deliberately narrow: that is the whole of what it is for */
+      const isFill = bay.stack?.length === 1 && bay.stack[0].m === 'FILLER';
+      if(!isFill && bay.w < SPEC.bayMin) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}", under the ${SPEC.bayMin}" minimum.`);
       if(bay.w > SPEC.bayMax) warnings.push(`A bay on the ${run.wall} wall is ${bay.w.toFixed(0)}". Past ${SPEC.bayMax}" a ¾" shelf sags.`);
 
       /* Where this bay sits along the wall, and therefore which window, slope,
