@@ -1,19 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-/* Measured median of each part photo's top and bottom edge rows. See the
-   note where it is used, in the part picker. */
-const PART_TILE = {
-  'basket-shelf':'#DAD5D2', 'baskets':'#F1F0EC', 'counter':'#EEEAE7',
-  'cubbies':'#F3F0EC', 'door':'#F2EEEA', 'double-hang-tall':'#F5F0ED',
-  'double-hang':'#F4F0ED', 'drawer-tower':'#DAD7D2', 'drawers':'#F2F0ED',
-  'glass-door':'#EFECE9', 'hamper-hang':'#D5CFCC', 'hamper':'#F2ECE8',
-  'hang-drawers':'#D2CAC6', 'hang-shelf':'#DDD9D6', 'long-hang-tall':'#F3F1ED',
-  'long-hang':'#F3F2EE', 'open':'#F6F2EE', 'shelves':'#F2F1EE',
-  'shoe-slant':'#F0ECE9', 'shoes':'#F4F1ED', 'short-hang':'#F2ECE8'
-};
-
-
 /* ══════════════════════════════════════════════════════════════════════
    DRAWN PICTURES FOR THE PARTS THAT HAVE NO PHOTOGRAPH
 
@@ -29,102 +16,367 @@ const PART_TILE = {
    as the photographs, so the grid does not jump. When the photographs
    arrive they take over and this file loses six functions.
    ══════════════════════════════════════════════════════════════════════ */
-/* Portrait, because the part cards are portrait: a landscape drawing in a
-   3:4 box is either cropped down its sides or letterboxed into a stamp. */
-const ART_BG = `
+/* ══════════════════════════════════════════════════════════════════════
+   ONE DRAWING ENGINE FOR EVERY PART AND EVERY READY-MADE TOWER
+
+   There were three different pictures of the same closet on one screen.
+   Stock photographs of somebody else's wardrobe for the components, a
+   hairline schematic for the ready-made towers, and six hand-drawn tiles
+   for the accessories. Three styles, three palettes, three ideas of what
+   a tower looks like, and none of them was the closet this site builds.
+
+   This draws all of them, from one palette, with one idea of a section:
+   two side panels, a top, a toe kick, and bands stacked inside. A part
+   card is a section with one band in it. A ready-made tower card is a
+   section with that tower's bands in it. They cannot drift apart because
+   they are the same function, and when a band is improved every card
+   that uses it improves with it.
+
+   Drawn rather than photographed, so it stays true: change the drawer
+   heights he stocks and the drawer card changes with them.
+   ══════════════════════════════════════════════════════════════════════ */
+const SEC = {
+  w:120, h:160,
+  x0:9, x1:111,          // outside of the carcass
+  pw:6,                  // panel thickness
+  top:10, bot:150, tk:7  // top shelf, floor line, toe kick height
+};
+const SEC_DEFS = `
   <defs>
-    <linearGradient id="aw" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E9DAC2"/><stop offset="1" stop-color="#D3BB97"/></linearGradient>
-    <linearGradient id="am" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#EFF1F3"/><stop offset=".42" stop-color="#BBC1C6"/>
-      <stop offset=".58" stop-color="#99A0A6"/><stop offset="1" stop-color="#D6DADD"/></linearGradient>
-    <linearGradient id="ag" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#F3F5F6"/><stop offset=".5" stop-color="#C6CFD4"/>
-      <stop offset="1" stop-color="#EEF1F2"/></linearGradient>
-  </defs>
-  <rect width="120" height="160" fill="url(#aw)"/>
-  <rect x="0" y="0" width="11" height="160" fill="#C4A57C"/>
-  <rect x="109" y="0" width="11" height="160" fill="#CCAE86"/>
-  <rect x="11" y="0" width="3" height="160" fill="#000" opacity=".07"/>
-  <rect x="106" y="0" width="3" height="160" fill="#000" opacity=".05"/>
-  <rect x="11" y="150" width="98" height="10" fill="#B99B74"/>`;
-const artSvg = inner => `<svg class="partart" viewBox="0 0 120 160"
-  preserveAspectRatio="xMidYMid slice" aria-hidden="true">${ART_BG}${inner}</svg>`;
+    <linearGradient id="sBoard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E9D3B0"/><stop offset="1" stop-color="#CFB184"/></linearGradient>
+    <linearGradient id="sPanel" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#DEC29A"/><stop offset="1" stop-color="#BFA073"/></linearGradient>
+    <linearGradient id="sBack" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E4DCCF"/><stop offset="1" stop-color="#D3C9B9"/></linearGradient>
+    <linearGradient id="sMetal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F1F3F4"/><stop offset=".45" stop-color="#BFC5CA"/>
+      <stop offset=".6" stop-color="#9CA3A9"/><stop offset="1" stop-color="#DADEE1"/></linearGradient>
+    <linearGradient id="sGlass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4F7F8" stop-opacity=".9"/>
+      <stop offset=".5" stop-color="#C9D6DC" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#EEF3F4" stop-opacity=".9"/></linearGradient>
+  </defs>`;
+const SEC_C = { edge:'#B9986C', line:'#A98A62', cloth:['#4C5A6E','#8E8273','#5E6B55','#6F6560'] };
 
-/* a pull-out peg rack: the glide frame across, n pegs hanging off it */
-const artRack = (n, pegLen, draped) => {
-  let g = `<rect x="16" y="40" width="88" height="6" rx="2" fill="url(#am)"/>
-    <rect x="16" y="46" width="88" height="2.6" fill="#000" opacity=".13"/>
-    <rect x="16" y="34" width="6" height="12" rx="2" fill="#AEB5BA"/>
-    <rect x="98" y="34" width="6" height="12" rx="2" fill="#AEB5BA"/>`;
-  const step = 84 / (n + 1);
+/* one board, seen square on: face, lit top edge, shadow under it */
+const board = (x, y, w, t) =>
+  `<rect x="${x}" y="${y.toFixed(1)}" width="${w}" height="${t}" fill="url(#sBoard)"/>
+   <rect x="${x}" y="${y.toFixed(1)}" width="${w}" height=".8" fill="#F6EAD5"/>
+   <rect x="${x}" y="${(y + t).toFixed(1)}" width="${w}" height="1.6" fill="#000" opacity=".11"/>`;
+
+/* a hanging rod with clothes on it, filling `drop` of the band below it */
+const hangBand = (x, w, y0, y1, seed = 0) => {
+  const rod = y0 + 5, drop = Math.min((y1 - y0) - 9, (y1 - y0) * 0.78);
+  let g = `<rect x="${x + 2}" y="${rod.toFixed(1)}" width="${w - 4}" height="2.4" rx="1.2" fill="url(#sMetal)"/>`;
+  const n = Math.max(3, Math.round(w / 11));
   for(let i = 0; i < n; i++){
-    const x = 18 + step * (i + 1);
-    g += `<rect x="${(x - 1.2).toFixed(1)}" y="45" width="2.4" height="${pegLen}" rx="1.2" fill="url(#ag)"/>
-          <circle cx="${x.toFixed(1)}" cy="${(45 + pegLen).toFixed(1)}" r="1.9" fill="#DADEE1"/>`;
+    const cx = x + 5 + ((w - 10) / (n - 1 || 1)) * i;
+    const col = SEC_C.cloth[(i + seed) % SEC_C.cloth.length];
+    const sh = drop * (0.82 + ((i + seed) % 3) * 0.06);
+    g += `<path d="M${cx.toFixed(1)} ${(rod + 1).toFixed(1)}v3" stroke="#AAB0B5" stroke-width=".9"/>
+      <path d="M${(cx - 4).toFixed(1)} ${(rod + 4).toFixed(1)}
+               q4 -2.6 8 0 l1.6 ${sh.toFixed(1)} q-5.6 2 -11.2 0 Z" fill="${col}"/>`;
   }
-  return g + draped;
+  return g;
 };
 
-const PART_ART = {
-  /* a chrome rod that pulls out of a plate on the back, with tomorrow on it */
-  VALET: artSvg(`
-    <rect x="18" y="40" width="12" height="20" rx="3" fill="url(#am)"/>
-    <circle cx="24" cy="45" r="1.3" fill="#8E959A"/><circle cx="24" cy="55" r="1.3" fill="#8E959A"/>
-    <rect x="28" y="47" width="74" height="4.6" rx="2.3" fill="url(#am)"/>
-    <rect x="28" y="51.6" width="74" height="1.8" fill="#000" opacity=".13"/>
-    <circle cx="102" cy="49.3" r="3" fill="#D7DBDE" stroke="#9AA1A6" stroke-width=".7"/>
-    <path d="M66 49.3v7" stroke="#9AA1A6" stroke-width="1.5" fill="none"/>
-    <path d="M56 62h20l10 54H46Z" fill="#54637A"/>
-    <path d="M66 56c-6 1-10 4-10 6h20c0-2-4-5-10-6Z" fill="#44526A"/>
-    <path d="M56 62h20l2 12H54Z" fill="#000" opacity=".07"/>
-    <path d="M46 116h40l-2 8H48Z" fill="#000" opacity=".06"/>`),
-
-  /* thirty ties in three inches, so the pegs are short and there are many */
-  TIE_RACK: artSvg(artRack(11, 13, `
-    <path d="M33 58c0 12-3 18-3 26l4 8 4-8c0-8-3-14-3-26Z" fill="#3E4C60"/>
-    <path d="M58 58c0 12-3 18-3 26l4 8 4-8c0-8-3-14-3-26Z" fill="#8A7C6A"/>
-    <path d="M83 58c0 12-3 18-3 26l4 8 4-8c0-8-3-14-3-26Z" fill="#5E6B55"/>`)),
-
-  /* the same frame, longer pegs, belts coiled over them */
-  BELT_RACK: artSvg(artRack(7, 19, `
-    <path d="M30 64c0 16-4 20-4 30h8c0-10-4-14-4-30Z" fill="#6A4B32"/>
-    <rect x="25" y="94" width="8" height="6" rx="1" fill="#C9A96A"/>
-    <path d="M62 64c0 16-4 20-4 30h8c0-10-4-14-4-30Z" fill="#2E2A27"/>
-    <rect x="57" y="94" width="8" height="6" rx="1" fill="#C3C7CA"/>`)),
-
-  /* wide loops, because a scarf creases over a peg */
-  SCARF_RACK: artSvg(`
-    <rect x="16" y="40" width="88" height="6" rx="2" fill="url(#am)"/>
-    <rect x="16" y="46" width="88" height="2.6" fill="#000" opacity=".13"/>
-    ${[0,1,2,3].map(i => {
-      const x = 24 + i * 22;
-      return `<path d="M${x} 46v8a7 8 0 1 0 13 0v-8" fill="none" stroke="#C3C9CD" stroke-width="2.4"/>`;
-    }).join('')}
-    <path d="M30 56c7 16 3 30-4 40 9 3 16-1 20-7 5 10 12 14 19 10-8-10-11-26-7-43Z"
-      fill="#A4514C" opacity=".93"/>`),
-
-  /* arms that pull out, trousers hanging full length off two of them */
-  PANTS_RACK: artSvg(`
-    <rect x="16" y="22" width="6" height="110" rx="2" fill="url(#am)"/>
-    <rect x="98" y="22" width="6" height="110" rx="2" fill="url(#am)"/>
-    ${[0,1,2,3,4,5].map(i => {
-      const y = 28 + i * 15;
-      return `<rect x="21" y="${y}" width="78" height="3.2" rx="1.6" fill="url(#ag)"/>
-              <circle cx="97" cy="${y + 1.6}" r="2.1" fill="#D9DDE0"/>`;
-    }).join('')}
-    <path d="M30 31h22l-3 86h-7l-3.5-54-3.5 54h-7Z" fill="#43505F" opacity=".95"/>
-    <path d="M66 46h22l-3 72h-7l-3.5-44-3.5 44h-7Z" fill="#8E8273" opacity=".95"/>`),
-
-  /* a mirrored front: what it shows is the whole point of it */
-  MIRROR: artSvg(`
-    <rect x="16" y="8" width="88" height="144" rx="3" fill="#B49C78"/>
-    <rect x="21" y="13" width="78" height="134" rx="2" fill="url(#ag)"/>
-    <rect x="21" y="13" width="78" height="134" fill="#AFC2CB" opacity=".42"/>
-    <path d="M21 124 99 36v30L21 142Z" fill="#FFFFFF" opacity=".3"/>
-    <path d="M21 58 99 13v13L21 78Z" fill="#FFFFFF" opacity=".22"/>
-    <rect x="92" y="74" width="3.6" height="13" rx="1.8" fill="#C3C7CA"/>`)
+/* n evenly spaced shelves inside the band */
+const shelfBand = (x, w, y0, y1, n) => {
+  let g = ''; const step = (y1 - y0) / n;
+  for(let i = 1; i <= n; i++) g += board(x, y0 + step * i - 2, w, 2.4);
+  return g;
 };
+
+/* drawer fronts, in the proportions of the boxes he stocks */
+const drawerBand = (x, w, y0, y1, sizes) => {
+  const sum = sizes.reduce((a, b) => a + b, 0) || 1;
+  let g = '', y = y0;
+  for(const sz of sizes){
+    const dh = ((y1 - y0) * sz) / sum;
+    g += `<rect x="${x + 1}" y="${(y + 1).toFixed(1)}" width="${w - 2}" height="${Math.max(3, dh - 2).toFixed(1)}"
+            rx="1" fill="url(#sBoard)" stroke="${SEC_C.edge}" stroke-width=".7"/>
+          <rect x="${(x + w / 2 - 9).toFixed(1)}" y="${(y + dh / 2 - 1).toFixed(1)}" width="18" height="2"
+            rx="1" fill="url(#sMetal)"/>`;
+    y += dh;
+  }
+  return g;
+};
+
+/* a pair of shoes seen end on, which is how they sit on a shelf */
+const shoe = (cx, yBase, tilt = 0) =>
+  `<g transform="translate(${cx.toFixed(1)} ${yBase.toFixed(1)}) rotate(${tilt}) scale(1.35)">
+     <path d="M-6 0h9l3 -1.4q1.6 -.7 1.6 -2.4v-1.6q0 -1.4 -1.6 -1.4h-4l-2.4 -2.4h-5.6Z"
+       fill="#3B3F46"/><path d="M-6 0h13.6l-.6 1.4H-6Z" fill="#23262B"/>
+     <path d="M-5 -5.4h4.4l1 1.6h-5.4Z" fill="#555B64"/></g>`;
+
+/* flat shelves of shoes, or slanted ones */
+const shoeBand = (x, w, y0, y1, slant) => {
+  const n = Math.max(2, Math.min(6, Math.round((y1 - y0) / 20)));
+  let g = ''; const step = (y1 - y0) / n;
+  for(let i = 1; i <= n; i++){
+    const yy = y0 + step * i - 2;
+    if(slant){
+      g += `<path d="M${x} ${yy.toFixed(1)}L${x + w} ${(yy - 5).toFixed(1)}l0 2.4L${x} ${(yy + 2.4).toFixed(1)}Z"
+              fill="url(#sBoard)" stroke="${SEC_C.edge}" stroke-width=".6"/>`;
+      for(let k = 0; k < 3; k++)
+        g += shoe(x + 15 + k * (w - 30) / 2, yy - 3 - (15 + k * (w - 30) / 2) * 5 / w, -6);
+    } else {
+      g += board(x, yy, w, 2.4);
+      for(let k = 0; k < 3; k++) g += shoe(x + 15 + k * (w - 30) / 2, yy - 1);
+    }
+  }
+  return g;
+};
+
+/* wire baskets: the mesh is the whole point, so it is drawn as mesh */
+const basketBand = (x, w, y0, y1, n) => {
+  let g = ''; const step = (y1 - y0) / n;
+  for(let i = 0; i < n; i++){
+    const by = y0 + step * i + 2, bh = step - 4;
+    g += `<rect x="${x + 2}" y="${by.toFixed(1)}" width="${w - 4}" height="${bh.toFixed(1)}"
+            fill="#FFFFFF" fill-opacity=".28" stroke="#9EA5AB" stroke-width=".9"/>`;
+    for(let k = 1; k < 6; k++)
+      g += `<path d="M${(x + 2 + ((w - 4) / 6) * k).toFixed(1)} ${by.toFixed(1)}v${bh.toFixed(1)}"
+              stroke="#AEB4BA" stroke-width=".5"/>`;
+    for(let k = 1; k < 3; k++)
+      g += `<path d="M${x + 2} ${(by + (bh / 3) * k).toFixed(1)}h${w - 4}" stroke="#AEB4BA" stroke-width=".5"/>`;
+  }
+  return g;
+};
+
+const PART_BAND = {
+  HANG:        (x, w, a, b) => hangBand(x, w, a, b),
+  LONG_HANG:   (x, w, a, b) => hangBand(x, w, a, b),
+  SHORT_HANG:  (x, w, a, b) => hangBand(x, w, a, b),
+  DOUBLE_HANG: (x, w, a, b) => hangBand(x, w, a, (a + b) / 2) + hangBand(x, w, (a + b) / 2, b, 1),
+  SHELVES:     (x, w, a, b, st) => shelfBand(x, w, a, b, Math.max(1, st?.o?.n ?? 4)),
+  COUNTER:     (x, w, a, b) => {
+    const t = Math.min(9, Math.max(6, (b - a) * .5)), y = b - t;
+    return `<rect x="${(x - 3).toFixed(1)}" y="${y.toFixed(1)}" width="${w + 6}" height="${t.toFixed(1)}"
+        rx="2" fill="url(#sBoard)" stroke="${SEC_C.edge}" stroke-width=".7"/>
+      <rect x="${(x - 3).toFixed(1)}" y="${y.toFixed(1)}" width="${w + 6}" height="1.6" fill="#F8EEDC"/>
+      <rect x="${(x - 3).toFixed(1)}" y="${(y + t).toFixed(1)}" width="${w + 6}" height="2.4"
+        fill="#000" opacity=".13"/>`;
+  },
+  CUBBIES:     (x, w, a, b, st) => {
+    const n = Math.max(2, st?.o?.n ?? 4); let g = shelfBand(x, w, a, b, n);
+    g += `<rect x="${(x + w / 2 - 1.2).toFixed(1)}" y="${a.toFixed(1)}" width="2.4"
+            height="${(b - a).toFixed(1)}" fill="url(#sPanel)"/>`;
+    return g;
+  },
+  DRAWERS:     (x, w, a, b, st) => drawerBand(x, w, a, b,
+                 (st?.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st?.o?.n))),
+  /* A PULL-OUT SHELF IS A SHELF THAT COMES OUT. The old picture was a
+     stack of plain lines, which is a bookcase. One of them is drawn
+     pulled forward on its runner with the runner showing, because that
+     is the only thing that tells it from a fixed shelf. */
+  /* ══════════════════════════════════════════════════════════════
+     A PULL-OUT SHELF IS A SHELF THAT COMES OUT AT YOU
+
+     Drawn as a stack of plain lines it is a bookcase, which is exactly
+     what the old picture looked like and exactly what he said about it.
+     The thing that makes it a pull-out is the pair of runners on the
+     side panels and the fact that one of them is standing out in front
+     of the cabinet. So: runners on every shelf, and the middle one
+     drawn open, past the face of the tower, with its front edge, its
+     top surface foreshortened and a shadow under it. It is pushed to
+     the overlay so it is drawn after the carcass and really does sit in
+     front of it. */
+  PULLOUT:     (x, w, a, b, st, over) => {
+    const n = Math.max(1, st?.o?.n ?? 3), step = (b - a) / n;
+    let g = '';
+    const openAt = n === 1 ? 1 : 2;
+    for(let i = 1; i <= n; i++){
+      const yy = a + step * i - 3;
+      /* the runner each side: a pull-out shelf is the only shelf with one */
+      g += `<rect x="${(x - 3).toFixed(1)}" y="${(yy - 2.6).toFixed(1)}" width="4" height="2.2" fill="url(#sMetal)"/>
+            <rect x="${(x + w - 1).toFixed(1)}" y="${(yy - 2.6).toFixed(1)}" width="4" height="2.2" fill="url(#sMetal)"/>`;
+      if(i !== openAt){ g += board(x + 1, yy, w - 2, 2.6); continue; }
+      const ex = 9, dp = 8;                       // how far out, how deep it reads
+      over.push(`<path d="M${(x + 1).toFixed(1)} ${yy.toFixed(1)}H${(x + w - 1).toFixed(1)}
+          l${ex} ${dp}H${(x + 1 - ex).toFixed(1)}Z" fill="#F0DFC1" stroke="${SEC_C.edge}" stroke-width=".7"/>
+        <path d="M${(x + 1 - ex).toFixed(1)} ${(yy + dp).toFixed(1)}H${(x + w - 1 + ex).toFixed(1)}v3.4
+          H${(x + 1 - ex).toFixed(1)}Z" fill="url(#sBoard)" stroke="${SEC_C.edge}" stroke-width=".7"/>
+        <rect x="${(x + 1 - ex).toFixed(1)}" y="${(yy + dp + 3.4).toFixed(1)}"
+          width="${(w - 2 + ex * 2).toFixed(1)}" height="2.6" fill="#000" opacity=".16"/>
+        <rect x="${(x + w / 2 - 10).toFixed(1)}" y="${(yy + dp + 1).toFixed(1)}" width="20" height="1.8"
+          rx=".9" fill="url(#sMetal)"/>`);
+    }
+    return g;
+  },
+  BASKETS:     (x, w, a, b, st) => basketBand(x, w, a, b, Math.max(1, st?.o?.n ?? 3)),
+  /* a tilt-out bin: the front swings out on a pivot, so it is drawn tilted */
+  HAMPER:      (x, w, a, b) =>
+    `<path d="M${x + 1} ${(a + 2).toFixed(1)}H${x + w - 1}l-4 ${(b - a - 4).toFixed(1)}H${x + 5}Z"
+       fill="url(#sBoard)" stroke="${SEC_C.edge}" stroke-width=".8"/>
+     <path d="M${x + 6} ${(a + 7).toFixed(1)}H${x + w - 6}l-3 ${(b - a - 13).toFixed(1)}H${x + 9}Z"
+       fill="#CFC4B2" opacity=".85"/>
+     <rect x="${(x + w / 2 - 9).toFixed(1)}" y="${(a + 4).toFixed(1)}" width="18" height="2" rx="1"
+       fill="url(#sMetal)"/>`,
+  SHOES:       (x, w, a, b) => shoeBand(x, w, a, b, false),
+  SHOE_SLANT:  (x, w, a, b) => shoeBand(x, w, a, b, true),
+  DOOR:        (x, w, a, b) =>
+    `<rect x="${x}" y="${a.toFixed(1)}" width="${w}" height="${(b - a).toFixed(1)}" rx="1"
+       fill="url(#sPanel)" stroke="${SEC_C.edge}" stroke-width=".8"/>
+     <rect x="${x + 5}" y="${(a + 5).toFixed(1)}" width="${w - 10}" height="${(b - a - 10).toFixed(1)}"
+       rx="1" fill="none" stroke="#C7A87C" stroke-width=".8"/>
+     <rect x="${(x + w - 9).toFixed(1)}" y="${((a + b) / 2 - 7).toFixed(1)}" width="2.4" height="14"
+       rx="1.2" fill="url(#sMetal)"/>`,
+  GLASS_DOOR:  (x, w, a, b) =>
+    `<rect x="${x}" y="${a.toFixed(1)}" width="${w}" height="${(b - a).toFixed(1)}" rx="1"
+       fill="url(#sPanel)" stroke="${SEC_C.edge}" stroke-width=".8"/>
+     <rect x="${x + 5}" y="${(a + 5).toFixed(1)}" width="${w - 10}" height="${(b - a - 10).toFixed(1)}"
+       fill="url(#sGlass)" stroke="#B9C6CC" stroke-width=".7"/>
+     <path d="M${x + 6} ${(b - 12).toFixed(1)}L${x + w - 7} ${(a + 14).toFixed(1)}"
+       stroke="#FFFFFF" stroke-width="3" opacity=".4"/>
+     <rect x="${(x + w - 9).toFixed(1)}" y="${((a + b) / 2 - 7).toFixed(1)}" width="2.4" height="14"
+       rx="1.2" fill="url(#sMetal)"/>`,
+  MIRROR:      (x, w, a, b) =>
+    `<rect x="${x}" y="${a.toFixed(1)}" width="${w}" height="${(b - a).toFixed(1)}" rx="1"
+       fill="url(#sPanel)" stroke="${SEC_C.edge}" stroke-width=".8"/>
+     <rect x="${x + 4}" y="${(a + 4).toFixed(1)}" width="${w - 8}" height="${(b - a - 8).toFixed(1)}"
+       fill="#C2D0D7"/>
+     <path d="M${x + 4} ${(b - 14).toFixed(1)}L${x + w - 4} ${(a + 20).toFixed(1)}v12L${x + 4} ${(b - 4).toFixed(1)}Z"
+       fill="#FFFFFF" opacity=".38"/>
+     <path d="M${x + 4} ${(a + 24).toFixed(1)}L${x + w - 4} ${(a + 4).toFixed(1)}v7L${x + 4} ${(a + 32).toFixed(1)}Z"
+       fill="#FFFFFF" opacity=".26"/>
+     <rect x="${(x + w - 9).toFixed(1)}" y="${((a + b) / 2 - 7).toFixed(1)}" width="2.4" height="14"
+       rx="1.2" fill="url(#sMetal)"/>`,
+  OPEN:        () => '',
+  FILLER:      (x, w, a, b) =>
+    `<rect x="${(x + w / 2 - 4).toFixed(1)}" y="${a.toFixed(1)}" width="8" height="${(b - a).toFixed(1)}"
+       fill="url(#sPanel)" stroke="${SEC_C.edge}" stroke-width=".7"/>`,
+  /* ── the accessories ─────────────────────────────────────────────── */
+  VALET:       (x, w, a, b) => {
+    const y = a + Math.min(36, (b - a) * .3);
+    return `<rect x="${x + 2}" y="${(y - 5).toFixed(1)}" width="7" height="10" rx="2" fill="url(#sMetal)"/>
+      <rect x="${x + 8}" y="${(y - 1.4).toFixed(1)}" width="${w - 16}" height="2.8" rx="1.4" fill="url(#sMetal)"/>
+      <circle cx="${(x + w - 8).toFixed(1)}" cy="${y.toFixed(1)}" r="2.6" fill="#D9DDE0"/>
+      <path d="M${(x + w / 2).toFixed(1)} ${(y + 1).toFixed(1)}v4" stroke="#A7AEB3" stroke-width="1"/>
+      <path d="M${(x + w / 2 - 8).toFixed(1)} ${(y + 4).toFixed(1)}
+               q8 -4.5 16 0 l7 5 -3.4 7 -3.6 -2.6 2.6 28 q-11 3 -22 0 l2.6 -28 -3.6 2.6 -3.4 -7Z"
+        fill="#4C5A6E"/>
+      <path d="M${(x + w / 2 - 8).toFixed(1)} ${(y + 6).toFixed(1)}q8 -3.4 16 0l.5 6q-8.5 2.6 -17 0Z"
+        fill="#000" opacity=".1"/>
+      <path d="M${(x + w / 2).toFixed(1)} ${(y + 8).toFixed(1)}v28" stroke="#3C4858" stroke-width=".9"/>`;
+  },
+  TIE_RACK:    (x, w, a, b) => pegArt(x, w, (a + b) / 2, 10, 9,
+    [[0.22,'#3E4C60'],[0.5,'#8A7C6A'],[0.78,'#5E6B55']], 'tie'),
+  BELT_RACK:   (x, w, a, b) => pegArt(x, w, (a + b) / 2, 6, 13,
+    [[0.28,'#6A4B32'],[0.66,'#2E2A27']], 'belt'),
+  SCARF_RACK:  (x, w, a, b) => {
+    const y = (a + b) / 2;
+    let g = `<rect x="${x + 2}" y="${(y - 2).toFixed(1)}" width="${w - 4}" height="3" rx="1.5" fill="url(#sMetal)"/>`;
+    for(let i = 0; i < 4; i++){
+      const cx = x + 10 + i * ((w - 20) / 3);
+      g += `<path d="M${(cx - 5).toFixed(1)} ${(y + 1).toFixed(1)}v5a5 5.6 0 1 0 10 0v-5"
+              fill="none" stroke="#C3C9CD" stroke-width="2"/>`;
+    }
+    g += `<path d="M${x + 12} ${(y + 8).toFixed(1)}q5 12 1 22 6 2 10 -3 3 7 9 6 -5 -7 -3 -24Z"
+            fill="#A4514C" opacity=".93"/>`;
+    return g;
+  },
+  PANTS_RACK:  (x, w, a, b) => {
+    const n = 6; let g = '';
+    for(let i = 0; i < n; i++){
+      const y = a + 5 + i * ((b - a - 10) / (n - 1));
+      g += `<rect x="${x + 2}" y="${y.toFixed(1)}" width="${w - 6}" height="2.2" rx="1.1" fill="url(#sMetal)"/>
+            <circle cx="${(x + w - 5).toFixed(1)}" cy="${(y + 1.1).toFixed(1)}" r="1.8" fill="#D9DDE0"/>`;
+    }
+    const trouser = (tx, ty, len, col) =>
+      `<path d="M${tx} ${ty.toFixed(1)}h17l-1.2 6h-14.6Z" fill="${col}"/>
+       <path d="M${tx + 1.4} ${(ty + 6).toFixed(1)}h5.6l1 ${len.toFixed(1)}h-5.6Z" fill="${col}"/>
+       <path d="M${tx + 9.6} ${(ty + 6).toFixed(1)}h5.6l-1 ${len.toFixed(1)}h-5.6Z" fill="${col}"/>
+       <path d="M${tx} ${ty.toFixed(1)}h17l-.4 2h-16.2Z" fill="#000" opacity=".16"/>`;
+    g += trouser(x + 7,  a + 6,  Math.max(16, b - a - 20), '#43505F');
+    g += trouser(x + 32, a + 21, Math.max(14, b - a - 36), '#8E8273');
+    g += trouser(x + 57, a + 36, Math.max(12, b - a - 52), '#5E6B55');
+    return g;
+  }
+};
+/* the frame a tie rack and a belt rack share */
+function pegArt(x, w, y, n, pegLen, hang, kind){
+  let g = `<rect x="${x + 2}" y="${(y - 2).toFixed(1)}" width="${w - 4}" height="3" rx="1.5" fill="url(#sMetal)"/>
+    <rect x="${x + 1}" y="${(y - 5).toFixed(1)}" width="4" height="9" rx="1.5" fill="#AEB5BA"/>
+    <rect x="${(x + w - 5).toFixed(1)}" y="${(y - 5).toFixed(1)}" width="4" height="9" rx="1.5" fill="#AEB5BA"/>`;
+  for(let i = 0; i < n; i++){
+    const cx = x + 6 + ((w - 12) / (n - 1 || 1)) * i;
+    g += `<rect x="${(cx - 1).toFixed(1)}" y="${(y + 1).toFixed(1)}" width="2" height="${pegLen}" rx="1"
+            fill="#D3D8DB"/>`;
+  }
+  /* they hang off the peg they are on, not in the air underneath it */
+  const hook = y + pegLen - 1;
+  for(const [t, col] of hang){
+    const cx = x + 6 + (w - 12) * t;
+    g += kind === 'tie'
+      ? `<path d="M${(cx - 4).toFixed(1)} ${hook.toFixed(1)}q4 -3 8 0l-1.6 30 -2.4 6 -2.4 -6Z" fill="${col}"/>
+         <path d="M${(cx - 4).toFixed(1)} ${hook.toFixed(1)}q4 -3 8 0l-.4 5q-3.6 -2 -7.2 0Z" fill="#000" opacity=".12"/>`
+      : `<path d="M${(cx - 4.6).toFixed(1)} ${hook.toFixed(1)}q4.6 -3 9.2 0l-1.2 30h-6.8Z" fill="${col}"/>
+         <rect x="${(cx - 4.4).toFixed(1)}" y="${(hook + 30).toFixed(1)}" width="8.8" height="6" rx="1" fill="#C9A96A"/>`;
+  }
+  return g;
+}
+
+/* ── the section itself ───────────────────────────────────────────────
+   `bands` is [{ m, h, o }] bottom to top, the same shape as a tower's
+   stack, with h in inches. Anything with no h shares what is left, which
+   is exactly what the height solver does, so a card and the drawing it
+   stands for always agree. */
+function sectionArt(bands, usable = 80, cls = 'partart'){
+  const { w:W, h:H, x0, x1, pw, top, bot, tk } = SEC;
+  const ix = x0 + pw, iw = (x1 - pw) - ix;        // the inside of the carcass
+  const iy0 = top + 5, iy1 = bot - tk;
+  let fixed = 0, fill = 0;
+  const rows = bands.map(st => {
+    if(st.m === 'DRAWERS'){
+      const sizes = st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n);
+      const h = drawerBankHeight(sizes); fixed += h; return { st, h };
+    }
+    if(st.h != null){ fixed += st.h; return { st, h:st.h }; }
+    fill++; return { st, h:null };
+  });
+  const spare = Math.max(6, usable - fixed);
+  for(const r of rows) if(r.h == null) r.h = spare / Math.max(1, fill);
+  const total = rows.reduce((a, r) => a + r.h, 0) || 1;
+
+  let y = iy1, inner = '', over = [];
+  for(const r of rows){
+    const bh = ((iy1 - iy0) * r.h) / total, a = y - bh;
+    const draw = PART_BAND[r.st.m];
+    if(draw) inner += draw(ix, iw, a, y, r.st, over);
+    y = a;
+  }
+  return `<svg class="${cls}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"
+    aria-hidden="true">${SEC_DEFS}
+    <rect width="${W}" height="${H}" fill="#F1EADF"/>
+    <rect x="${ix}" y="${top}" width="${iw}" height="${iy1 - top}" fill="url(#sBack)"/>
+    ${inner}
+    <rect x="${x0}" y="${top}" width="${pw}" height="${bot - top}" fill="url(#sPanel)"/>
+    <rect x="${x1 - pw}" y="${top}" width="${pw}" height="${bot - top}" fill="url(#sPanel)"/>
+    ${board(x0, top, x1 - x0, 5)}
+    <rect x="${x0 + 1.5}" y="${bot - tk}" width="${x1 - x0 - 3}" height="${tk}" fill="#C5A87F"/>
+    <rect x="${x0}" y="${bot}" width="${x1 - x0}" height="2" fill="#000" opacity=".12"/>
+    ${/* a pull-out is in front of the carcass, which is the whole of what
+         makes it a pull-out, so it is drawn after it */''}
+    ${over.join('')}
+  </svg>`;
+}
+
+/* what one part looks like on its own card: the part, at a height that
+   shows it properly, in a section like the one it will be built into */
+const CARD_STACK = {
+  TIE_RACK:   [{ m:'TIE_RACK', h:null }],
+  BELT_RACK:  [{ m:'BELT_RACK', h:null }],
+  SCARF_RACK: [{ m:'SCARF_RACK', h:null }],
+  PANTS_RACK: [{ m:'PANTS_RACK', h:null }],
+  COUNTER:    [{ m:'DRAWERS', o:{ sizes:[7.5,7.5,7.5] } }, { m:'COUNTER', h:16 },
+                { m:'SHELVES', h:null, o:{ n:2 } }],
+  HAMPER:     [{ m:'HAMPER', h:30 }, { m:'HANG', h:null }],
+  BASKETS:    [{ m:'BASKETS', h:34, o:{ n:3 } }, { m:'HANG', h:null }]
+};
+const partSection = id => sectionArt(
+  CARD_STACK[id] || [{ m:id, h:null, o:{} }], 80);
 
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          buildDesign, makeBay, defaultStackFor, canAdd, PRESETS, PRESET_ALIAS,
@@ -133,11 +385,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=716881c9';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=2e28338e';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=716881c9';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=2e28338e';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=716881c9';
+         clothMaterials, clearCaches } from './materials.js?v=2e28338e';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -2233,6 +2485,14 @@ function rebuild(reframe){
     /* Camera in room inches: where you are standing and what you are looking
        at. A sequence that walks into a closet is choreographed in those
        terms, not in angles around a bounding box. */
+    /* a test can select a tower without hunting for its chip, which no
+       longer exists now the strip is gone */
+    window.__pick = (i, wall) => {
+      const w = wall || S.sel?.wall || Object.keys(S.runs).find(k => S.runs[k]?.on);
+      if(!S.runs[w]?.bays[i]) return false;
+      S.sel = { wall:w, i }; S.part = null; S.lib = false;
+      PICK_FOR = w + '|' + i; rebuild(false); return true;
+    };
     window.__cam = (o = {}) => {
       const { w:W, d:D, h:H } = S.room;
       const at = o.at || [W/2, 62, D*0.9];
@@ -2943,71 +3203,12 @@ function squeeze(stack, pin, usable){
   }
 }
 
-function towerThumb(stack, usable = 80){
-  const W = 44, H = 74, PAD = 3, TK = 3;
-  const inner = H - PAD * 2 - TK;
-  /* resolve the heights the way the engine does: fixed ones keep theirs,
-     the open-ended one takes what is left */
-  let fixed = 0, fillers = 0;
-  const hs = stack.map(st => {
-    if(st.m === 'DRAWERS'){
-      const sizes = st.o?.sizes?.length ? st.o.sizes : defaultDrawerSizes(st.o?.n);
-      const h = drawerBankHeight(sizes); fixed += h; return { st, h, sizes };
-    }
-    if(st.h != null){ fixed += st.h; return { st, h:st.h }; }
-    fillers++; return { st, h:null };
-  });
-  const left = Math.max(8, usable - fixed);
-  for(const r of hs) if(r.h == null) r.h = left / Math.max(1, fillers);
-  const total = hs.reduce((a, r) => a + r.h, 0) || 1;
-
-  let y = H - PAD - TK, out = '';
-  const ln = (x1, yy, x2, w = 1) => `<path d="M${x1} ${yy.toFixed(1)}H${x2}" stroke-width="${w}"/>`;
-  for(const r of hs){
-    const h = (r.h / total) * inner, y0 = y - h;
-    const m = r.st.m;
-    if(m === 'HANG'){
-      out += ln(PAD + 4, y0 + 5, W - PAD - 4, 1.4);                    // the rod
-      for(let i = 0; i < 4; i++)
-        out += `<path d="M${PAD + 8 + i * 7} ${(y0 + 6).toFixed(1)}v${Math.max(4, h * .45).toFixed(1)}" stroke-width=".8"/>`;
-    } else if(m === 'SHELVES' || m === 'SHOES' || m === 'PULLOUT'){
-      const n = m === 'SHOES' ? Math.max(3, Math.round(h / 7)) : (r.st.o?.n || 4);
-      for(let i = 1; i <= n; i++) out += ln(PAD + 2, y0 + (h / n) * i, W - PAD - 2, m === 'PULLOUT' ? 1.3 : .9);
-    } else if(m === 'SHOE_SLANT'){
-      const n = Math.max(3, Math.round(h / 7));
-      for(let i = 1; i <= n; i++){ const yy = y0 + (h / n) * i;
-        out += `<path d="M${PAD + 2} ${yy.toFixed(1)}L${W - PAD - 2} ${(yy - 2.4).toFixed(1)}" stroke-width=".9"/>`; }
-    } else if(m === 'DRAWERS'){
-      const sizes = r.sizes || [], sum = sizes.reduce((a, b) => a + b, 0) || 1;
-      let yy = y;
-      for(const sz of sizes){ const dh = (sz / sum) * h; yy -= dh;
-        out += `<rect x="${PAD + 2}" y="${yy.toFixed(1)}" width="${W - PAD * 2 - 4}" height="${Math.max(2, dh - .8).toFixed(1)}" stroke-width=".9" fill="none"/>`
-             + ln(PAD + 13, yy + dh / 2, W - PAD - 13, .9); }
-    } else if(m === 'BASKETS'){
-      const n = r.st.o?.n || 3;
-      for(let i = 0; i < n; i++){ const bh = h / n, yy = y - bh * (i + 1);
-        out += `<rect x="${PAD + 3}" y="${(yy + 1).toFixed(1)}" width="${W - PAD * 2 - 6}" height="${Math.max(2, bh - 2.4).toFixed(1)}" stroke-width=".7" stroke-dasharray="1.6 1.4" fill="none"/>`; }
-    } else if(m === 'HAMPER'){
-      out += `<path d="M${PAD + 2} ${y.toFixed(1)}L${PAD + 5} ${y0.toFixed(1)}H${W - PAD - 5}L${W - PAD - 2} ${y.toFixed(1)}Z" stroke-width=".9" fill="none"/>`;
-    } else if(m === 'CUBBIES'){
-      const n = r.st.o?.n || 4;
-      for(let i = 1; i < n; i++) out += ln(PAD + 2, y0 + (h / n) * i, W - PAD - 2, .8);
-      out += `<path d="M${W / 2} ${y0.toFixed(1)}V${y.toFixed(1)}" stroke-width=".8"/>`;
-    } else if(m === 'DOOR' || m === 'GLASS_DOOR'){
-      out += `<rect x="${PAD + 1.5}" y="${y0.toFixed(1)}" width="${W - PAD * 2 - 3}" height="${h.toFixed(1)}" stroke-width="1"
-               ${m === 'GLASS_DOOR' ? 'stroke-dasharray="2.4 2"' : ''} fill="none"/>`
-           + `<path d="M${W - PAD - 7} ${(y0 + h / 2 - 3).toFixed(1)}v6" stroke-width="1.4"/>`;
-    }
-    y = y0;
-  }
-  return `<svg class="twthumb" viewBox="0 0 ${W} ${H}" aria-hidden="true" fill="none"
-    stroke="currentColor" stroke-linecap="round">
-    <rect x="${PAD}" y="${PAD}" width="${W - PAD * 2}" height="${H - PAD * 2}" stroke-width="1.2"/>
-    <path d="M${PAD} ${H - PAD - TK}H${W - PAD}" stroke-width="1.2"/>
-    ${out}</svg>`;
-}
-
-/* The grid, grouped the way somebody shops for one. */
+/* A READY-MADE TOWER IS A SECTION WITH ITS BANDS IN IT.
+   This used to be its own seventy-line schematic in hairlines, which
+   agreed with nothing else on the page. It is the same drawing as the
+   part cards now, so a tower card and the cards for the parts inside it
+   cannot look like two different products. */
+const towerThumb = (stack, usable = 80) => sectionArt(stack, usable, 'twthumb');
 function towerGrid(bay, usable){
   const now = JSON.stringify((bay.stack || []).map(x => [x.m, x.h, x.o?.n, x.o?.sizes]));
   const same = p => JSON.stringify(p.stack.map(x => [x.m, x.h, x.o?.n, x.o?.sizes])) === now;
@@ -3221,17 +3422,35 @@ function paintStack(){
     if(d.sizes) return '';                    // a bank is as tall as its boxes
     const b = live(si);
     const now = b ? (b.y1 - b.y0) : (st.h ?? d.defH ?? 24);
-    const fills = st.h == null;
+    /* ══════════════════════════════════════════════════════════════
+       "FILL" ONLY MEANS SOMETHING ON A PART THAT FILLS
+
+       The checkbox was on every component. On a hamper, which is 26"
+       to 32" and nothing else, ticking it wrote `h = null`, the height
+       solver fell through to `defH`, and the control then said the
+       hamper was "taking what the rest of the tower leaves" while
+       quietly drawing it at 28" like always. A control that claims to
+       do something it cannot is worse than no control. It is drawn
+       only for the parts flagged `fill`, and on the rest the slider is
+       the whole answer. */
+    const canFill = !!d.fill;
+    const fills = canFill && st.h == null;
     const lo = Math.max(4, d.minH ?? 6);
     /* not the whole tower: the whole tower LESS what everything else in
        it needs, so the slider can never ask for inches that are not
        there and then quietly not get them */
     const hi = Math.max(lo + 0.25, headroom(bay.stack, si, usable));
+    /* the slider can never be asked for a height the tower has not got,
+       so a range that has collapsed means there is nothing to set */
+    if(hi <= lo + 0.24 && !canFill) return `<div class="prow">
+      <span class="prowl"><b>Height</b><i>Fixed at this size</i></span>
+      <span class="prowc end"><b class="hval">${inches(now)}</b></span></div>`;
     return `<div class="prow">
-      <span class="prowl"><b>Height</b><i>${fills ? 'Takes what the rest of the tower leaves' : 'Set by you'}</i></span>
+      <span class="prowl"><b>Height</b><i>${fills ? 'Takes what the rest of the tower leaves'
+        : `Set by you &middot; ${inches(lo)} to ${inches(hi)}`}</i></span>
       <span class="prowc">
-        <label class="hfill"><input type="checkbox" data-hfill="${si}" ${fills?'checked':''}>
-          <span>Fill</span></label>
+        ${canFill ? `<label class="hfill"><input type="checkbox" data-hfill="${si}" ${fills?'checked':''}>
+          <span>Fill</span></label>` : ''}
         <input type="range" data-hset="${si}" min="${lo}" max="${hi.toFixed(2)}" step="0.25"
                value="${Math.min(hi, Math.max(lo, now)).toFixed(2)}" ${fills?'disabled':''}
                aria-label="${d.label} height in inches">
@@ -3276,15 +3495,13 @@ function paintStack(){
      broken card, so a part without one is drawn from its own icon on a
      tinted tile instead. Drop the photo in later and it takes over with
      no other change. */
-  const partArt = (d, id) => {
-    const img = d.img || id.toLowerCase().replace(/_/g,'-');
-    /* a drawn illustration where there is no photograph yet */
-    if(PART_ART[id]) return PART_ART[id];
-    if(d.nopic) return `<span class="pdraw" aria-hidden="true">
-      <svg viewBox="0 0 24 32" fill="none" stroke="currentColor"><path d="${d.icon}"/></svg></span>`;
-    return `<img src="${(window.BASE||'')}img/parts/${img}.jpg" alt="" loading="lazy" decoding="async"
-           width="420" height="315" style="background:${PART_TILE[img] || '#F1EEEA'}">`;
-  };
+  /* EVERY CARD IS DRAWN BY THE SAME ENGINE AS THE TOWER CARDS.
+     Stock photographs of somebody else's wardrobe next to a hairline
+     schematic next to six hand-drawn tiles was three design systems on
+     one screen, and none of them was the closet this site builds. */
+  const partArt = (d, id) => PART_BAND[id] ? partSection(id)
+    : `<span class="pdraw" aria-hidden="true">
+         <svg viewBox="0 0 24 32" fill="none" stroke="currentColor"><path d="${d.icon}"/></svg></span>`;
 
   /* what this one could be instead, with the reason shown when it cannot */
   const swapCards = si => {
@@ -3344,7 +3561,20 @@ function paintStack(){
       return `<div class="libgrp"><h6>${g.t}</h6><div class="pgrid">${items.map(id => {
         const d = MODULES[id];
         const against = WHOLE_FRONT.has(id) ? [] : others;
-        const chk = canAdd(against, id, usable, inCorner, 'top');
+        /* ══════════════════════════════════════════════════════════
+           ASK ABOUT THE HALF THE PIECE IS ACTUALLY GOING INTO
+
+           Every card in the library was tested against the TOP of the
+           tower. A drawer bank, a hamper and a basket bank only ever
+           sit on the floor: `addPart` puts them underneath, and the
+           slot table says top:false for all three. So the library
+           asked "can this go on top", got no, and greyed out the only
+           three pull-outs he sells, on an empty tower, with nothing in
+           the way. They could not be added from the library at all.
+
+           The slot asked for is now the slot the piece will land in. */
+        const slot = (d.sizes || id === 'HAMPER' || id === 'BASKETS') ? 'bottom' : 'top';
+        const chk = canAdd(against, id, usable, inCorner, slot);
         const hint = WHOLE_FRONT.has(id) && others.length
           ? d.hint + ' It takes the whole tower, and what is in it becomes what is behind it.'
           : d.hint;
@@ -4454,99 +4684,113 @@ $('#ltools')?.addEventListener('click', e => {
 /* nothing to put components into until there is a tower */
 function paintDims(){
   /* ══════════════════════════════════════════════════════════════════
-     THE SIZES ONLY GO ON WHEN THEY MEAN SOMETHING
+     A DIMENSION STRING, NOT A ROW OF FLOATING NUMBERS
 
-     Written on every frame for every tower, they came apart: labels
-     landing on top of each other, labels for a run that had been culled
-     away, labels floating over the face of a panel you had zoomed into.
-     A measurement you cannot trust the position of is worse than no
-     measurement, so there are four gates now.
+     Four figures parked on one screen line above the closet told you
+     four towers were 27" and nothing about which was which. A figure
+     that is not attached to the thing it measures is decoration.
 
-     The run has to actually be on screen. The camera has to be outside
-     it rather than nose against a panel. The whole wall has to fit the
-     frame, because a figure for a tower whose edges are off both sides
-     of the screen is pointing at nothing. And no two labels may overlap:
-     where they would, the nearer tower keeps its figure and the other
-     drops, which is what a draughtsman does on paper.
+     So it is drawn the way it is drawn on paper: witness lines coming
+     up off the real corners of the real towers, a dimension line
+     across, a tick at every boundary, and the figure sitting in the
+     middle of the segment it belongs to. The corners are projected
+     through the same camera, so the string leans and stretches with the
+     wall and every figure stays over its own tower.
 
-     Looked up fresh each call rather than held in a module const: this
-     runs from the render loop, which starts its first frame before the
-     bottom half of this file has finished evaluating. */
+     Four gates before any of it: the run has to be drawn, the camera
+     outside it rather than against a panel, the whole wall inside the
+     frame, and the boundaries still in order left to right (they are
+     not, once the camera swings behind the wall). Looked up fresh each
+     call because this runs from the render loop, which starts its first
+     frame before the bottom of this file has evaluated. */
   const DIMLAY = document.getElementById('dimlay');
   if(!DIMLAY) return;
   const off = () => { if(DIMLAY.firstChild) DIMLAY.textContent = ''; };
   const flat = document.getElementById('v2d');
   if((flat && !flat.hidden) || !cur || !S.sel) return off();
   const wall = S.sel.wall;
-  /* gate 1: the run is drawn */
   const run = RUNMESH[wall];
   if(!run || !run.length || !run[0].visible) return off();
   const list = (cur.bays || []).filter(b => b.wall === wall);
   if(!list.length) return off();
-  /* gate 2: the camera is outside the cabinetry, not inside a panel */
   const box = RUNBOX[wall];
   if(box){
     box.clampPoint(cam.position, _near);
-    if(cam.position.distanceTo(_near) < 12) return off();
+    if(cam.position.distanceTo(_near) < 14) return off();
   }
   const cv = renderer.domElement.getBoundingClientRect();
   const W = cv.width, H = cv.height;
   if(!W || !H) return;
-  const RW = S.room.w, RD = S.room.d;
+  const RW = S.room.w;
   const _pv = new THREE.Vector3();
-  const at = (along, y, dep) => wall === 'back'  ? [along, y, dep]
-                              : wall === 'left'  ? [dep, y, along]
-                              :                    [RW - dep, y, along];
-  const screen = (along, y, dep) => {
-    const w3 = at(along, y, dep);
-    _pv.set(w3[0], w3[1], w3[2]).project(cam);
-    if(_pv.z > 1) return null;                       // behind the camera
-    return { x:(_pv.x * 0.5 + 0.5) * W, y:(-_pv.y * 0.5 + 0.5) * H };
-  };
-  const along = b => wall === 'back' ? b.x : (b.alongRoom != null ? b.alongRoom : (b.start || 0) + b.x);
-  const span = wall === 'back' ? RW : RD;
   const dep  = (list[0].depth || 24) / 2;
   let top = 0; for(const b of list) top = Math.max(top, b.top);
+  const at = along => wall === 'back'  ? [along, top, dep]
+                    : wall === 'left'  ? [dep, top, along]
+                    :                    [RW - dep, top, along];
+  const screen = along => {
+    const w3 = at(along);
+    _pv.set(w3[0], w3[1], w3[2]).project(cam);
+    if(_pv.z > 1) return null;
+    return { x:(_pv.x * 0.5 + 0.5) * W, y:(-_pv.y * 0.5 + 0.5) * H };
+  };
+  const pos = b => wall === 'back' ? b.x : (b.alongRoom != null ? b.alongRoom : (b.start || 0) + b.x);
+  const towers = list.map(b => ({ a:pos(b) - b.w / 2, z:pos(b) + b.w / 2, w:b.w, i:b.bay }))
+                     .sort((m, n) => m.a - n.a);
+  const span = wall === 'back' ? S.room.w : S.room.d;
 
-  /* gate 3: the whole wall is in the frame */
-  const a = screen(0, top, dep), z = screen(span, top, dep);
-  if(!a || !z) return off();
-  const runPx = Math.abs(z.x - a.x);
-  if(runPx > W * 1.6 || runPx < 40) return off();
+  /* every point the string needs, projected once */
+  const marks = [0, ...towers.flatMap(t => [t.a, t.z]), span]
+    .filter((v, i, arr) => i === 0 || Math.abs(v - arr[i - 1]) > 0.05)
+    .map(v => ({ v, p:screen(v) }));
+  if(marks.some(m => !m.p)) return off();
+  const xs = marks.map(m => m.p.x);
+  /* gate: still reading left to right, and the wall fits the frame */
+  const asc = xs.every((x, i) => i === 0 || x > xs[i - 1]);
+  const dsc = xs.every((x, i) => i === 0 || x < xs[i - 1]);
+  if(!asc && !dsc) return off();
+  const runPx = Math.abs(xs[xs.length - 1] - xs[0]);
+  if(runPx > W * 1.5 || runPx < 60) return off();
+  if(Math.min(...xs) < -40 || Math.max(...xs) > W + 40) return off();
 
-  /* gate 4: no two figures on top of each other */
-  const marks = [];
-  for(const b of list){
-    const pt = screen(along(b), b.top + 3, dep); if(!pt) continue;
-    if(pt.x < 2 || pt.x > W - 2 || pt.y < 2 || pt.y > H - 2) continue;
-    marks.push({ ...pt, t:(+b.w.toFixed(1)) + '"', sel:S.sel.i === b.bay,
-                 d:Math.abs(pt.x - (a.x + z.x) / 2) });
+  const topY = Math.min(...marks.map(m => m.p.y));
+  const line = Math.max(118, topY - 30);           // clear of the page title
+  const over = line - 20;                          // the overall figure above it
+  const X = v => (marks.find(m => Math.abs(m.v - v) < 0.06) || { p:{ x:0 } }).p.x;
+  const Yc = v => (marks.find(m => Math.abs(m.v - v) < 0.06) || { p:{ y:0 } }).p.y;
+
+  const tick = x => `<path d="M${(x - 4).toFixed(1)} ${(line + 4).toFixed(1)}l8 -8"/>`;
+  const wit  = (x, y) => `<path class="wit" d="M${x.toFixed(1)} ${(y - 3).toFixed(1)}V${(line - 2).toFixed(1)}"/>`;
+
+  let g = '', labels = '';
+  /* the witness lines, off the real top corners */
+  for(const m of marks) g += wit(m.p.x, m.p.y);
+  /* the dimension line and a tick at every boundary */
+  g += `<path d="M${X(0).toFixed(1)} ${line.toFixed(1)}H${X(span).toFixed(1)}"/>`;
+  for(const m of marks) g += tick(m.p.x);
+  /* a figure per tower, and per gap wide enough to bother with */
+  const segs = [];
+  let cursor = 0;
+  for(const t of towers){
+    if(t.a - cursor > 0.6) segs.push({ a:cursor, z:t.a, n:t.a - cursor, gap:true });
+    segs.push({ a:t.a, z:t.z, n:t.w, i:t.i });
+    cursor = t.z;
   }
-  marks.sort((m, n) => m.x - n.x);
-  const kept = [];
-  for(const m of marks){
-    const halfW = m.t.length * 4 + 9;
-    const last = kept[kept.length - 1];
-    if(last && m.x - last.x < halfW + last.t.length * 4 + 9){
-      /* the one nearer the middle of the wall is the one worth keeping */
-      if(m.d < last.d) kept[kept.length - 1] = m;
-      continue;
-    }
-    kept.push(m);
+  if(span - cursor > 0.6) segs.push({ a:cursor, z:span, n:span - cursor, gap:true });
+  for(const sg of segs){
+    const x1 = X(sg.a), x2 = X(sg.z);
+    if(Math.abs(x2 - x1) < 26) continue;           // no room for the figure
+    labels += `<text x="${((x1 + x2) / 2).toFixed(1)}" y="${(line - 5).toFixed(1)}"
+      class="${sg.gap ? 'gap' : (sg.i === S.sel.i ? 'on' : '')}">${(+sg.n.toFixed(1))}"</text>`;
   }
-  /* ON ONE LINE, THE WAY A DIMENSION STRING IS DRAWN.
-     Each figure sat at its own tower's projected top, so perspective
-     spread four numbers across sixty pixels of height and the row read
-     as scattered rather than as a measurement. They share a line now:
-     the topmost of them, pushed down clear of the page title and the
-     scene controls, with the overall figure on its own line above. */
-  if(!kept.length) return off();
-  const row = Math.max(186, Math.min(H - 26, Math.min(...kept.map(m => m.y))));
-  let html = kept.map(m => `<b class="${m.sel ? 'tot' : ''}" style="left:${m.x.toFixed(0)}px;top:${row.toFixed(0)}px">${m.t}</b>`).join('');
-  const tot = screen(span / 2, top, dep);
-  if(tot && tot.x > 2 && tot.x < W - 2)
-    html += `<b class="tot" style="left:${tot.x.toFixed(0)}px;top:${(row - 26).toFixed(0)}px">${(+span.toFixed(1))}" wall</b>`;
-  DIMLAY.innerHTML = html;
+  /* the whole wall, on its own line above */
+  g += `<path d="M${X(0).toFixed(1)} ${over.toFixed(1)}H${X(span).toFixed(1)}"/>
+        <path d="M${X(0).toFixed(1)} ${(over - 4).toFixed(1)}v8M${X(span).toFixed(1)} ${(over - 4).toFixed(1)}v8"/>`;
+  labels += `<text x="${((X(0) + X(span)) / 2).toFixed(1)}" y="${(over - 5).toFixed(1)}"
+    class="all">${(+span.toFixed(1))}"</text>`;
+
+  DIMLAY.innerHTML = `<svg viewBox="0 0 ${W.toFixed(0)} ${H.toFixed(0)}" width="${W.toFixed(0)}"
+    height="${H.toFixed(0)}" aria-hidden="true"><g class="dim">${g}</g>${labels}</svg>`;
 }
 
 function paintLTools(){
@@ -4844,7 +5088,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=716881c9');
+  if(!DRAW) DRAW = await import('./drawing.js?v=2e28338e');
   return DRAW;
 }
 
@@ -5300,7 +5544,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=716881c9');
+    const { downloadPdf } = await import('./drawing.js?v=2e28338e');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -5323,7 +5567,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=716881c9');
+    const { downloadPdf } = await import('./drawing.js?v=2e28338e');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

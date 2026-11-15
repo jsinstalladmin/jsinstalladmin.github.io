@@ -2173,10 +2173,14 @@ body[data-step="order"] .pfoot{display:block}
 
 /* the sizes written across the top of the 3D */
 .dimlay{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}
-.dimlay b{position:absolute;transform:translate(-50%,-50%);font-weight:500;
-  font-size:.68rem;letter-spacing:.01em;color:var(--ink);background:rgba(255,253,250,.86);
-  border:1px solid var(--line);border-radius:6px;padding:.1em .38em;white-space:nowrap}
-.dimlay b.tot{font-size:.74rem;background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.dimlay svg{position:absolute;inset:0;width:100%;height:100%}
+.dimlay .dim path{fill:none;stroke:#6E6256;stroke-width:1;stroke-linecap:round}
+.dimlay .dim path.wit{stroke:#6E6256;stroke-width:.8;stroke-dasharray:3 3;opacity:.6}
+.dimlay text{font:500 11px/1 var(--sans,system-ui);fill:#4A4038;text-anchor:middle;
+  paint-order:stroke;stroke:rgba(255,253,250,.92);stroke-width:3.5;stroke-linejoin:round}
+.dimlay text.on{fill:#8A6412}
+.dimlay text.gap{fill:#8C8378;font-size:10px}
+.dimlay text.all{font-size:12px;fill:#2E2A26}
 
 /* the X on the selected tower in the flat drawing */
 .towerkill{cursor:pointer}
@@ -2229,3 +2233,16 @@ body[data-step="order"] .pfoot{display:block}
 
 /* the drawn part illustrations sit exactly where a photograph would */
 .pcard .partart{display:block;width:100%;aspect-ratio:3/4;background:#D3BB97}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ROUND 8 · ONE DRAWN PICTURE, EVERYWHERE
+
+   The photographs are gone. Both the part cards and the ready-made tower
+   cards are the same SVG section now, so they sit in the same grid at
+   the same proportion and read as one set.
+   ══════════════════════════════════════════════════════════════════════ */
+.pcard .partart{display:block;width:100%;aspect-ratio:3/4;background:#F3EDE4}
+.twthumb{display:block;width:100%;max-width:none;height:auto;aspect-ratio:3/4;
+  opacity:1;background:#F3EDE4;border-radius:7px}
+.twcard .twthumb{max-width:none}
+@media(max-width:860px){ .twthumb{max-width:none} }
