@@ -2439,9 +2439,28 @@ function place(g, run, room, gap){
   const G = gap || 0;
   const [lx,y,lz]=g.p, [sx,sy,sz]=g.s, dep=run.builtDepth ?? run.depth;
   const along = (run.start||0) + (run.wall==='island' ? 0 : G);
+  /* ══ THE TILT HAS TO TURN WITH THE RUN ═══════════════════════════════
+     A module is built facing the back wall: its front is +z, so a
+     slanted shoe shelf is a rotation about X and the front edge drops.
+     Putting that module on a side wall rotates the whole run ninety
+     degrees, and this function has always rotated the SIZE to match
+     (s:[sz,sy,sx]) and left the tilt alone.
+
+     The renderer then applied that tilt about world X on a run whose
+     front-to-back axis is world X. A rotation about the axis a thing
+     points along does not tip it forward, it rolls it onto its side. So
+     every slanted shoe shelf on the left and right walls, and every shoe
+     standing on one, has been lying sideways. On the back wall it was
+     right, which is why it kept passing a look at the back wall.
+
+     On the left the front is +x, so the tilt becomes -z. On the right
+     the front is -x, so it becomes +z. */
+  const tipped = (o, axis, val) => val ? { ...o, tilt:0, [axis]:val } : o;
   switch(run.wall){
-    case 'left':   return {...g, p:[ G + dep/2 + lz, y, along + lx ], s:[sz,sy,sx]};
-    case 'right':  return {...g, p:[ room.w - G - dep/2 - lz, y, along + lx ], s:[sz,sy,sx]};
+    case 'left':   return tipped({...g, p:[ G + dep/2 + lz, y, along + lx ], s:[sz,sy,sx]},
+                                 'tiltZ', -(g.tilt || 0));
+    case 'right':  return tipped({...g, p:[ room.w - G - dep/2 - lz, y, along + lx ], s:[sz,sy,sx]},
+                                 'tiltZ',  (g.tilt || 0));
     case 'island': return {...g, p:[ along + lx, y, room.d/2 + lz ], s:[sx,sy,sz]};
     default:       return {...g, p:[ along + lx, y, G + dep/2 + lz ], s:[sx,sy,sz]};
   }

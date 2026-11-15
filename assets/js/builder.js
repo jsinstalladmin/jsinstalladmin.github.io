@@ -20,11 +20,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=7a45f5b1';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=a9cfbf08';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=7a45f5b1';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=a9cfbf08';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=7a45f5b1';
+         clothMaterials, clearCaches } from './materials.js?v=a9cfbf08';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -765,7 +765,11 @@ const WALLS = [];
 const RUN_N = { back:new THREE.Vector3(0,0,1), left:new THREE.Vector3(1,0,0),
                 right:new THREE.Vector3(-1,0,0) };
 const RUNMESH = { back:[], left:[], right:[] };
-const _look = new THREE.Vector3();
+/* each run's own bounds, rebuilt with the closet, so "how far is that
+   run from here" is one clamp instead of a walk over every panel */
+const RUNBOX = { back:null, left:null, right:null };
+const DOORMESH = [];
+const _look = new THREE.Vector3(), _near = new THREE.Vector3();
 const _camV = new THREE.Vector3();
 /* Up here with the others, not beside the drag code 750 lines down: the
    render loop below reads it on its very first frame, and a `let` further
@@ -831,40 +835,49 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
         needsFrame = true;
       }
     }
-    /* TWO WAYS A RUN GETS IN THE WAY, AND ONLY ONE WAS HANDLED.
+    /* ══════════════════════════════════════════════════════════════
+       ANYTHING NEARER THAN THE THING YOU ARE LOOKING AT GOES AWAY
 
-       The first is looking through it: you are across the room and that
-       run is between you and what you want to see. The dot product
-       catches that.
+       Two rules were tried and both were about ANGLES: is this run in
+       the direction I am facing, am I standing within its depth. Angles
+       answer the square-on cases and nothing else, which is why a run
+       down the side of a walk-in kept standing in the left of the frame
+       while the camera looked straight down the room past it. It is not
+       in front of you by any angle. It is simply nearer than what you
+       are trying to see, and that is the whole of the question.
 
-       The second is standing IN it. Walk the camera into the near corner
-       of a walk-in and the left-hand run is not in front of you, it is
-       around you: its towers run forward past the camera and fill the
-       left third of the frame with the end of a panel. The direction you
-       are facing says nothing about that, because the run is beside you.
-       So a run also goes when the camera is inside its own depth of the
-       wall it stands on, which is the case where you are standing in it.
+       So: measure to the closest corner of each run's own bounding box,
+       measure to the point the camera is pointed at, and take out any
+       run that sits at less than half that distance. Standing in the
+       middle of a walk-in and looking at the back wall, the two side
+       runs are a few inches away and the back wall is eight feet: they
+       go. Looking at the right-hand run from across the room, it is the
+       far thing and it stays, and the left-hand run beside you does not.
 
        The run being edited never disappears, however you turn or stand. */
-    const { w:RW, d:RD } = S.room;
-    const camIn = {
-      back:  cam.position.z, left: cam.position.x,
-      right: RW - cam.position.x,
-    };
+    const far = cam.position.distanceTo(ctl.target);
     for(const wall of ['back','left','right']){
       const list = RUNMESH[wall]; if(!list || !list.length) continue;
-      const n = RUN_N[wall];
-      const dep = (S.runs[wall]?.depth ?? SPEC.hangDepth) + 10;
-      /* 0.45 is about 63 degrees off the wall: square on to a run it is
-         1, square on to its neighbour 0, so a run only clears out once
-         you have genuinely swung behind it */
-      const through = _look.dot(n) >= 0.45;
-      const inside  = camIn[wall] < dep;
-      const vis = (S.sel?.wall === wall) || !(through || inside);
+      const box = RUNBOX[wall]; if(!box) continue;
+      box.clampPoint(cam.position, _near);
+      const near = cam.position.distanceTo(_near);
+      const vis = (S.sel?.wall === wall) || near >= far * 0.5;
       if(list[0].visible !== vis){
         for(const m of list) m.visible = vis;
         needsFrame = true;
       }
+    }
+    /* THE DOOR IS A THING IN THE ROOM, AND IT IS IN THE WAY FROM INSIDE.
+       It swings into the room, so standing in the closet and looking at
+       the back wall put an open leaf and its handle across the corner of
+       the frame. It belongs to the view from outside, looking in, which
+       is the only view it tells you anything in. */
+    const R = S.room;
+    const out = cam.position.z > R.d || cam.position.z < 0
+             || cam.position.x < 0  || cam.position.x > R.w;
+    if(DOORMESH.length && DOORMESH[0].visible !== out){
+      for(const m of DOORMESH) m.visible = out;
+      needsFrame = true;
     }
   }
   if(!moving && shadowDirty){
@@ -1292,6 +1305,7 @@ function drawRoom(){
 
 const DOOR_H = 80;
 function drawDoor(X0, W, D, H){
+  DOORMESH.length = 0;
   if(!S.door || S.door === 'none') return;
   const ow = Math.min(W - 2, Math.max(0, +S.doorW || defaultDoorW(S.door, 0)));
   if(ow < 12) return;
@@ -1312,6 +1326,7 @@ function drawDoor(X0, W, D, H){
      door from across the room. */
   const knobMat = new THREE.MeshStandardMaterial({
     color: 0xB9BDC0, roughness: 0.3, metalness: 0.85, envMapIntensity: 1.2 });
+  const keep = m => { DOORMESH.push(m); return m; };
   const leaf = (w, cx, cy, cz, yaw, mat) => {
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.4), mat || leafMat);
@@ -1333,7 +1348,7 @@ function drawDoor(X0, W, D, H){
     g.add(k);
     g.position.set(cx, cy, cz); if(yaw) g.rotation.y = yaw;
     shell.add(g);
-    return g;
+    return keep(g);
   };
 
   /* THE OPENING ITSELF. Without a lining the leaves hang in a gap in a
@@ -1341,13 +1356,13 @@ function drawDoor(X0, W, D, H){
   const jamb = (w, hh, cx, cy, cz) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, hh, 5.5),
       new THREE.MeshStandardMaterial({ color: 0xF4F1EC, roughness: 0.7, metalness: 0 }));
-    m.position.set(cx, cy, cz); m.receiveShadow = true; shell.add(m); return m;
+    m.position.set(cx, cy, cz); m.receiveShadow = true; shell.add(m); return keep(m);
   };
   const rail = (w, cx, cy, cz) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, 1.2), railMat);
     m.position.set(cx, cy, cz);
     shell.add(m);
-    return m;
+    return keep(m);
   };
 
   const y = h / 2;
@@ -1414,6 +1429,7 @@ function drawDoor(X0, W, D, H){
 function drawCloset(res){
   root.clear(); picks.clear();
   RUNMESH.back.length = 0; RUNMESH.left.length = 0; RUNMESH.right.length = 0;
+  RUNBOX.back = RUNBOX.left = RUNBOX.right = null;
   const baseC=finishMaterial(res.finish,shared,'carcass');
   const baseF=finishMaterial(res.frontFinish,shared,'front');
   res.geo.forEach((g,i)=>{
@@ -1435,7 +1451,9 @@ function drawCloset(res){
     if(g.shape === 'garment') m.scale.set(sx, sy, sz);   // the shape is a unit tube
     m.position.set(...g.p);
     if(g.yaw) m.rotation.y = g.yaw;
-    if(g.tilt) m.rotation.x=g.tilt;
+    if(g.tilt) m.rotation.x = g.tilt;
+    /* a run on a side wall tips about Z, because its front points along X */
+    if(g.tiltZ) m.rotation.z = g.tiltZ;
     m.castShadow=m.receiveShadow=true;
     /* WHICH COMPONENT THIS PIECE IS PART OF.
        Stamped in the engine and carried through here, so pressing a shelf
@@ -1469,6 +1487,15 @@ function drawCloset(res){
     g.userData={wall:b.wall,i:b.bay};
     picks.add(g);
   });
+  /* Each run's bounds, once, so the cull can ask how far away a run is
+     without walking every panel in it on every frame. */
+  for(const wall of ['back','left','right']){
+    const list = RUNMESH[wall];
+    if(!list.length){ RUNBOX[wall] = null; continue; }
+    const box = new THREE.Box3();
+    for(const m of list) box.expandByObject(m);
+    RUNBOX[wall] = box;
+  }
   /* Highlight the selected section.
 
      This used to be a MeshBasicMaterial with wireframe:true, which draws every
@@ -4338,7 +4365,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=7a45f5b1');
+  if(!DRAW) DRAW = await import('./drawing.js?v=a9cfbf08');
   return DRAW;
 }
 
@@ -4782,7 +4809,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=7a45f5b1');
+    const { downloadPdf } = await import('./drawing.js?v=a9cfbf08');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -4805,7 +4832,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=7a45f5b1');
+    const { downloadPdf } = await import('./drawing.js?v=a9cfbf08');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
