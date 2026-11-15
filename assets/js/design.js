@@ -2134,11 +2134,12 @@ export function buildDesign(cfg, cat){
         local.push({k:'panel', p:[x - SPEC.panel/2, floorY+endH/2, 0],
                     s:[SPEC.panel,endH,depth], m:'carcass'});
         parts.push(P('CLEAT',1,(span*4)/144,span/12,`Hang cleat · ${run.wall}`));
-        if(cfg.mounting!=='wall' && !liftedByHeat){
-          parts.push(P('TK',1,(span*SPEC.toeKick)/144,span/12,`Toe kick · ${run.wall}`));
-          local.push({k:'toe', p:[islandStart + span/2, SPEC.toeKick/2, -1.5],
-                      s:[span, SPEC.toeKick, depth-3], m:'carcass'});
-        }
+        /* THE TOE KICK IS CUT PER TOWER, NOT PER RUN.
+           It was one length across the whole island at one fixed height,
+           so a tower could not have a kick of its own and raising one
+           would have left a step of daylight under its neighbour. Each
+           tower now carries its own, at its own height, which is what
+           the shop cuts anyway the moment two towers differ. */
       }
       islandStart = null;
     };
@@ -2161,11 +2162,26 @@ export function buildDesign(cfg, cat){
       /* Where this bay sits along the wall, and therefore which window, slope,
          outlet or door leaf it has to live with. */
       const a = (run.start || 0) + x, b = a + bay.w;
-      const myTop = bayCeiling(fittings, run.wall, a, b, bayTop);
-      const panelH = myTop - floorY + SPEC.panel;
-      const bayH = myTop - floorY;
-      if(myTop < bayTop - 0.01) warnings.push(
-        `Tower ${bi+1} on the ${run.wall} wall stops at ${myTop.toFixed(0)}" instead of ${bayTop.toFixed(0)}" to clear what is on the wall there.`);
+      /* ══════════════════════════════════════════════════════════════
+         THIS TOWER'S OWN FLOOR AND ITS OWN TOP
+
+         Both were one number for the whole job: the toe kick came off
+         the mounting and the top shelf came off `cabTop`, so a tower
+         could not be made shorter than the one beside it and a toe kick
+         could not be changed at all. 17squares lets you press the kick
+         and press the top and type a number, and so does this now.
+
+         Neither can beat physics: the kick cannot go under the baseboard
+         heat the run is already hanging clear of, and the top cannot go
+         through a slope or a bulkhead the ceiling check has already
+         found. Both still answer to the room. */
+      const myFloor = Math.max(floorY, +bay.kick > 0 ? +bay.kick : 0);
+      const wantTop = (+bay.cabTop > 0) ? Math.min(+bay.cabTop, bayTop) : bayTop;
+      const myTop = bayCeiling(fittings, run.wall, a, b, wantTop);
+      const panelH = myTop - myFloor + SPEC.panel;
+      const bayH = myTop - myFloor;
+      if(myTop < wantTop - 0.01) warnings.push(
+        `Tower ${bi+1} on the ${run.wall} wall stops at ${myTop.toFixed(0)}" instead of ${wantTop.toFixed(0)}" to clear what is on the wall there.`);
       for(const { sp, over } of bayClips(fittings, run.wall, a, b)) warnings.push(
         `Tower ${bi+1} on the ${run.wall} wall clips the ${(sp.label||'').toLowerCase()} by ${over.toFixed(0)}". That is scribed to the casing on site rather than dropping the whole tower, so it is built full height.`);
 
@@ -2173,7 +2189,7 @@ export function buildDesign(cfg, cat){
       // for the same reason as the end panel above
       parts.push(P(code,1,(panelH*depth)/144,(panelH+depth)/12,`Partition ${bi+1} · ${run.wall}`));
       const firstOfIsland = Math.abs(x - islandStart) < 0.01;
-      local.push({k:'panel', p:[x + (firstOfIsland ? SPEC.panel/2 : 0), floorY+panelH/2, 0],
+      local.push({k:'panel', p:[x + (firstOfIsland ? SPEC.panel/2 : 0), myFloor+panelH/2, 0],
                   s:[SPEC.panel,panelH,depth], m:'carcass'});
 
       const inner = bay.w - SPEC.panel;
@@ -2193,7 +2209,7 @@ export function buildDesign(cfg, cat){
       if(cfg.backs){
         parts.push(P('BACK', 1, (bay.w * panelH) / 144, 0,
           `Back panel ${bi+1} · ${run.wall}`));
-        local.push({ k:'back', p:[cx, floorY + panelH/2, -depth/2 + SPEC.panel/2],
+        local.push({ k:'back', p:[cx, myFloor + panelH/2, -depth/2 + SPEC.panel/2],
                      s:[bay.w, panelH, SPEC.panel], m:'carcass' });
       }
 
@@ -2205,7 +2221,8 @@ export function buildDesign(cfg, cat){
       const wantsTop = bay.top !== false;
       if(wantsTop){
         parts.push(P('TOP',1,(inner*depth)/144,(inner+depth*2)/12,`Top shelf at ${myTop.toFixed(0)}"`));
-        local.push({k:'shelf', p:[cx, myTop, 0], s:[inner, SPEC.panel, depth], m:'carcass'});
+        local.push({k:'shelf', p:[cx, myTop, 0], s:[inner, SPEC.panel, depth], m:'carcass',
+                    bay:bi, carc:'top'});
       }
 
       /* ---- the bottom deck ----------------------------------------------
@@ -2218,9 +2235,17 @@ export function buildDesign(cfg, cat){
          see from across the room, so it is banded on the front edge either
          way. */
       parts.push(P('FIXED',1,(inner*depth)/144,(inner+depth*2)/12,
-                   `Bottom deck at ${floorY.toFixed(1)}"`));
-      local.push({k:'shelf', p:[cx, floorY - SPEC.panel/2, 0],
+                   `Bottom deck at ${myFloor.toFixed(1)}"`));
+      local.push({k:'shelf', p:[cx, myFloor - SPEC.panel/2, 0],
                   s:[inner, SPEC.panel, depth], m:'carcass'});
+      /* and the kick it stands on */
+      if(cfg.mounting !== 'wall' && !liftedByHeat && myFloor > 0.5){
+        parts.push(P('TK', 1, (bay.w * myFloor) / 144, bay.w / 12,
+                     `Toe kick ${bi+1} · ${myFloor.toFixed(2)}" · ${run.wall}`));
+        local.push({ k:'toe', p:[cx, myFloor/2 - SPEC.panel/2, -1.5],
+                     s:[bay.w, myFloor - SPEC.panel, depth - 3], m:'carcass',
+                     bay:bi, carc:'kick' });
+      }
 
       /* A section in an inside corner has the next run returning across its
          front. A drawer, a door or a hamper there opens into that run and
@@ -2280,7 +2305,7 @@ export function buildDesign(cfg, cat){
          coordinates, so the piece can lay itself out around it */
       let soloMid = null;
       {
-        let dy = floorY;
+        let dy = myFloor;
         for(let i = 0; i < mods.length - 1; i++){
           dy += mods[i].H;
           divisions.push(dy);
@@ -2292,7 +2317,7 @@ export function buildDesign(cfg, cat){
            divided, with the mid shelf at the same 44" the lower rod of a
            double hang would put it, so filling it afterwards does not move
            anything. */
-        if(!mods.length) divisions.push(floorY + SPEC.dhLower);
+        if(!mods.length) divisions.push(myFloor + SPEC.dhLower);
 
         /* ONE TALL PIECE IS STILL A TALL BOX.
            A lone piece has no division above it, so until now a 96" shelf
@@ -2303,7 +2328,7 @@ export function buildDesign(cfg, cat){
         if(mods.length === 1 && MID_WHEN_ALONE.has(mods[0].m)){
           const half = Math.round((mods[0].H / 2) / SPEC.pin) * SPEC.pin;
           if(half > 6 && half < mods[0].H - 6){
-            divisions.push(floorY + half);
+            divisions.push(myFloor + half);
             soloMid = half;
           }
         }
@@ -2324,7 +2349,7 @@ export function buildDesign(cfg, cat){
            top, that is where the division goes. */
         const stackTop = mods.reduce((a, m) => a + m.H, 0);
         const opening  = wantsTop ? bayH : bayH + SPEC.panel;
-        if(mods.length && opening - stackTop > 6) divisions.push(floorY + stackTop);
+        if(mods.length && opening - stackTop > 6) divisions.push(myFloor + stackTop);
       }
       for(const dy of divisions){
         parts.push(P('FIXED', 1, (inner*depth)/144, (inner+depth*2)/12,
@@ -2333,7 +2358,7 @@ export function buildDesign(cfg, cat){
                     s:[inner, SPEC.panel, depth], m:'carcass', bay:bi, si:-1, mod:'FIXED'});
       }
 
-      let y = floorY;
+      let y = myFloor;
       let si = -1;
       for(const s of mods){
         si++;
@@ -2386,7 +2411,7 @@ export function buildDesign(cfg, cat){
       (bay.adds || []).forEach((ad, ai) => {
         const def = MODULES[ad.m]; if(!def) return;
         const ah  = def.defH ?? 2;
-        const ay  = clamp(+ad.y, floorY + 1, floorY + bayH - ah - 0.5);
+        const ay  = clamp(+ad.y, myFloor + 1, myFloor + bayH - ah - 0.5);
         const sub = [];
         const mark = parts.length;
         def.build({ w:inner, d:depth, y:0, h:ah, G:sub, parts, o:ad.o || {}, pull,
@@ -2401,7 +2426,7 @@ export function buildDesign(cfg, cat){
       });
 
       bayIndex.push({ wall:run.wall, bay:bi, x:cx, w:bay.w, h:bayH, top:myTop, depth,
-                      floorY, adds:addsOut,
+                      floorY:myFloor, kick:myFloor, cabTop:myTop, adds:addsOut,
                       start: run.start || 0, alongRoom: (run.start || 0) + cx,
                       /* The stack as the customer sees it: the drawing on the
                          page labels each band of a tower, and a module id is
@@ -2417,7 +2442,7 @@ export function buildDesign(cfg, cat){
                          resolved bands, floor upwards, which is what a
                          drawing of one tower writes its labels against. */
                       bands: (() => {
-                        let by = floorY;
+                        let by = myFloor;
                         return mods.map((m, mi) => {
                           const band = { label: MODULES[m.m]?.label || m.m,
                                          m: m.m, si: mi,

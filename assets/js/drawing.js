@@ -310,6 +310,36 @@ export function elevation(design, wall, opt = {}){
             <title>Drag to move this division. ${inch(b.bands[n].y1 - b.bands[n].y0)} below it.</title></g>`;
         }
       }
+      /* ══ THE CARCASS IS MADE OF THINGS TOO ════════════════════════════
+         The toe kick and the top shelf are real pieces with real heights
+         and they were the only parts of a tower you could not press. Both
+         are pickable now, and each tower's side edges are grab bars, so
+         a tower is made wider or narrower by pulling its own edge in the
+         drawing rather than by hunting for a plus button. */
+      if(isSel){
+        const x0 = X(left), wpx = b.w * k;
+        const kickTop = Y(b.floorY ?? 3.75), base = Y(0);
+        if(base - kickTop > 3)
+          picks += `<rect class="pickcarc${opt.carc === 'kick' ? ' on' : ''}"
+            data-wall="${esc(wall)}" data-bay="${b.bay}" data-carc="kick"
+            x="${x0.toFixed(1)}" y="${kickTop.toFixed(1)}"
+            width="${wpx.toFixed(1)}" height="${(base - kickTop).toFixed(1)}"
+            ><title>Toe kick, ${inch(b.floorY ?? 0)}. Press to change it.</title></rect>`;
+        picks += `<rect class="pickcarc${opt.carc === 'top' ? ' on' : ''}"
+            data-wall="${esc(wall)}" data-bay="${b.bay}" data-carc="top"
+            x="${x0.toFixed(1)}" y="${(Y(b.top) - 7).toFixed(1)}"
+            width="${wpx.toFixed(1)}" height="12"
+            ><title>Top of the tower, ${inch(b.top)}. Press to change it.</title></rect>`;
+        for(const [side, px] of [['l', x0], ['r', x0 + wpx]])
+          picks += `<g class="wgrab" data-wall="${esc(wall)}" data-bay="${b.bay}" data-wdrag="${side}">
+            <rect x="${(px - 7).toFixed(1)}" y="${Y(b.top).toFixed(1)}"
+                  width="14" height="${(base - Y(b.top)).toFixed(1)}" fill="transparent"/>
+            <path class="wbar" d="M${px.toFixed(1)} ${Y(b.top).toFixed(1)}V${base.toFixed(1)}"/>
+            <path class="wgrip" d="M${(px - 2.6).toFixed(1)} ${((Y(b.top) + base) / 2 - 9).toFixed(1)}v18
+                                   M${(px + 2.6).toFixed(1)} ${((Y(b.top) + base) / 2 - 9).toFixed(1)}v18"/>
+            <title>Drag to make tower ${b.bay + 1} wider or narrower. ${inch(b.w)} now.</title></g>`;
+      }
+
       /* ══ THE THINGS PLACED AT A HEIGHT ════════════════════════════════
          A shelf, a rod, a tie rack. They own no band, so they get no
          band to click: each one is a grab bar at its own height, with

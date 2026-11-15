@@ -390,11 +390,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=ff8a2a8e';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=7ecdf932';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=ff8a2a8e';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=7ecdf932';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=ff8a2a8e';
+         clothMaterials, clearCaches } from './materials.js?v=7ecdf932';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -532,6 +532,8 @@ const S = {
   pick:null,
   /* which placed attachment inside the selected tower is open */
   add:null,
+  /* 'kick' or 'top' when a carcass piece of the selected tower is open */
+  carc:null,
   /* [{k, wall, at}] where at is inches along that wall from its left end */
   fittings:[],
   /* THE ROOM IS NOT THE CLOSET, AND IT IS NOT FIXED EITHER.
@@ -1882,7 +1884,7 @@ function drawCloset(res){
     /* A prop is in the room, not in the closet. It is drawn, it is never
        selectable, and it is not part of anything the workshop cuts. */
     if(!g.prop && g.wall && g.bay != null)
-      m.userData = { wall:g.wall, i:g.bay, si:g.si, add:g.add, mod:g.mod, part:true };
+      m.userData = { wall:g.wall, i:g.bay, si:g.si, add:g.add, carc:g.carc, mod:g.mod, part:true };
     /* ══════════════════════════════════════════════════════════════
        EVERYTHING ON A WALL LEAVES WITH THAT WALL. EVERYTHING.
 
@@ -2147,12 +2149,15 @@ canvas.addEventListener('pointerup',e=>{
     S.sel = { wall:u.wall, i:u.i };
     /* an engine shelf carries si -1: it belongs to the tower, not to a
        component, so pressing one opens the tower */
-    if(u.add != null){
+    if(u.carc){
+      /* the toe kick and the top shelf are pieces too */
+      S.carc = (same && S.carc === u.carc) ? null : u.carc; S.part = null; S.add = null;
+    } else if(u.add != null){
       /* a placed thing: press it in the 3D and its own panel opens */
-      S.add = (same && S.add === u.add) ? null : u.add; S.part = null;
+      S.add = (same && S.add === u.add) ? null : u.add; S.part = null; S.carc = null;
     } else {
       S.part = (u.si != null && u.si >= 0 && !(same && S.part === u.si)) ? u.si : null;
-      S.add = null;
+      S.add = null; S.carc = null;
     }
     S.lib = false;
     PICK_FOR = u.wall + '|' + u.i;
@@ -2163,7 +2168,7 @@ canvas.addEventListener('pointerup',e=>{
   const hit=ray.intersectObjects(picks.children,false)[0];
   if(hit){
     S.sel={wall:hit.object.userData.wall,i:hit.object.userData.i};
-    S.part = null; S.add = null; S.lib = false;
+    S.part = null; S.add = null; S.carc = null; S.lib = false;
     rebuild(false);
     /* Dividing the wall and filling it are one panel now, so clicking a
        section on the drawing just selects it. It used to yank you onto
@@ -2503,7 +2508,7 @@ function rebuild(reframe){
     window.__pick = (i, wall) => {
       const w = wall || S.sel?.wall || Object.keys(S.runs).find(k => S.runs[k]?.on);
       if(!S.runs[w]?.bays[i]) return false;
-      S.sel = { wall:w, i }; S.part = null; S.add = null; S.lib = false;
+      S.sel = { wall:w, i }; S.part = null; S.add = null; S.carc = null; S.lib = false;
       PICK_FOR = w + '|' + i; rebuild(false); return true;
     };
     window.__cam = (o = {}) => {
@@ -3255,7 +3260,7 @@ function paintStack(){
      different tower and the panel goes back to being that tower, rather
      than showing the shelf you opened in the last one. */
   const selKey = S.sel ? S.sel.wall + '|' + S.sel.i : null;
-  if(PICK_FOR !== selKey){ S.part = null; S.add = null; S.lib = false; S.grid = false; S.pick = null; PICK_FOR = selKey; }
+  if(PICK_FOR !== selKey){ S.part = null; S.add = null; S.carc = null; S.lib = false; S.grid = false; S.pick = null; PICK_FOR = selKey; }
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
     /* If the chosen wall exists but has nothing on it yet, STAY on it. This
@@ -3757,7 +3762,54 @@ function paintStack(){
       </div>`;
   };
 
-  const mode = S.lib ? 'lib' : S.add != null ? 'add:' + S.add
+  /* ══════════════════════════════════════════════════════════════════
+     THE TOE KICK AND THE TOP OF THE TOWER
+
+     Two real pieces with two real heights, and the only parts of a tower
+     nobody could press. The kick decides how far off the floor the whole
+     box starts and the top decides how tall it is, so between them they
+     are most of what makes one tower different from the one beside it.
+     Both are per tower now. Neither can beat the room: the kick cannot
+     go under baseboard heat the run is already hanging clear of, and the
+     top cannot go through a slope or a bulkhead. */
+  const carcPanel = which => {
+    const b0 = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i);
+    if(!b0) return '';
+    const isKick = which === 'kick';
+    const now = isKick ? (b0.floorY ?? SPEC.toeKick) : (b0.top ?? 84);
+    const lo  = isKick ? 0    : (b0.floorY ?? 0) + 24;
+    const hi  = isKick ? 12   : Math.max(lo + 1, Math.min(S.cabTop, S.room.h - 2));
+    return `<div class="pbar"><button type="button" class="pback" data-partback="1">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
+        Tower ${S.sel.i+1}</button></div>
+      <div class="phd">
+        <span class="sico"><svg viewBox="0 0 24 32" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="${isKick ? 'M3 26h18M3 26v4h18v-4' : 'M3 6h18M5 6v22M19 6v22'}"/></svg></span>
+        <span class="phdtx"><b>${isKick ? 'Toe kick' : 'Top of the tower'}</b>
+          <i>${inches(now)}${isKick ? ' off the floor' : ' off the floor'}</i></span>
+      </div>
+      <div class="prow">
+        <span class="prowl"><b>${isKick ? 'Kick height' : 'Tower height'}</b>
+          <i>${isKick ? 'How far off the floor this tower starts'
+                      : 'Where the top shelf lands'}</i></span>
+        <span class="prowc">
+          <input type="range" data-carcset="${which}" min="${lo.toFixed(2)}" max="${hi.toFixed(2)}"
+                 step="0.25" value="${Math.min(hi, Math.max(lo, now)).toFixed(2)}"
+                 aria-label="${isKick ? 'Toe kick height' : 'Tower height'} in inches">
+          <b class="hval" data-carcval="${which}">${inches(now)}</b>
+        </span>
+      </div>
+      ${isKick ? '' : `<label class="ctop"><input type="checkbox" data-wanttop="1"
+        ${bay.top !== false ? 'checked' : ''}><span>Put a top shelf on it</span></label>`}
+      <p class="note">${isKick
+        ? 'A standard kick is 3¾". Raise it to clear a thick baseboard or to lift the bottom drawer off a wet floor.'
+        : 'Every tower can stop at its own height. A slope or a bulkhead over it still has the last word.'}</p>
+      <div class="compacts">
+        <button type="button" class="btn btn-ghost btn-sm" data-carcreset="${which}">Back to standard</button>
+      </div>`;
+  };
+
+  const mode = S.lib ? 'lib' : S.carc ? 'carc:' + S.carc : S.add != null ? 'add:' + S.add
     : (S.part != null && bay.stack[S.part]) ? 'part:' + S.part : 'tower';
   /* ══════════════════════════════════════════════════════════════════
      PRESS A TOWER AND THE TOWER LIST IS WHAT YOU GET
@@ -3771,6 +3823,7 @@ function paintStack(){
      are always reachable. */
   if(isFiller(bay))                            box.innerHTML = head + fillerPanel() + optionBlocks();
   else if(S.lib)                               box.innerHTML = head + libPanel();
+  else if(S.carc)                              box.innerHTML = head + carcPanel(S.carc);
   else if(S.add != null && adds.some(a => a.i === S.add))
                                                box.innerHTML = head + addPanel(S.add);
   else if(S.part != null && bay.stack[S.part]) box.innerHTML = head + partPanel(S.part);
@@ -4218,7 +4271,7 @@ $('#bays').onclick=e=>{
        is the quickest way out of a view that has got away from you */
     if(S.sel?.wall === w){ faceWall(w); return; }
     S.sel = { wall:w, i:0 };
-    S.part = null; S.add = null; S.lib = false; S.grid = false;
+    S.part = null; S.add = null; S.carc = null; S.lib = false; S.grid = false;
     PICK_FOR = w + '|0';
     rebuild(true);
     faceWall(w);
@@ -4449,7 +4502,7 @@ function addPart(bay, id){
 }
 
 $('#stack').addEventListener('change', e => {
-  const t = e.target.closest('[data-dsize],[data-counter],[data-hfill],[data-rundepth]');
+  const t = e.target.closest('[data-dsize],[data-counter],[data-hfill],[data-rundepth],[data-wanttop]');
   if(!t) return;
   const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   if(t.dataset.rundepth !== undefined){
@@ -4459,6 +4512,7 @@ $('#stack').addEventListener('change', e => {
       rebuild(true); }
     return;
   }
+  if(t.dataset.wanttop !== undefined){ bay.top = t.checked; rebuild(true); paintStack(); return; }
   if(t.dataset.counter !== undefined){ setCounter(bay, t.checked); rebuild(false); return; }
   if(t.dataset.hfill !== undefined){
     const si = +t.dataset.hfill, st = bay.stack[si]; if(!st) return;
@@ -4485,6 +4539,16 @@ $('#stack').addEventListener('change', e => {
    counts. The panel itself is not repainted, or the slider would lose
    the pointer halfway through the drag. */
 $('#stack').addEventListener('input', e => {
+  const cs = e.target.closest('[data-carcset]');
+  if(cs){
+    const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
+    const v = Math.round(+cs.value * 4) / 4;
+    if(cs.dataset.carcset === 'kick') bay.kick = v; else bay.cabTop = v;
+    const out = $(`[data-carcval="${cs.dataset.carcset}"]`);
+    if(out) out.textContent = (+v.toFixed(2)).toString() + '"';
+    DRAGGING = true; rebuild(false);
+    return;
+  }
   const as = e.target.closest('[data-addset]');
   if(as){
     const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
@@ -4519,7 +4583,7 @@ $('#stack').addEventListener('input', e => {
   rebuild(false);
 });
 $('#stack').addEventListener('change', e => {
-  if(!e.target.closest('[data-hset],[data-fillw],[data-addset]')) return;
+  if(!e.target.closest('[data-hset],[data-fillw],[data-addset],[data-carcset]')) return;
   DRAGGING = false; rebuild(true); paintStack();
 });
 
@@ -4699,15 +4763,19 @@ $('#stack').onclick=e=>{
     if(bay.adds?.[ai]) bay.adds.splice(ai, 1);
     S.add = null; rebuild(false); paintStack(); return;
   }
+  else if(t.dataset.carcreset !== undefined){
+    if(t.dataset.carcreset === 'kick') delete bay.kick; else delete bay.cabTop;
+    rebuild(true); paintStack(); return;
+  }
   else if(t.dataset.addchoice !== undefined){
     const ai = +t.dataset.ai, a = bay.adds?.[ai]; if(!a) return;
     a.o = { ...(a.o || {}), [t.dataset.addchoice]: +t.dataset.v };
     rebuild(false); paintStack(); return;
   }
-  else if(t.dataset.partback !== undefined){ S.part = null; S.add = null; paintStack(); return; }
-  else if(t.dataset.lib !== undefined){ S.lib = true; S.grid = false; S.part = null; S.add = null; paintStack(); return; }
+  else if(t.dataset.partback !== undefined){ S.part = null; S.add = null; S.carc = null; paintStack(); return; }
+  else if(t.dataset.lib !== undefined){ S.lib = true; S.grid = false; S.part = null; S.add = null; S.carc = null; paintStack(); return; }
   else if(t.dataset.libclose !== undefined){ S.lib = false; paintStack(); return; }
-  else if(t.dataset.grid !== undefined){ S.grid = true; S.lib = false; S.part = null; S.add = null; paintStack(); return; }
+  else if(t.dataset.grid !== undefined){ S.grid = true; S.lib = false; S.part = null; S.add = null; S.carc = null; paintStack(); return; }
   else if(t.dataset.gridclose !== undefined){ S.grid = false; paintStack(); return; }
 
   /* swap this component for another one */
@@ -4740,7 +4808,7 @@ $('#stack').onclick=e=>{
       const last = bay.stack[bay.stack.length - 1];
       if(!MODULES[last.m].sizes) last.h = null;
     }
-    S.part = null; S.add = null;
+    S.part = null; S.add = null; S.carc = null;
   }
   else if(t.dataset.optpart !== undefined){
     const st = bay.stack[+t.dataset.si]; if(!st) return;
@@ -4796,6 +4864,7 @@ $('#pullfin').onclick=e=>{const b=e.target.closest('button');if(!b)return;
 $('#ltools')?.addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   const a = b.dataset.l;
+  if(a === 'auto'){ window.gotoStep?.('1'); return; }
   const wall = (S.sel?.wall && S.runs[S.sel.wall]?.on) ? S.sel.wall
              : Object.keys(S.runs).find(w => S.runs[w]?.on);
   if(!wall) return;
@@ -4811,7 +4880,7 @@ $('#ltools')?.addEventListener('click', e => {
     const b2 = makeBay(w, fill ? [{ m:'FILLER', h:null, o:{} }] : [], true); b2.at = at;
     r.bays.push(b2); sortRun(wall);
     S.sel = { wall, i:r.bays.findIndex(x => x === b2) };
-    S.part = null; S.add = null; S.lib = !fill; S.grid = false;
+    S.part = null; S.add = null; S.carc = null; S.lib = !fill; S.grid = false;
     PICK_FOR = wall + '|' + S.sel.i;
     rebuild(true);
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
@@ -4819,7 +4888,7 @@ $('#ltools')?.addEventListener('click', e => {
   }
   if(!S.runs[wall].bays.length) return;
   if(S.sel?.i == null || !S.runs[wall].bays[S.sel.i]) S.sel = { wall, i:0 };
-  S.part = null; S.add = null;
+  S.part = null; S.add = null; S.carc = null;
   S.lib  = a === 'lib';
   S.grid = a === 'grid';
   PICK_FOR = S.sel.wall + '|' + S.sel.i;
@@ -4951,7 +5020,8 @@ function paintLTools(){
   const has = !!r?.bays.length;
   const free = r ? wallLength(wall) - r.bays.reduce((x, y) => x + y.w, 0) : 0;
   host.querySelectorAll('button').forEach(b => {
-    b.disabled = b.dataset.l === 'add'    ? free < SPEC.bayMin
+    b.disabled = b.dataset.l === 'auto'   ? false
+               : b.dataset.l === 'add'    ? free < SPEC.bayMin
                : b.dataset.l === 'filler' ? free < FILLER_MIN
                : b.dataset.l === 'door'   ? false
                : !has;
@@ -5238,7 +5308,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=ff8a2a8e');
+  if(!DRAW) DRAW = await import('./drawing.js?v=7ecdf932');
   return DRAW;
 }
 
@@ -5307,7 +5377,7 @@ function paintFlat(){
        buttons above it already say which wall this is, and a second title
        inside the drawing collided with the overall dimension across the top
        of it. On paper and on its own the caption stays. */
-    const opt = { width:boxW, height:boxH, pick:true, selected:S.sel, part:S.part, add:S.add, title:false };
+    const opt = { width:boxW, height:boxH, pick:true, selected:S.sel, part:S.part, add:S.add, carc:S.carc, title:false };
     let svg;
     if(VIEW === 'tower'){
       if(!selOk){ VIEW = 'wall'; paintFlat(); return; }
@@ -5402,8 +5472,36 @@ function flatScale(svg){
 let HDRAG = null;
 /* dragging a thing that is placed at a height rather than stacked */
 let ADRAG = null;
+/* pulling a tower's own edge in the elevation */
+let WDRAG = null;
 
 $('#v2dcanvas')?.addEventListener('pointerdown', e => {
+  /* ── press the toe kick or the top of the tower ──────────────────── */
+  const cp = e.target.closest('[data-carc]');
+  if(cp){
+    S.sel = { wall:cp.dataset.wall, i:+cp.dataset.bay };
+    S.carc = (S.carc === cp.dataset.carc) ? null : cp.dataset.carc;
+    S.part = null; S.add = null; S.lib = false;
+    PICK_FOR = cp.dataset.wall + '|' + cp.dataset.bay;
+    rebuild(false); paintAll();
+    return;
+  }
+  /* ── pull a tower's own edge to make it wider or narrower ────────── */
+  const wg = e.target.closest('[data-wdrag]');
+  if(wg){
+    const wall = wg.dataset.wall, i = +wg.dataset.bay;
+    const bay = S.runs[wall]?.bays?.[i]; if(!bay) return;
+    const host = $('#v2dcanvas');
+    const pxPerIn = flatScale(host.querySelector('svg'));
+    S.sel = { wall, i }; S.part = null; S.add = null; S.carc = null; S.lib = false;
+    if(!pxPerIn){ rebuild(false); paintAll(); return; }
+    WDRAG = { wall, i, side:wg.dataset.wdrag, pxPerIn, x0:e.clientX, w0:bay.w, at0:bay.at ?? 0 };
+    DRAGGING = true;
+    host.setPointerCapture?.(e.pointerId);
+    host.classList.add('dragging');
+    rebuild(false); paintStack();
+    return;
+  }
   /* ── the X on a placed thing ─────────────────────────────────────── */
   const akill = e.target.closest('[data-rmadd]');
   if(akill){
@@ -5460,7 +5558,7 @@ $('#v2dcanvas')?.addEventListener('pointerdown', e => {
     const bays = S.runs[wall]?.bays; if(!bays?.[i]) return;
     bays.splice(i, 1);
     S.sel = bays.length ? { wall, i:Math.min(i, bays.length - 1) } : null;
-    S.part = null; S.add = null; S.lib = false;
+    S.part = null; S.add = null; S.carc = null; S.lib = false;
     rebuild(true);
     return;
   }
@@ -5533,6 +5631,33 @@ const dragHeight = onFrame(() => {
   paintFlat();
 });
 
+/* ══════════════════════════════════════════════════════════════════════
+   A TOWER IS MADE WIDER BY PULLING ITS EDGE
+
+   The width was two small buttons at the far end of the panel, which is
+   not how anybody thinks about how wide a cupboard is. Pull the edge and
+   it grows, in half inches, into the bare wall beside it first and out of
+   its neighbour only once the wall is full, which is the same rule the
+   buttons always used. Pull the left edge and the tower also slides, so
+   the edge you are holding is the one that moves. */
+const dragWidth = onFrame(() => {
+  if(!WDRAG) return;
+  const r = S.runs[WDRAG.wall], bay = r?.bays?.[WDRAG.i]; if(!bay) return;
+  const d = WDRAG.dx / WDRAG.pxPerIn;
+  const want = clampBay(WDRAG.w0 + (WDRAG.side === 'r' ? d : -d), isFiller(bay));
+  if(Math.abs(want - bay.w) < 0.24) return;
+  const grew = want - bay.w;
+  const free = wallLength(WDRAG.wall) - r.bays.reduce((a, b2) => a + b2.w, 0);
+  const take = Math.min(grew, Math.max(0, free));
+  bay.w = +(bay.w + (grew <= 0 ? grew : take)).toFixed(2);
+  if(WDRAG.side === 'l') bay.at = Math.max(0, +(WDRAG.at0 + (WDRAG.w0 - bay.w)).toFixed(2));
+  sortRun(WDRAG.wall);
+  S.sel.i = r.bays.indexOf(bay);
+  WDRAG.i = S.sel.i;
+  rebuild(false);
+  paintFlat();
+});
+
 const dragAdd = onFrame(() => {
   if(!ADRAG) return;
   const bay = S.runs[ADRAG.wall]?.bays?.[ADRAG.i]; const a = bay?.adds?.[ADRAG.ai];
@@ -5547,6 +5672,7 @@ const dragAdd = onFrame(() => {
 });
 
 $('#v2dcanvas')?.addEventListener('pointermove', e => {
+  if(WDRAG){ WDRAG.dx = e.clientX - WDRAG.x0; dragWidth(); return; }
   if(ADRAG){ ADRAG.dy = e.clientY - ADRAG.y0; ADRAG.moved = true; dragAdd(); return; }
   if(HDRAG){ HDRAG.dy = e.clientY - HDRAG.y0; dragHeight(); return; }
   if(!FDRAG) return;
@@ -5555,6 +5681,12 @@ $('#v2dcanvas')?.addEventListener('pointermove', e => {
 });
 
 const endFlatDrag = () => {
+  if(WDRAG){
+    WDRAG = null; DRAGGING = false;
+    $('#v2dcanvas')?.classList.remove('dragging');
+    rebuild(true); paintAll();
+    return;
+  }
   if(ADRAG){
     ADRAG = null; DRAGGING = false;
     $('#v2dcanvas')?.classList.remove('dragging');
@@ -5740,7 +5872,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=ff8a2a8e');
+    const { downloadPdf } = await import('./drawing.js?v=7ecdf932');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -5763,7 +5895,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=ff8a2a8e');
+    const { downloadPdf } = await import('./drawing.js?v=7ecdf932');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

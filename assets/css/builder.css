@@ -2275,3 +2275,17 @@ body[data-step="order"] .pfoot{display:block}
 .selhd.tight > b{font-size:.8rem}
 .twhd span{display:none}
 #bayNote[hidden]{display:none}
+
+/* the carcass pieces, and the tower's own edges, in the drawing */
+.pickcarc{fill:transparent;cursor:pointer}
+.pickcarc:hover{fill:color-mix(in srgb, var(--accent,#A8824C) 16%, transparent)}
+.pickcarc.on{fill:color-mix(in srgb, var(--accent,#A8824C) 20%, transparent);
+  stroke:var(--accent,#A8824C);stroke-width:1.2}
+.wgrab{cursor:ew-resize}
+.wgrab .wbar{stroke:var(--accent,#A8824C);stroke-width:1.6;fill:none;opacity:0}
+.wgrab .wgrip{stroke:var(--accent,#A8824C);stroke-width:1.4;fill:none;
+  stroke-linecap:round;opacity:0}
+.wgrab:hover .wbar,.wgrab:hover .wgrip{opacity:.95}
+
+/* the rule between the three things you can be doing and the add tools */
+.ltools .lsep{border:0;border-top:1px solid var(--line);margin:3px 6px;width:auto}
