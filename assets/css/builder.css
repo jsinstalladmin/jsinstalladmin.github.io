@@ -2246,3 +2246,32 @@ body[data-step="order"] .pfoot{display:block}
   opacity:1;background:#F3EDE4;border-radius:7px}
 .twcard .twthumb{max-width:none}
 @media(max-width:860px){ .twthumb{max-width:none} }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ROUND 9 · A THING PLACED AT A HEIGHT, IN THE DRAWING
+
+   It owns no band, so it gets no band to click. A bar at its own height
+   with the inches on it, a handle to pull, and an X to take it off.
+   ══════════════════════════════════════════════════════════════════════ */
+.addpick{cursor:ns-resize}
+.addpick .abar{stroke:var(--accent,#A8824C);stroke-width:2;fill:none;opacity:.85}
+.addpick .agrip{stroke:var(--accent,#A8824C);stroke-width:1.2;fill:none;stroke-linecap:round;opacity:.9}
+.addpick .alab{font:500 9px/1 var(--sans,system-ui);fill:#7A5A1E;
+  paint-order:stroke;stroke:rgba(255,253,250,.95);stroke-width:3;stroke-linejoin:round}
+.addpick:hover .abar,.addpick.on .abar{stroke-width:3;opacity:1}
+.addpick.on .alab{fill:#2E2A26}
+.addkill{cursor:pointer}
+.addkill circle{fill:var(--paper);stroke:var(--line);stroke-width:1}
+.addkill path{stroke:var(--ink-3);stroke-width:1.4;fill:none;stroke-linecap:round}
+.addkill:hover circle{stroke:#B4453A}
+.addkill:hover path{stroke:#B4453A}
+
+/* the wall line and the tower line, tightened so the cards get the column */
+.wallline{padding:0 0 .5em;margin:0 0 .5em;gap:.5em}
+.wallline b{font-size:.8rem}
+.wallline i{font-size:.72rem}
+.wallline .wacts{gap:4px}
+.selhd.tight{gap:.45em;margin:-.1em 0 .6em}
+.selhd.tight > b{font-size:.8rem}
+.twhd span{display:none}
+#bayNote[hidden]{display:none}

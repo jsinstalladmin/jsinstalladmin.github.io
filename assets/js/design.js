@@ -390,14 +390,31 @@ export const SLOT = {
   DOOR       : { top:true,  bottom:false, whole:true,  over:false },
   GLASS_DOOR : { top:true,  bottom:false, whole:true,  over:false },
   MIRROR     : { top:true,  bottom:false, whole:true,  over:false },
-  /* The accessories. Small fixed bands, so they fit anywhere there are
-     three inches, in either half, on their own or over something else. */
-  VALET      : { top:true,  bottom:true,  whole:true,  over:true  },
-  TIE_RACK   : { top:true,  bottom:true,  whole:true,  over:true  },
-  BELT_RACK  : { top:true,  bottom:true,  whole:true,  over:true  },
-  SCARF_RACK : { top:true,  bottom:true,  whole:true,  over:true  },
-  PANTS_RACK : { top:true,  bottom:true,  whole:true,  over:true  },
 };
+/* ══════════════════════════════════════════════════════════════════════
+   A TOWER IS A BOX WITH THINGS PLACED IN IT, NOT ONLY A STACK OF SLICES
+
+   Everything in a tower used to be a slice of its height. That is true of
+   a hanging section, a drawer bank, a shoe rack: they really do own a
+   band of the column, and putting one in really does leave less for
+   everything else.
+
+   It is NOT true of a shelf, a rod, a valet rod or a tie rack. Those sit
+   AT a height. A shelf at 43" and a tie rack at 60" do not fight over
+   anything; they are two objects in the same empty box. Forcing them
+   through the stack is what made adding a scarf rack empty out the top
+   of a tower to make room for it, and it is why a tower could never be
+   drawn the way 17squares draws one: one shelf, and air.
+
+   So these are ATTACHMENTS. They carry a y in inches off the floor, they
+   are built at that height, they take nothing from anything else, and
+   they are dragged, opened and removed on their own. */
+export const ADDONS = {
+  SHELF_ONE:  true, ROD_ONE:    true,
+  VALET:      true, TIE_RACK:   true, BELT_RACK: true,
+  SCARF_RACK: true, PANTS_RACK: true
+};
+export const isAddon = id => !!ADDONS[id];
 export const canSit = (id, slot) => !!(SLOT[id] || { top:true, bottom:true })[slot];
 
 /* Should this piece be OFFERED in this half right now? `hasOther` is whether
@@ -1187,6 +1204,36 @@ export const MODULES = {
      is what the workshop needs first.
      ══════════════════════════════════════════════════════════════════ */
 
+  /* ── the two most placed things in any closet ───────────────────── */
+  SHELF_ONE: {
+    label:'One shelf', hint:'A single shelf. Put it where you want it and drag it to set the height.',
+    spec:'3/4" shelf, full width and depth · placed at any height',
+    icon:'M2 14h20M4 14v3M20 14v3',
+    defH:0.75, minH:0.75, maxH:0.75, addon:true,
+    choice:{ key:'fixed', label:'How it is held', def:0, options:[
+      { v:0, label:'Adjustable', note:'On pins, moves later' },
+      { v:1, label:'Fixed',      note:'Dowelled and glued, ties the tower together' } ] },
+    build(c){
+      const {w,d,G,parts,o} = c;
+      const fixed = +(o?.fixed ?? 0) === 1;
+      parts.push(P(fixed ? 'FIXED' : 'ADJ', 1, (w*d)/144, (w + d*2)/12,
+                   fixed ? 'Fixed shelf' : 'Adjustable shelf'));
+      G.push({k:'shelf', p:[0, SPEC.panel/2, 0], s:[w - 0.2, SPEC.panel, d - 0.6], m:'carcass'});
+    }
+  },
+  ROD_ONE: {
+    label:'One rod', hint:'A single hanging rod. Drag it to the height you want to hang at.',
+    spec:'1-1/16" oval rod on end supports · placed at any height',
+    icon:'M3 10h18M6 10v3M18 10v3',
+    defH:1.6, minH:1.6, maxH:1.6, addon:true,
+    build(c){
+      const {w,d,G,parts,styled} = c;
+      parts.push({ code:'ROD', qty:1, len:Math.round(w),
+                   style:'Oval hang rod with end supports', note:'Hang rod' });
+      G.push({k:'rod', p:[0, 0.8, 0], s:[w - 1, 1.4, 1.4], m:'metal'});
+      if(styled !== false) hang(G, 0, 0.8, 30, w, d);
+    }
+  },
   VALET: {
     nopic:true,
     label:'Valet rod', hint:'A rod that pulls straight out to hang tomorrow on.',
@@ -2327,7 +2374,34 @@ export function buildDesign(cfg, cat){
          start at the corner -- it starts clear of the back run by the
          standoff -- so the drawing needs that offset too, or every side
          tower is drawn a foot too far forward. */
+      /* ══════════════════════════════════════════════════════════════
+         THE THINGS PLACED AT A HEIGHT
+
+         Built after the slices and independently of them. Each one gets
+         the tower's real width and depth and is dropped in at its own y,
+         clamped so it cannot be pushed out through the top shelf or down
+         through the toe kick. Nothing else in the tower knows or cares
+         that it is there, which is the whole point of it. */
+      const addsOut = [];
+      (bay.adds || []).forEach((ad, ai) => {
+        const def = MODULES[ad.m]; if(!def) return;
+        const ah  = def.defH ?? 2;
+        const ay  = clamp(+ad.y, floorY + 1, floorY + bayH - ah - 0.5);
+        const sub = [];
+        const mark = parts.length;
+        def.build({ w:inner, d:depth, y:0, h:ah, G:sub, parts, o:ad.o || {}, pull,
+                    capped:true, styled: cfg.styled !== false,
+                    boxStyle: cfg.boxStyle || DEFAULT_BOX_STYLE,
+                    basketFinish: BASKET_FINISH[cfg.pullFinish] || 'Chrome',
+                    warn: m => warnings.push(m) });
+        for(let i = mark; i < parts.length; i++) parts[i].grp = ad.m;
+        for(const g of sub) local.push({ ...g, p:[cx + g.p[0], ay + g.p[1], g.p[2]],
+                                         bay:bi, add:ai, mod:ad.m });
+        addsOut.push({ m:ad.m, label:def.label, i:ai, y:ay, h:ah, o:ad.o || {} });
+      });
+
       bayIndex.push({ wall:run.wall, bay:bi, x:cx, w:bay.w, h:bayH, top:myTop, depth,
+                      floorY, adds:addsOut,
                       start: run.start || 0, alongRoom: (run.start || 0) + cx,
                       /* The stack as the customer sees it: the drawing on the
                          page labels each band of a tower, and a module id is

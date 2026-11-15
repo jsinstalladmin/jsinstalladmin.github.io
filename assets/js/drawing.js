@@ -310,6 +310,31 @@ export function elevation(design, wall, opt = {}){
             <title>Drag to move this division. ${inch(b.bands[n].y1 - b.bands[n].y0)} below it.</title></g>`;
         }
       }
+      /* ══ THE THINGS PLACED AT A HEIGHT ════════════════════════════════
+         A shelf, a rod, a tie rack. They own no band, so they get no
+         band to click: each one is a grab bar at its own height, with
+         the inches beside it, a handle to pull and an X to take it off.
+         Drag one and nothing else in the tower moves, because nothing
+         else in the tower depends on where it is. */
+      if(isSel) for(const a of (b.adds || [])){
+        const ay = Y(a.y + (a.h || 1) / 2);
+        const x0 = X(left), wpx = b.w * k;
+        picks += `<g class="addpick${opt.add === a.i ? ' on' : ''}"
+            data-wall="${esc(wall)}" data-bay="${b.bay}" data-add="${a.i}">
+            <rect x="${x0.toFixed(1)}" y="${(ay - 7).toFixed(1)}"
+                  width="${wpx.toFixed(1)}" height="14" fill="transparent"/>
+            <path class="abar" d="M${x0.toFixed(1)} ${ay.toFixed(1)}h${wpx.toFixed(1)}"/>
+            <path class="agrip" d="M${(x0 + wpx / 2 - 10).toFixed(1)} ${(ay - 2.6).toFixed(1)}h20
+                                   M${(x0 + wpx / 2 - 10).toFixed(1)} ${(ay + 2.6).toFixed(1)}h20"/>
+            <text class="alab" x="${(x0 + 5).toFixed(1)}" y="${(ay - 5).toFixed(1)}"
+              >${esc(a.label)} &middot; ${inch(a.y)}</text>
+            <title>${esc(a.label)} at ${inch(a.y)} off the floor. Drag to move it.</title></g>
+          <g class="addkill" data-wall="${esc(wall)}" data-bay="${b.bay}" data-rmadd="${a.i}">
+            <circle cx="${(x0 + wpx - 9).toFixed(1)}" cy="${ay.toFixed(1)}" r="7"/>
+            <path d="M${(x0 + wpx - 11.6).toFixed(1)} ${(ay - 2.6).toFixed(1)}l5.2 5.2
+                     M${(x0 + wpx - 6.4).toFixed(1)} ${(ay - 2.6).toFixed(1)}l-5.2 5.2"/>
+            <title>Take the ${esc(a.label.toLowerCase())} out</title></g>`;
+      }
     }
   }
   /* data-k is how many SVG units one inch is, so a drag in screen pixels can

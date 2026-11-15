@@ -146,6 +146,11 @@ const basketBand = (x, w, y0, y1, n) => {
 };
 
 const PART_BAND = {
+  /* ONE SHELF, AND AIR. The picture is the argument: a tower with a
+     single shelf in it and four feet of nothing is a real thing a person
+     wants, and until now it could not even be drawn. */
+  SHELF_ONE:   (x, w, a, b) => board(x, a + (b - a) * 0.42, w, 3),
+  ROD_ONE:     (x, w, a, b) => hangBand(x, w, a + (b - a) * 0.18, b),
   HANG:        (x, w, a, b) => hangBand(x, w, a, b),
   LONG_HANG:   (x, w, a, b) => hangBand(x, w, a, b),
   SHORT_HANG:  (x, w, a, b) => hangBand(x, w, a, b),
@@ -379,17 +384,17 @@ const partSection = id => sectionArt(
   CARD_STACK[id] || [{ m:id, h:null, o:{} }], 80);
 
 import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
-         buildDesign, makeBay, defaultStackFor, canAdd, PRESETS, PRESET_ALIAS,
+         buildDesign, makeBay, defaultStackFor, canAdd, PRESETS, PRESET_ALIAS, isAddon,
          presetDelta, presetFits, DOOR_SPEC, FIT_SPEC, wallLoss, depthLimit, wallGap,
          ROOM_PLANS, cornerBlocked, sideRunStart,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=2e28338e';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=ff8a2a8e';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=2e28338e';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=ff8a2a8e';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=2e28338e';
+         clothMaterials, clearCaches } from './materials.js?v=ff8a2a8e';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -525,6 +530,8 @@ const S = {
   /* Which half of the selected section is being changed: 'top', 'bottom' or
      null for neither. */
   pick:null,
+  /* which placed attachment inside the selected tower is open */
+  add:null,
   /* [{k, wall, at}] where at is inches along that wall from its left end */
   fittings:[],
   /* THE ROOM IS NOT THE CLOSET, AND IT IS NOT FIXED EITHER.
@@ -1875,7 +1882,7 @@ function drawCloset(res){
     /* A prop is in the room, not in the closet. It is drawn, it is never
        selectable, and it is not part of anything the workshop cuts. */
     if(!g.prop && g.wall && g.bay != null)
-      m.userData = { wall:g.wall, i:g.bay, si:g.si, mod:g.mod, part:true };
+      m.userData = { wall:g.wall, i:g.bay, si:g.si, add:g.add, mod:g.mod, part:true };
     /* ══════════════════════════════════════════════════════════════
        EVERYTHING ON A WALL LEAVES WITH THAT WALL. EVERYTHING.
 
@@ -2140,7 +2147,13 @@ canvas.addEventListener('pointerup',e=>{
     S.sel = { wall:u.wall, i:u.i };
     /* an engine shelf carries si -1: it belongs to the tower, not to a
        component, so pressing one opens the tower */
-    S.part = (u.si != null && u.si >= 0 && !(same && S.part === u.si)) ? u.si : null;
+    if(u.add != null){
+      /* a placed thing: press it in the 3D and its own panel opens */
+      S.add = (same && S.add === u.add) ? null : u.add; S.part = null;
+    } else {
+      S.part = (u.si != null && u.si >= 0 && !(same && S.part === u.si)) ? u.si : null;
+      S.add = null;
+    }
     S.lib = false;
     PICK_FOR = u.wall + '|' + u.i;
     rebuild(false);
@@ -2150,7 +2163,7 @@ canvas.addEventListener('pointerup',e=>{
   const hit=ray.intersectObjects(picks.children,false)[0];
   if(hit){
     S.sel={wall:hit.object.userData.wall,i:hit.object.userData.i};
-    S.part = null; S.lib = false;
+    S.part = null; S.add = null; S.lib = false;
     rebuild(false);
     /* Dividing the wall and filling it are one panel now, so clicking a
        section on the drawing just selects it. It used to yank you onto
@@ -2490,7 +2503,7 @@ function rebuild(reframe){
     window.__pick = (i, wall) => {
       const w = wall || S.sel?.wall || Object.keys(S.runs).find(k => S.runs[k]?.on);
       if(!S.runs[w]?.bays[i]) return false;
-      S.sel = { wall:w, i }; S.part = null; S.lib = false;
+      S.sel = { wall:w, i }; S.part = null; S.add = null; S.lib = false;
       PICK_FOR = w + '|' + i; rebuild(false); return true;
     };
     window.__cam = (o = {}) => {
@@ -2911,26 +2924,34 @@ function paintBays(){
        because that is a fact you cannot read off the drawing, and the
        two tidy-up buttons, which have no equivalent anywhere else.
        Adding a tower is the button on the rail beside the drawing. */
+    /* ══════════════════════════════════════════════════════════════
+       THE WALL IS ONE LINE, BECAUSE THE PICTURES ARE THE PANEL
+
+       A wall heading, a used-and-free line, two tidy-up buttons and a
+       paragraph about shelf spans filled the top third of the column
+       before a single component card got drawn, on a page whose whole
+       job is to show you components. All of it is still here; it is one
+       line and two small buttons. */
     const full = left < SPEC.bayMin;
     d.innerHTML = `<div class="wallline">
         <b>${WALL_LABEL[wall]}</b>
-        <i class="${full ? 'full' : ''}">${Math.round(used)}" of ${Math.round(len)}" used${
-          full ? '' : ` &middot; ${Math.round(left)}" free`}</i>
+        <i class="${full ? 'full' : ''}">${Math.round(used)}/${Math.round(len)}"</i>
         ${r.bays.length > 1 ? `<span class="wacts">
           <button class="btn-mini" data-bay="tidy" data-wall="${wall}"
-            title="Push every tower back into the left corner, shoulder to shoulder">Into the corner</button>
+            title="Push every tower back into the left corner, shoulder to shoulder">Tidy</button>
           <button class="btn-mini" data-bay="even" data-wall="${wall}"
-            title="Equal towers with equal air between them, across the whole wall">Space them evenly</button>
+            title="Equal towers with equal air between them, across the whole wall">Even</button>
         </span>` : ''}
       </div>
       ${r.bays.length ? '' : `<p class="note emptyrun">Nothing on this wall yet.
-        Press <b>Add tower</b> on the rail beside the drawing and it lands in the left corner,
-        where you can drag it anywhere along the wall.</p>`}
+        Press <b>Add tower</b> on the rail beside the drawing.</p>`}
       <div class="stackslot"></div>`;
     host.appendChild(d);
   }
-  $('#bayNote').textContent = PROP_NOTE
-    || `Past ${SPEC.bayMax}" a ¾" shelf sags under a normal load, so a partition goes in instead. That is why those are the only widths offered.`;
+  /* only when there is something to say. The shelf-span lecture was
+     printed on every repaint, above the cards, forever. */
+  $('#bayNote').textContent = PROP_NOTE || '';
+  $('#bayNote').hidden = !PROP_NOTE;
   $('#bayNote').classList.toggle('warnnote', !!PROP_NOTE);
 }
 
@@ -2993,7 +3014,11 @@ const MIX_PICK = {
 /* The component library, grouped the way he asked for it: the things that
    make the closet, then the things that go in it. A group whose parts are
    not built yet simply has nothing in it and does not print. */
+/* PUT ONE IN FIRST, because they are what a closet is mostly made of and
+   they are the two that can go anywhere, at any height, as many as you
+   like, without moving anything else. */
 const LIB_GROUPS = [
+  { t:'Put one in where you want it', ids:['SHELF_ONE','ROD_ONE'] },
   { t:'Hanging',  ids:['HANG','DOUBLE_HANG','LONG_HANG','SHORT_HANG'] },
   { t:'Shelving', ids:['SHELVES','CUBBIES','COUNTER'] },
   { t:'Drawers and pull-outs', ids:['DRAWERS','PULLOUT','BASKETS','HAMPER'] },
@@ -3220,7 +3245,7 @@ function towerGrid(bay, usable){
               title="${p.label}">${towerThumb(p.stack, usable)}<span>${p.label}</span></button>`).join('')}</div></div>`;
   }).join('');
   return `<div class="twpick">
-    <div class="twhd"><b>Ready-made towers</b><span>Press one and this tower becomes it</span></div>
+    <div class="twhd"><b>Ready-made towers</b></div>
     ${groups}</div>`;
 }
 
@@ -3230,7 +3255,7 @@ function paintStack(){
      different tower and the panel goes back to being that tower, rather
      than showing the shelf you opened in the last one. */
   const selKey = S.sel ? S.sel.wall + '|' + S.sel.i : null;
-  if(PICK_FOR !== selKey){ S.part = null; S.lib = false; S.grid = false; S.pick = null; PICK_FOR = selKey; }
+  if(PICK_FOR !== selKey){ S.part = null; S.add = null; S.lib = false; S.grid = false; S.pick = null; PICK_FOR = selKey; }
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
     /* If the chosen wall exists but has nothing on it yet, STAY on it. This
@@ -3340,6 +3365,7 @@ function paintStack(){
   /* the resolved bands for THIS tower: every row can print its real
      height because the engine has already worked it out */
   const bands = (cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands) || [];
+  const adds  = (cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.adds)  || [];
   const live = si => bands[si];
   /* Number.toString already drops trailing zeros, so 40 prints as 40 and
      40.25 prints as 40.25. Stripping zeros with a regex on top of that
@@ -3351,14 +3377,14 @@ function paintStack(){
   const dLo = SPEC.runDepthMin, dHi = Math.min(SPEC.runDepthMax, Math.round(dCap));
   const dNow = Math.min(selRun?.depth ?? SPEC.hangDepth, dCap);
 
-  const head = `<div class="selhd"><b>${WALL_LABEL[S.sel.wall]} · tower ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
+  const head = `<div class="selhd tight"><b>Tower ${S.sel.i+1} of ${S.runs[S.sel.wall].bays.length}</b>
       <span class="selacts">
         <span class="wadj"><button data-bw="-2" title="Narrower">−</button><i>${bay.w.toFixed(0)}" wide</i><button data-bw="2" title="Wider">+</button></span>
         <span class="movw">
           <button data-move="-1" ${S.sel.i===0?'disabled':''} title="Move left along the wall">&#9664;</button>
           <button data-move="1" ${S.sel.i>=S.runs[S.sel.wall].bays.length-1?'disabled':''} title="Move right along the wall">&#9654;</button>
         </span>
-        <button class="rmsec" data-rmsec="1" title="Remove this tower">Remove tower</button>
+        <button class="rmsec" data-rmsec="1" title="Remove this tower">Remove</button>
       </span>
       <label class="dsel"><span>Depth</span>
         <select data-rundepth="${S.sel.wall}" aria-label="Run depth in inches">
@@ -3406,10 +3432,23 @@ function paintStack(){
               title="Move it down the tower" aria-label="Move ${d.label} down">&#9660;</button>
           </span></li>`;
       }).join('');
+    /* the things placed at a height, listed under the slices with the
+       height they are actually at, because that is the only thing about
+       them anybody wants to know */
+    const addRows = (adds || []).map(a => `<li class="comprowwrap">
+        <button type="button" class="comprow add" data-add="${a.i}">
+          <span class="sico"><svg viewBox="0 0 24 32"><path d="${MODULES[a.m].icon}"/></svg></span>
+          <span class="compname"><b>${a.label}</b><i>${inches(a.y)} off the floor</i></span>
+          <span class="compgo" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
+          </span></button>
+        <span class="compmove">
+          <button type="button" data-addmove="1" data-ai="${a.i}" title="Raise it">&#9650;</button>
+          <button type="button" data-addmove="-1" data-ai="${a.i}" title="Lower it">&#9660;</button>
+        </span></li>`).reverse().join('');
     return `<h4 class="subh">What is in this tower</h4>
-      <p class="note" style="margin:-2px 0 9px">Press one to open it, or press it in the
-        drawing. Drag a shelf in the elevation to move it.</p>
-      <ol class="complist">${rows || '<li class="compnone">Nothing in this tower yet. Press Edit components.</li>'}</ol>
+      <ol class="complist">${rows}${addRows}
+        ${(rows || addRows) ? '' : '<li class="compnone">Nothing in this tower yet. Press Edit components.</li>'}</ol>
       <div class="compacts">
         <button type="button" class="btn btn-fill btn-sm" data-lib="1">Edit components</button>
       </div>
@@ -3574,7 +3613,10 @@ function paintStack(){
 
            The slot asked for is now the slot the piece will land in. */
         const slot = (d.sizes || id === 'HAMPER' || id === 'BASKETS') ? 'bottom' : 'top';
-        const chk = canAdd(against, id, usable, inCorner, slot);
+        /* An attachment takes nothing from anything, so there is never a
+           reason to refuse one. "No room" on a shelf, in a tower with
+           four feet of air in it, is the thing he kept pointing at. */
+        const chk = isAddon(id) ? { ok:true } : canAdd(against, id, usable, inCorner, slot);
         const hint = WHOLE_FRONT.has(id) && others.length
           ? d.hint + ' It takes the whole tower, and what is in it becomes what is behind it.'
           : d.hint;
@@ -3591,8 +3633,6 @@ function paintStack(){
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
         Tower ${S.sel.i+1}</button></div>
       <h4 class="subh">Components</h4>
-      <p class="note" style="margin:-2px 0 11px">Press one and it goes into this tower. Anything
-        that will not fit, or cannot be reached in a corner, says why instead of being offered.</p>
       ${groups}`;
   };
 
@@ -3675,7 +3715,50 @@ function paintStack(){
         step="0.5" value="${bay.w}" aria-label="Filler width in inches">
         <b class="hval">${bay.w.toFixed(1)}"</b></span></div>`;
 
-  const mode = S.lib ? 'lib' : S.grid ? 'grid' : (S.part != null && bay.stack[S.part]) ? 'part:' + S.part : 'tower';
+  /* ══════════════════════════════════════════════════════════════════
+     ONE PLACED THING, OPENED
+
+     Its height off the floor, whatever choice it has of its own, and the
+     way out. No "fill", no neighbours, no arithmetic: it is one object
+     in a box and the only question is how high up it is. */
+  const addPanel = ai => {
+    const a = adds.find(x => x.i === ai); if(!a) return '';
+    const d = MODULES[a.m];
+    const b0 = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i);
+    const lo = (b0?.floorY ?? 3.75) + 1;
+    const hi = lo + (b0?.h ?? 80) - (d.defH ?? 2) - 1.5;
+    const st = { m:a.m, o:a.o };
+    return `<div class="pbar"><button type="button" class="pback" data-partback="1">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
+        Tower ${S.sel.i+1}</button></div>
+      <div class="phd">
+        <span class="sico"><svg viewBox="0 0 24 32"><path d="${d.icon}"/></svg></span>
+        <span class="phdtx"><b>${d.label}</b><i>${inches(a.y)} off the floor</i></span>
+      </div>
+      <div class="prow">
+        <span class="prowl"><b>Height</b><i>Off the floor &middot; or drag it in the Wall view</i></span>
+        <span class="prowc">
+          <input type="range" data-addset="${ai}" min="${lo.toFixed(2)}" max="${hi.toFixed(2)}"
+                 step="0.25" value="${Math.min(hi, Math.max(lo, a.y)).toFixed(2)}"
+                 aria-label="${d.label} height off the floor">
+          <b class="hval" data-addval="${ai}">${inches(a.y)}</b>
+        </span>
+      </div>
+      ${d.choice ? `<div class="prow wrap">
+        <span class="prowl"><b>${d.choice.label}</b></span>
+        <span class="chpick">${d.choice.options.map(op => `<button type="button"
+          class="${op.v === +(a.o?.[d.choice.key] ?? d.choice.def) ? 'on' : ''}"
+          data-addchoice="${d.choice.key}" data-ai="${ai}" data-v="${op.v}">
+          <b>${op.label}</b><i>${op.note || ''}</i></button>`).join('')}</span>
+      </div>` : ''}
+      <p class="note">${d.hint}</p>
+      <div class="compacts">
+        <button type="button" class="btn btn-ghost btn-sm" data-rmadd="${ai}">Take this one out</button>
+      </div>`;
+  };
+
+  const mode = S.lib ? 'lib' : S.add != null ? 'add:' + S.add
+    : (S.part != null && bay.stack[S.part]) ? 'part:' + S.part : 'tower';
   /* ══════════════════════════════════════════════════════════════════
      PRESS A TOWER AND THE TOWER LIST IS WHAT YOU GET
 
@@ -3688,6 +3771,8 @@ function paintStack(){
      are always reachable. */
   if(isFiller(bay))                            box.innerHTML = head + fillerPanel() + optionBlocks();
   else if(S.lib)                               box.innerHTML = head + libPanel();
+  else if(S.add != null && adds.some(a => a.i === S.add))
+                                               box.innerHTML = head + addPanel(S.add);
   else if(S.part != null && bay.stack[S.part]) box.innerHTML = head + partPanel(S.part);
   else                                         box.innerHTML = head + towerGrid(bay, usable)
                                                               + compList() + optionBlocks();
@@ -4133,7 +4218,7 @@ $('#bays').onclick=e=>{
        is the quickest way out of a view that has got away from you */
     if(S.sel?.wall === w){ faceWall(w); return; }
     S.sel = { wall:w, i:0 };
-    S.part = null; S.lib = false; S.grid = false;
+    S.part = null; S.add = null; S.lib = false; S.grid = false;
     PICK_FOR = w + '|0';
     rebuild(true);
     faceWall(w);
@@ -4284,6 +4369,25 @@ function openPart(bay){
 /* A brand new piece of the right shape: a drawer bank arrives with four
    boxes, anything with a count arrives with its default, and everything
    else fills whatever the tower has left. */
+/* WHERE A NEW ATTACHMENT LANDS.
+
+   In the middle of the tallest clear run of air it can find, because
+   that is where a person would have put it, and never on top of
+   something already placed there. Drag it afterwards and the inches
+   count while you drag. */
+function addSpot(bay, id){
+  const b = cur?.bays?.find(x => x.wall === S.sel?.wall && x.bay === S.sel?.i);
+  const floorY = b?.floorY ?? baseHeight(S.mounting, placedFittings());
+  const top = floorY + (b?.h ?? 80);
+  const taken = (b?.adds || []).map(a => a.y).sort((m, n) => m - n);
+  let bestAt = floorY + (top - floorY) * 0.55, bestGap = -1, from = floorY + 6;
+  for(const t of [...taken, top - 6]){
+    if(t - from > bestGap){ bestGap = t - from; bestAt = (t + from) / 2; }
+    from = t + 8;
+  }
+  return Math.round(bestAt * 4) / 4;
+}
+
 function freshPart(id){
   const d = MODULES[id];
   const made = { m:id, h:null, o:{} };
@@ -4311,6 +4415,20 @@ const WHOLE_FRONT = new Set(['DOOR','GLASS_DOOR','MIRROR']);
 function addPart(bay, id){
   const d = MODULES[id];
   if(id === 'COUNTER'){ setCounter(bay, true); return; }
+  /* ══════════════════════════════════════════════════════════════════
+     AN ATTACHMENT GOES IN AT A HEIGHT AND CHANGES NOTHING ELSE
+
+     Adding a scarf rack used to insert a slice into the column, so the
+     whole tower had to give up three inches to make room for it, and
+     because an accessory has no height of its own the solver emptied the
+     piece above it out to nothing. You added one small thing and the
+     tower fell apart. It does not go in the column at all now: it goes
+     in at a height, like a shelf on pins, and nothing else moves. */
+  if(isAddon(id)){
+    bay.adds = bay.adds || [];
+    bay.adds.push({ m:id, y:addSpot(bay, id), o:freshPart(id).o });
+    return;
+  }
   const made = freshPart(id);
 
   if(WHOLE_FRONT.has(id)){
@@ -4367,6 +4485,16 @@ $('#stack').addEventListener('change', e => {
    counts. The panel itself is not repainted, or the slider would lose
    the pointer halfway through the drag. */
 $('#stack').addEventListener('input', e => {
+  const as = e.target.closest('[data-addset]');
+  if(as){
+    const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
+    const ai = +as.dataset.addset, a = bay.adds?.[ai]; if(!a) return;
+    a.y = Math.round(+as.value * 4) / 4;
+    const out = $(`[data-addval="${ai}"]`);
+    if(out) out.textContent = (+a.y.toFixed(2)).toString() + '"';
+    DRAGGING = true; rebuild(false);
+    return;
+  }
   const fw = e.target.closest('[data-fillw]');
   if(fw){
     const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
@@ -4391,7 +4519,7 @@ $('#stack').addEventListener('input', e => {
   rebuild(false);
 });
 $('#stack').addEventListener('change', e => {
-  if(!e.target.closest('[data-hset],[data-fillw]')) return;
+  if(!e.target.closest('[data-hset],[data-fillw],[data-addset]')) return;
   DRAGGING = false; rebuild(true); paintStack();
 });
 
@@ -4553,13 +4681,33 @@ $('#stack').onclick=e=>{
      Press a row in the list, or a shelf in the drawing, and the whole
      panel becomes that component. */
   else if(t.dataset.part !== undefined){
-    S.part = +t.dataset.part; S.lib = false;
+    S.part = +t.dataset.part; S.add = null; S.lib = false;
     paintStack(); return;
   }
-  else if(t.dataset.partback !== undefined){ S.part = null; paintStack(); return; }
-  else if(t.dataset.lib !== undefined){ S.lib = true; S.grid = false; S.part = null; paintStack(); return; }
+  /* ── one PLACED thing, opened ─────────────────────────────────────── */
+  else if(t.dataset.add !== undefined){
+    S.add = +t.dataset.add; S.part = null; S.lib = false;
+    paintStack(); return;
+  }
+  else if(t.dataset.addmove !== undefined){
+    const ai = +t.dataset.ai, a = bay.adds?.[ai]; if(!a) return;
+    a.y = Math.round((a.y + (+t.dataset.addmove) * 2) * 4) / 4;
+    rebuild(false); paintStack(); return;
+  }
+  else if(t.dataset.rmadd !== undefined){
+    const ai = +t.dataset.rmadd;
+    if(bay.adds?.[ai]) bay.adds.splice(ai, 1);
+    S.add = null; rebuild(false); paintStack(); return;
+  }
+  else if(t.dataset.addchoice !== undefined){
+    const ai = +t.dataset.ai, a = bay.adds?.[ai]; if(!a) return;
+    a.o = { ...(a.o || {}), [t.dataset.addchoice]: +t.dataset.v };
+    rebuild(false); paintStack(); return;
+  }
+  else if(t.dataset.partback !== undefined){ S.part = null; S.add = null; paintStack(); return; }
+  else if(t.dataset.lib !== undefined){ S.lib = true; S.grid = false; S.part = null; S.add = null; paintStack(); return; }
   else if(t.dataset.libclose !== undefined){ S.lib = false; paintStack(); return; }
-  else if(t.dataset.grid !== undefined){ S.grid = true; S.lib = false; S.part = null; paintStack(); return; }
+  else if(t.dataset.grid !== undefined){ S.grid = true; S.lib = false; S.part = null; S.add = null; paintStack(); return; }
   else if(t.dataset.gridclose !== undefined){ S.grid = false; paintStack(); return; }
 
   /* swap this component for another one */
@@ -4574,7 +4722,9 @@ $('#stack').onclick=e=>{
     if(!MODULES[id]) return;
     addPart(bay, id);
     S.lib = false;
-    S.part = bay.stack.findIndex(x => x.m === id);
+    /* an attachment is not in the stack, so it is opened by its own index */
+    if(isAddon(id)){ S.add = (bay.adds?.length || 1) - 1; S.part = null; }
+    else { S.part = bay.stack.findIndex(x => x.m === id); S.add = null; }
   }
   else if(t.dataset.partmove !== undefined){
     const si = +t.dataset.si, to = si + +t.dataset.partmove;
@@ -4590,7 +4740,7 @@ $('#stack').onclick=e=>{
       const last = bay.stack[bay.stack.length - 1];
       if(!MODULES[last.m].sizes) last.h = null;
     }
-    S.part = null;
+    S.part = null; S.add = null;
   }
   else if(t.dataset.optpart !== undefined){
     const st = bay.stack[+t.dataset.si]; if(!st) return;
@@ -4661,7 +4811,7 @@ $('#ltools')?.addEventListener('click', e => {
     const b2 = makeBay(w, fill ? [{ m:'FILLER', h:null, o:{} }] : [], true); b2.at = at;
     r.bays.push(b2); sortRun(wall);
     S.sel = { wall, i:r.bays.findIndex(x => x === b2) };
-    S.part = null; S.lib = !fill; S.grid = false;
+    S.part = null; S.add = null; S.lib = !fill; S.grid = false;
     PICK_FOR = wall + '|' + S.sel.i;
     rebuild(true);
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
@@ -4669,7 +4819,7 @@ $('#ltools')?.addEventListener('click', e => {
   }
   if(!S.runs[wall].bays.length) return;
   if(S.sel?.i == null || !S.runs[wall].bays[S.sel.i]) S.sel = { wall, i:0 };
-  S.part = null;
+  S.part = null; S.add = null;
   S.lib  = a === 'lib';
   S.grid = a === 'grid';
   PICK_FOR = S.sel.wall + '|' + S.sel.i;
@@ -5088,7 +5238,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=2e28338e');
+  if(!DRAW) DRAW = await import('./drawing.js?v=ff8a2a8e');
   return DRAW;
 }
 
@@ -5157,7 +5307,7 @@ function paintFlat(){
        buttons above it already say which wall this is, and a second title
        inside the drawing collided with the overall dimension across the top
        of it. On paper and on its own the caption stays. */
-    const opt = { width:boxW, height:boxH, pick:true, selected:S.sel, part:S.part, title:false };
+    const opt = { width:boxW, height:boxH, pick:true, selected:S.sel, part:S.part, add:S.add, title:false };
     let svg;
     if(VIEW === 'tower'){
       if(!selOk){ VIEW = 'wall'; paintFlat(); return; }
@@ -5250,8 +5400,34 @@ function flatScale(svg){
    Anything above that was filling the space keeps filling it, so the
    tower still adds up to its own height at the end of the drag. */
 let HDRAG = null;
+/* dragging a thing that is placed at a height rather than stacked */
+let ADRAG = null;
 
 $('#v2dcanvas')?.addEventListener('pointerdown', e => {
+  /* ── the X on a placed thing ─────────────────────────────────────── */
+  const akill = e.target.closest('[data-rmadd]');
+  if(akill){
+    const bay = S.runs[akill.dataset.wall]?.bays?.[+akill.dataset.bay]; if(!bay) return;
+    bay.adds?.splice(+akill.dataset.rmadd, 1);
+    S.add = null; rebuild(true); paintAll();
+    return;
+  }
+  /* ── drag a placed thing up and down ─────────────────────────────── */
+  const ag = e.target.closest('[data-add]');
+  if(ag){
+    const wall = ag.dataset.wall, i = +ag.dataset.bay, ai = +ag.dataset.add;
+    const bay = S.runs[wall]?.bays?.[i]; const a = bay?.adds?.[ai]; if(!a) return;
+    const host = $('#v2dcanvas');
+    const pxPerIn = flatScale(host.querySelector('svg'));
+    S.sel = { wall, i }; S.add = ai; S.part = null; S.lib = false;
+    if(!pxPerIn){ rebuild(false); paintAll(); return; }
+    ADRAG = { wall, i, ai, pxPerIn, y0:e.clientY, at0:a.y, moved:false };
+    DRAGGING = true;
+    host.setPointerCapture?.(e.pointerId);
+    host.classList.add('dragging');
+    rebuild(false); paintStack();
+    return;
+  }
   const g = e.target.closest('[data-hdrag]');
   if(g){
     const wall = g.dataset.wall, i = +g.dataset.bay, n = +g.dataset.hdrag;
@@ -5284,7 +5460,7 @@ $('#v2dcanvas')?.addEventListener('pointerdown', e => {
     const bays = S.runs[wall]?.bays; if(!bays?.[i]) return;
     bays.splice(i, 1);
     S.sel = bays.length ? { wall, i:Math.min(i, bays.length - 1) } : null;
-    S.part = null; S.lib = false;
+    S.part = null; S.add = null; S.lib = false;
     rebuild(true);
     return;
   }
@@ -5357,7 +5533,21 @@ const dragHeight = onFrame(() => {
   paintFlat();
 });
 
+const dragAdd = onFrame(() => {
+  if(!ADRAG) return;
+  const bay = S.runs[ADRAG.wall]?.bays?.[ADRAG.i]; const a = bay?.adds?.[ADRAG.ai];
+  if(!a) return;
+  const b = cur?.bays?.find(x => x.wall === ADRAG.wall && x.bay === ADRAG.i);
+  const lo = (b?.floorY ?? 3.75) + 1;
+  const hi = lo + (b?.h ?? 80) - (MODULES[a.m]?.defH ?? 2) - 1.5;
+  const want = ADRAG.at0 - ADRAG.dy / ADRAG.pxPerIn;
+  a.y = Math.max(lo, Math.min(hi, Math.round(want * 4) / 4));
+  rebuild(false);
+  paintFlat();
+});
+
 $('#v2dcanvas')?.addEventListener('pointermove', e => {
+  if(ADRAG){ ADRAG.dy = e.clientY - ADRAG.y0; ADRAG.moved = true; dragAdd(); return; }
   if(HDRAG){ HDRAG.dy = e.clientY - HDRAG.y0; dragHeight(); return; }
   if(!FDRAG) return;
   FDRAG.delta = (FDRAG.axis === 'y' ? e.clientY : e.clientX) - FDRAG.p0;
@@ -5365,6 +5555,12 @@ $('#v2dcanvas')?.addEventListener('pointermove', e => {
 });
 
 const endFlatDrag = () => {
+  if(ADRAG){
+    ADRAG = null; DRAGGING = false;
+    $('#v2dcanvas')?.classList.remove('dragging');
+    rebuild(true); paintAll();
+    return;
+  }
   if(HDRAG){
     HDRAG = null; DRAGGING = false;
     $('#v2dcanvas')?.classList.remove('dragging');
@@ -5544,7 +5740,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=2e28338e');
+    const { downloadPdf } = await import('./drawing.js?v=ff8a2a8e');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -5567,7 +5763,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=2e28338e');
+    const { downloadPdf } = await import('./drawing.js?v=ff8a2a8e');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
