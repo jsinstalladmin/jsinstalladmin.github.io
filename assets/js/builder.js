@@ -390,11 +390,12 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          slots, setSlot, clearSlot, setCounter, canSit,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
-         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS } from './design.js?v=c1ef8560';
+         cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS,
+         modMinH, unitsThatFit } from './design.js?v=a3c1cf93';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=c1ef8560';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=a3c1cf93';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=c1ef8560';
+         clothMaterials, clearCaches } from './materials.js?v=a3c1cf93';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -2456,6 +2457,30 @@ let cur=null;
 
 function rebuild(reframe){
   cur=buildDesign(cfg(),cat);
+  /* ══════════════════════════════════════════════════════════════════
+     WHAT IS STORED IS WHAT IS BUILT
+
+     A tower that can only carry one shelf still had four written on it,
+     so every other piece in that tower was asked to leave room for four
+     shelves that were never going to be there. The rod beside it came
+     out with a slider that ran from 22.75" to 23" on a piece whose own
+     minimum is 38". The engine's answer is written back, once, and the
+     panel, the sliders and the drawing all read the same number. */
+  {
+    let fixed = false;
+    for(const b of cur?.bays || []){
+      const stack = S.runs[b.wall]?.bays?.[b.bay]?.stack; if(!stack) continue;
+      for(const bd of b.bands || []){
+        if(bd.nFit == null) continue;
+        const st = stack[bd.si]; if(!st) continue;
+        const key = MODULES[st.m]?.opt?.key; if(!key) continue;
+        if(+(st.o?.[key] ?? MODULES[st.m].opt.def) !== bd.nFit){
+          st.o = { ...(st.o || {}), [key]:bd.nFit }; fixed = true;
+        }
+      }
+    }
+    if(fixed) cur = buildDesign(cfg(), cat);
+  }
   dimDirty = true;
   /* ?audit=1 hands the built design to a test runner so a sweep can check
      that nothing was placed outside the room it was drawn for. It is off
@@ -2937,8 +2962,18 @@ function paintBays(){
        before a single component card got drawn, on a page whose whole
        job is to show you components. All of it is still here; it is one
        line and two small buttons. */
+    /* THE TOP OF THE COLUMN IS THE CARDS.
+       The wall's name, how much of it is used and the two tidy-up
+       buttons sat above everything, with a rule under them, so pressing
+       a tower showed you a header and the towers themselves started
+       below it. None of it is about the thing you just pressed. It is
+       the same line, at the foot of the wall's block, where the other
+       whole-wall things are. */
     const full = left < SPEC.bayMin;
-    d.innerHTML = `<div class="wallline">
+    d.innerHTML = `${r.bays.length ? '' : `<p class="note emptyrun">Nothing on this wall yet.
+        Press <b>Add tower</b> on the rail beside the drawing.</p>`}
+      <div class="stackslot"></div>
+      <div class="wallline foot">
         <b>${WALL_LABEL[wall]}</b>
         <i class="${full ? 'full' : ''}">${Math.round(used)}/${Math.round(len)}"</i>
         ${r.bays.length > 1 ? `<span class="wacts">
@@ -2947,10 +2982,7 @@ function paintBays(){
           <button class="btn-mini" data-bay="even" data-wall="${wall}"
             title="Equal towers with equal air between them, across the whole wall">Even</button>
         </span>` : ''}
-      </div>
-      ${r.bays.length ? '' : `<p class="note emptyrun">Nothing on this wall yet.
-        Press <b>Add tower</b> on the rail beside the drawing.</p>`}
-      <div class="stackslot"></div>`;
+      </div>`;
     host.appendChild(d);
   }
   /* only when there is something to say. The shelf-span lecture was
@@ -2976,7 +3008,14 @@ function paintBays(){
    bound to #stack survives the move. */
 function dockStack(){
   const box = $('#stack'); if(!box) return;
-  const slot = S.sel ? $(`#bays .runblk[data-wall="${S.sel.wall}"] .stackslot`) : null;
+  /* WITH NOTHING SELECTED IT STILL BELONGS ABOVE THE WALL LINE.
+     The panel only docked into the open wall's block, so with nothing
+     open it fell back to the bottom of the column and the wall's name
+     and figure sat above the closet options for that one case. It docks
+     into whichever wall block is on screen. */
+  const wall = (S.sel?.wall && S.runs[S.sel.wall]?.on) ? S.sel.wall
+             : Object.keys(S.runs).find(w => S.runs[w]?.on);
+  const slot = wall ? $(`#bays .runblk[data-wall="${wall}"] .stackslot`) : null;
   (slot || $('#stackHome')).appendChild(box);
 }
 
@@ -3208,13 +3247,13 @@ const bankH = st => {
   return drawerBankHeight(sz);
 };
 /* the least this piece can be built at */
-const minNeed = st => MODULES[st.m].sizes ? bankH(st) : (MODULES[st.m].minH ?? 6);
+const minNeed = st => MODULES[st.m].sizes ? bankH(st) : modMinH(st.m, st.o);
 /* the inches it is asking for right now; a filler asks for nothing and
    takes whatever the others leave */
 const setNeed = st => {
   const d = MODULES[st.m];
   if(d.sizes) return bankH(st);
-  if(st.h != null) return Math.max(d.minH ?? 6, Math.min(d.maxH ?? 96, st.h));
+  if(st.h != null) return Math.max(modMinH(st.m, st.o), Math.min(d.maxH ?? 96, st.h));
   return d.fill ? 0 : (d.defH ?? 24);
 };
 /* how tall the piece at `pin` can be made, once everything else in the
@@ -3226,6 +3265,26 @@ function headroom(stack, pin, usable){
   return Math.max(d.minH ?? 6, Math.min(d.maxH ?? usable, usable - other));
 }
 /* make the stack fit inside the tower, taking it off everything but `pin` */
+/* ══════════════════════════════════════════════════════════════════
+   SET THE HEIGHT AND THE COUNT FOLLOWS IT
+
+   Dragging the shelves down to 14" used to leave four shelves on the
+   piece. Four shelves need 32", so the solver then insisted on 32",
+   took the difference off the rod beside it, and put the shelves back
+   up at 16.75". You moved one slider and two other things moved, which
+   is the whole of "picking the height changes location".
+
+   A height set by hand is the answer. Fourteen inches is one shelf, so
+   the piece is one shelf, and nothing else in the tower is touched. */
+function setBandH(st, h){
+  const d = MODULES[st.m]; if(!d) return;
+  st.h = Math.round(h * 4) / 4;
+  if(d.minPer && d.opt){
+    const fit = unitsThatFit(st.m, st.o, st.h);
+    if(fit != null) st.o = { ...(st.o || {}), [d.opt.key]:fit };
+  }
+}
+
 function squeeze(stack, pin, usable){
   let over = stack.reduce((a, st) => a + setNeed(st), 0) - usable;
   if(over <= 0.01) return;
@@ -3238,12 +3297,12 @@ function squeeze(stack, pin, usable){
     const give = setNeed(st) - minNeed(st);
     if(give <= 0.01) continue;
     const take = Math.min(give, over);
-    st.h = Math.round((setNeed(st) - take) * 4) / 4;
+    setBandH(st, setNeed(st) - take);
     over -= take;
   }
   if(over > 0.01){
     const p = stack[pin], pd = MODULES[p.m];
-    if(!pd.sizes) p.h = Math.max(pd.minH ?? 6, Math.round((setNeed(p) - over) * 4) / 4);
+    if(!pd.sizes) setBandH(p, Math.max(pd.minH ?? 6, setNeed(p) - over));
   }
 }
 
@@ -3567,11 +3626,18 @@ function paintStack(){
        the whole answer. */
     const canFill = !!d.fill;
     const fills = canFill && st.h == null;
-    const lo = Math.max(4, d.minH ?? 6);
+    /* THE FLOOR CANNOT BE OVER THE CEILING. On a piece whose count
+       follows its height the floor is the module's own minimum, because
+       dragging down takes shelves out rather than asking for inches the
+       tower has not got. On everything else it is what the piece needs
+       as it stands. Either way it is capped by the headroom, so the
+       slider can never offer a height that does not exist. */
+    const hr = Math.max(4, headroom(bay.stack, si, usable));
+    const lo = Math.min(hr, Math.max(4, d.minPer ? (d.minH ?? 6) : modMinH(st.m, st.o)));
     /* not the whole tower: the whole tower LESS what everything else in
        it needs, so the slider can never ask for inches that are not
        there and then quietly not get them */
-    const hi = Math.max(lo + 0.25, headroom(bay.stack, si, usable));
+    const hi = Math.max(lo + 0.25, hr);
     /* the slider can never be asked for a height the tower has not got,
        so a range that has collapsed means there is nothing to set */
     if(hi <= lo + 0.24 && !canFill) return `<div class="prow">
@@ -3591,14 +3657,38 @@ function paintStack(){
     </div>`;
   };
 
+  /* THE NUMBER ON THE BUTTON IS THE NUMBER THAT IS BUILT.
+     The stepper counted up to ten whatever the tower had room for, so
+     the panel said four shelves while the drawing built two and nobody
+     could tell which was lying. It counts to what fits, it shows what is
+     built, and when the tower has no more inches the plus is dead and
+     says why. */
   const countRow = (st, si, d, which = 'opt') => {
     const o = d[which]; if(!o) return '';
+    const b2 = live(si);
+    const per = (which === 'opt') ? d.minPer : 0;
+    const have = b2 ? (b2.y1 - b2.y0) : (d.defH ?? 24);
+    /* HOW MANY COULD FIT WITHOUT MOVING ANYTHING ELSE.
+       A piece with a height of its own can grow into whatever the rest
+       of the tower is not using. A piece that takes the leftovers
+       cannot: its inches are decided by everything around it, so what
+       it has is all it is ever going to have. */
+    const canBe = d.fill && st.h == null ? have : headroom(bay.stack, si, usable);
+    const capN = per ? Math.min(o.max ?? 99, Math.max(o.min ?? 1, Math.floor(canBe / per)))
+                     : (o.max ?? 99);
+    const now = per ? (b2?.nFit ?? unitsThatFit(st.m, st.o, have) ?? (st.o?.[o.key] ?? o.def))
+                    : (st.o?.[o.key] ?? o.def);
+    const noMore = per && now >= capN;
     return `<div class="prow">
-      <span class="prowl"><b>${o.label || 'How many'}</b>${o.note ? `<i>${o.note}</i>` : ''}</span>
+      <span class="prowl"><b>${o.label || 'How many'}</b>${
+        noMore ? `<i>${now} is all this tower has the height for</i>`
+               : (o.note ? `<i>${o.note}</i>` : '')}</span>
       <span class="prowc end"><span class="sopt">
-        <button data-optpart="-1" data-si="${si}" data-key="${which}" title="Fewer">−</button>
-        <i>${(st.o?.[o.key] ?? o.def)}</i>
-        <button data-optpart="1" data-si="${si}" data-key="${which}" title="More">+</button></span></span>
+        <button data-optpart="-1" data-si="${si}" data-key="${which}" title="Fewer"
+          ${now <= (o.min ?? 1) ? 'disabled' : ''}>−</button>
+        <i>${now}</i>
+        <button data-optpart="1" data-si="${si}" data-key="${which}" title="More"
+          ${noMore ? 'disabled' : ''}>+</button></span></span>
     </div>`;
   };
 
@@ -4560,7 +4650,7 @@ $('#stack').addEventListener('change', e => {
     else {
       const b = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands?.[si];
       const d = MODULES[st.m];
-      st.h = Math.max(d.minH ?? 6, Math.round(((b ? b.y1 - b.y0 : d.defH ?? 24)) * 4) / 4);
+      setBandH(st, Math.max(d.minH ?? 6, b ? b.y1 - b.y0 : (d.defH ?? 24)));
     }
     rebuild(false); paintStack(); return;
   }
@@ -4615,7 +4705,7 @@ $('#stack').addEventListener('input', e => {
   const i = e.target.closest('[data-hset]'); if(!i) return;
   const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
   const si = +i.dataset.hset, st = bay.stack[si]; if(!st) return;
-  st.h = Math.round(+i.value * 4) / 4;
+  setBandH(st, +i.value);
   squeeze(bay.stack, si, bayUsable());
   const out = $(`[data-hval="${si}"]`);
   if(out) out.textContent = (+st.h.toFixed(2)).toString() + '"';
@@ -4861,11 +4951,28 @@ $('#stack').onclick=e=>{
     S.part = null; S.add = null; S.carc = null;
   }
   else if(t.dataset.optpart !== undefined){
-    const st = bay.stack[+t.dataset.si]; if(!st) return;
-    const o = MODULES[st.m]?.[t.dataset.key || 'opt']; if(!o) return;
+    const si = +t.dataset.si;
+    const st = bay.stack[si]; if(!st) return;
+    const d0 = MODULES[st.m];
+    const o = d0?.[t.dataset.key || 'opt']; if(!o) return;
     st.o = st.o || {};
-    st.o[o.key] = Math.max(o.min, Math.min(o.max,
-      (st.o[o.key] ?? o.def) + +t.dataset.optpart));
+    /* COUNT FROM WHAT IS STANDING THERE, NOT FROM WHAT WAS ASKED FOR.
+       A tower that could only carry two of the four shelves stored on it
+       showed two and then stepped down to three, so the first press of
+       the minus button did nothing you could see. It steps from the
+       number on the button, and it cannot step past what fits. */
+    const band = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands?.[si];
+    const per = (t.dataset.key || 'opt') === 'opt' ? d0.minPer : 0;
+    const have = band ? (band.y1 - band.y0) : null;
+    const now = per && have != null
+      ? (band.nFit ?? unitsThatFit(st.m, st.o, have) ?? (st.o[o.key] ?? o.def))
+      : (st.o[o.key] ?? o.def);
+    const canBe = (d0.fill && st.h == null) ? have
+                : headroom(bay.stack, si, bayUsable());
+    const cap = (per && canBe != null)
+      ? Math.min(o.max, Math.max(o.min, Math.floor(canBe / per)))
+      : o.max;
+    st.o[o.key] = Math.max(o.min, Math.min(cap, now + +t.dataset.optpart));
   }
   else if(t.dataset.choice){
     const st = bay.stack[+t.dataset.si]; if(!st) return;
@@ -4941,7 +5048,20 @@ $('#ltools')?.addEventListener('click', e => {
      choice beside it; it does not need anything selected first. */
   if(a === 'grid'){
     S.grid = !S.grid;
-    if(S.grid) setView('wall');
+    if(S.grid){
+      setView('wall');
+      /* On a wall with no gap left a card changes the tower that is
+         open, so opening the palette with nothing open would show
+         twenty-two cards that cannot be pressed. It opens on the first
+         tower, which is also the one the drawing then highlights. */
+      const r0 = S.runs[wall];
+      if(r0?.bays.length && !(S.sel?.wall === wall && r0.bays[S.sel.i])){
+        S.sel = { wall, i:0 };
+        S.part = null; S.add = null; S.carc = null; S.lib = false;
+        PICK_FOR = wall + '|0';
+        paintBays(); paintStack(); paintFlat();
+      }
+    }
     paintLPal(); paintLTools();
     if(typeof window.gotoStep === 'function') window.gotoStep('2');
     return;
@@ -5117,8 +5237,19 @@ function paintLPal(){
     return;
   }
   const r = S.runs[wall];
-  const free = wallLength(wall) - r.bays.reduce((a, b) => a + b.w, 0);
-  const roomFor = free >= SPEC.bayMin, roomFill = free >= FILLER_MIN;
+  const free = freeOn(wall);
+  const roomFor = canMakeRoom(wall, SPEC.bayMin), roomFill = canMakeRoom(wall, FILLER_MIN);
+  const tight = roomFor && free < SPEC.bayMin;
+  /* WITH NO ROOM LEFT, A CARD CHANGES A TOWER INSTEAD OF ADDING ONE.
+     A 108" wall holds four towers and he does not build one under 24",
+     so on the room as it opens there is no gap to put a fifth in and
+     every card in here was dead. A palette that cannot be pressed
+     should not open. When the wall is full the card is applied to the
+     tower that is open, which is the other thing somebody reaching for
+     this list wants, and the line at the top says which one. */
+  const selHere = S.sel?.wall === wall && r.bays[S.sel.i] && !isFiller(r.bays[S.sel.i])
+                ? S.sel.i : null;
+  const mode = roomFor ? 'add' : 'swap';
   const floorY = baseHeight(S.mounting, placedFittings());
   const usable = Math.max(SPEC.panel * 2 + 12, Math.min(S.cabTop, S.room.h - 2)) - floorY;
 
@@ -5126,7 +5257,8 @@ function paintLPal(){
     const items = TOWER_PRESETS.filter(p => p.group === g);
     if(!items.length) return '';
     return `<div class="twgrp"><h6>${g}</h6><div class="twrow">${items.map(p => `
-      <button type="button" class="twcard" data-ltower="${p.id}" ${roomFor ? '' : 'disabled'}
+      <button type="button" class="twcard" data-ltower="${p.id}"
+        ${mode === 'swap' && selHere == null ? 'disabled' : ''}
         title="${p.label}">${towerThumb(p.stack, usable)}<span>${p.label}</span></button>`).join('')}</div></div>`;
   }).join('');
 
@@ -5143,11 +5275,57 @@ function paintLPal(){
   host.innerHTML = `<div class="lpalhd"><b>Towers</b>
       <button type="button" class="lpalx" data-lpalclose="1" aria-label="Close the towers">&times;</button></div>
     <div class="lpalbody">
-      ${roomFor ? '' : `<p class="note">This wall is full. Make a tower narrower, or take one
-        out, to open a gap wide enough for another.</p>`}
+      <p class="note">${roomFor
+        ? (tight ? 'This wall is full, so standing one up here narrows the widest tower to make the room.'
+                 : 'Press one to stand it up on this wall.')
+        : (selHere != null
+            ? `This wall is full, so a card changes <b>tower ${selHere + 1}</b> into it. Press a different tower on the drawing to change that one instead.`
+            : 'This wall is full. Press a tower on the drawing, then press one of these to change it.')}</p>
       ${groups}${fillerCard}
     </div>`;
   host.hidden = false;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   A FULL WALL IS NOT A REASON TO SAY NO
+
+   Every card in this palette was greyed out, because the room opens with
+   the walls built corner to corner and there is never a gap to drop a
+   tower into. A palette you cannot press is a palette that should not
+   open. Pressing a card makes the room for it: the widest tower on the
+   wall gives up what is needed, down to the narrowest he builds, and
+   everything is pushed back shoulder to shoulder.
+   ══════════════════════════════════════════════════════════════════════ */
+function freeOn(wall){
+  const r = S.runs[wall]; if(!r) return 0;
+  return wallLength(wall) - r.bays.reduce((a, b) => a + b.w, 0);
+}
+function canMakeRoom(wall, want){
+  const r = S.runs[wall]; if(!r) return false;
+  const slack = r.bays.reduce((a, b) =>
+    a + Math.max(0, b.w - (isFiller(b) ? FILLER_MIN : SPEC.bayMin)), 0);
+  return freeOn(wall) + slack >= want - 0.01;
+}
+function makeRoom(wall, want){
+  const r = S.runs[wall]; if(!r) return false;
+  let free = freeOn(wall);
+  for(let guard = 0; guard < 60 && free < want - 0.01; guard++){
+    const cands = r.bays.filter(b => b.w - (isFiller(b) ? FILLER_MIN : SPEC.bayMin) > 0.01);
+    if(!cands.length) break;
+    const big = cands.reduce((a, b) => b.w > a.w ? b : a);
+    const floor = isFiller(big) ? FILLER_MIN : SPEC.bayMin;
+    const take = Math.min(big.w - floor, want - free);
+    big.w = Math.round((big.w - take) * 4) / 4;
+    free = freeOn(wall);
+  }
+  if(free < want - 0.01) return false;
+  /* narrowing leaves holes in the middle of the run, so everything goes
+     back into the corner shoulder to shoulder and the new one lands on
+     the end of it */
+  let run = 0;
+  for(const b of layout(wall).map(x => x.bay)){ b.at = run; run += b.w; }
+  sortRun(wall);
+  return true;
 }
 
 $('#lpal')?.addEventListener('click', e => {
@@ -5155,9 +5333,20 @@ $('#lpal')?.addEventListener('click', e => {
   if(b.dataset.lpalclose !== undefined){ S.grid = false; paintLPal(); paintLTools(); return; }
   const wall = lpalWall(); if(!wall) return;
   const r = S.runs[wall];
-  const free = wallLength(wall) - r.bays.reduce((a, c) => a + c.w, 0);
   const fill = b.dataset.lfiller !== undefined;
-  if(free < (fill ? FILLER_MIN : SPEC.bayMin)) return;
+  const need = fill ? FILLER_MIN : SPEC.bayMin;
+  /* no gap anywhere on this wall: the card changes the open tower */
+  if(!fill && !canMakeRoom(wall, need)){
+    const i = S.sel?.wall === wall && r.bays[S.sel.i] ? S.sel.i : null;
+    const p0 = TOWER_PRESETS.find(x => x.id === b.dataset.ltower);
+    if(i == null || !p0) return;
+    r.bays[i].stack = structuredClone(p0.stack);
+    S.part = null; S.add = null; S.carc = null; S.lib = false;
+    rebuild(true);
+    return;
+  }
+  if(!makeRoom(wall, need)) return;
+  const free = freeOn(wall);
   const w = clampBay(Math.min(free, fill ? FILLER_MAX : SPEC.bayMax), fill);
   const at = firstFit(wall, w); if(at == null) return;
   const p = fill ? null : TOWER_PRESETS.find(x => x.id === b.dataset.ltower);
@@ -5505,7 +5694,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=c1ef8560');
+  if(!DRAW) DRAW = await import('./drawing.js?v=a3c1cf93');
   return DRAW;
 }
 
@@ -5738,7 +5927,7 @@ $('#v2dcanvas')?.addEventListener('pointerdown', e => {
        this bar move while the bar moves */
     bay.stack.forEach((st, j) => {
       if(st.h == null && !MODULES[st.m].sizes && bands[j])
-        st.h = +(bands[j].y1 - bands[j].y0).toFixed(2);
+        setBandH(st, bands[j].y1 - bands[j].y0);
     });
     HDRAG = { wall, i, n, pxPerIn, y0:e.clientY,
               hBelow: below.h, hAbove: above.h,
@@ -6069,7 +6258,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=c1ef8560');
+    const { downloadPdf } = await import('./drawing.js?v=a3c1cf93');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -6092,7 +6281,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=c1ef8560');
+    const { downloadPdf } = await import('./drawing.js?v=a3c1cf93');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

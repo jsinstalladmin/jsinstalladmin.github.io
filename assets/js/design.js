@@ -771,7 +771,14 @@ export const MODULES = {
     label:'Adjustable shelves', hint:'Folded knits, bags, boxes. Moves on 32mm centres.',
     spec:'Adjustable on 32mm centres · 12\"–84\"',
     icon:'M2 4h20M2 11h20M2 18h20M2 25h20',
-    defH:42, minH:12, maxH:84, fill:true, opt:{key:'n',label:'Shelves',min:1,max:10,def:4},
+    /* minPer: THE INCHES ONE SHELF NEEDS TO BE A SHELF.
+       minH was a flat 12 whatever the shelf count, so four shelves in a
+       14" gap were drawn three inches apart: a stack of slats you cannot
+       put a folded jumper on, and on screen a smear of lines over the
+       drawer fronts under it. A shelf is 8" of clear air or it is not a
+       shelf, and the engine now reserves that much or builds fewer. */
+    defH:42, minH:12, maxH:84, fill:true, minPer:8,
+    opt:{key:'n',label:'Shelves',min:1,max:10,def:4},
     /* FIXED OR ADJUSTABLE IS A REAL CHOICE AND A REAL PRICE.
        A fixed shelf is dowelled and cammed into both side panels: it is
        stiffer, it ties the tower together, and it costs more. An
@@ -1071,7 +1078,7 @@ export const MODULES = {
     label:'Pull-out shelves', hint:'Shelves on full-extension glides. They come out to you.',
     spec:'Sliding shelves on full extension · 12"–60"',
     icon:'M3 6h18v4H3zM3 14h18v4H3zM9 8h6M9 16h6',
-    defH:30, minH:12, maxH:60, opt:{key:'n',label:'Shelves',min:1,max:6,def:3},
+    defH:30, minH:12, maxH:60, minPer:8, opt:{key:'n',label:'Shelves',min:1,max:6,def:3},
     build(c){
       const {w,d,y,h,G,parts,o} = c;
       const n = clamp(o.n ?? 3, 1, 6);
@@ -1100,7 +1107,7 @@ export const MODULES = {
     label:'Pull-out baskets', hint:'Chrome wire on full-extension glides.',
     spec:'Chrome wire on full extension · 10\"–48\"',
     icon:'M3 5h18v5H3zM3 13h18v5H3zM3 21h18v5H3zM7 7h10M7 15h10M7 23h10',
-    defH:30, minH:10, maxH:48, opt:{key:'n',label:'Baskets',min:1,max:6,def:3},
+    defH:30, minH:10, maxH:48, minPer:8, opt:{key:'n',label:'Baskets',min:1,max:6,def:3},
     build(c){
       const {w,d,y,h,G,parts,o} = c;
       const n = clamp(o.n ?? 3, 1, 6);
@@ -1171,7 +1178,7 @@ export const MODULES = {
     label:'Cubbies', hint:'A grid of small openings. Bags, hats, folded knits.',
     spec:'Grid of openings · 12\"–60\"',
     icon:'M2 3h9v9H2zM13 3h9v9h-9zM2 15h9v9H2zM13 15h9v9h-9z',
-    defH:36, minH:12, maxH:60, opt:{key:'n',label:'Rows',min:1,max:5,def:3},
+    defH:36, minH:12, maxH:60, minPer:10, opt:{key:'n',label:'Rows',min:1,max:5,def:3},
     build(c){
       const {w,d,y,h,G,parts,o} = c;
       const rows = clamp(o.n ?? 3, 1, 5), cols = Math.max(1, Math.round(w/14));
@@ -1975,6 +1982,29 @@ export function defaultStackFor(type){
 
 /* resolve module heights inside one bay: fixed ones keep their height,
    `fill` ones share whatever is left */
+/* ══════════════════════════════════════════════════════════════════════
+   WHAT A PIECE REALLY NEEDS, AND HOW MANY OF IT REALLY FIT
+
+   A piece with a unit count does not have one minimum height. Four
+   shelves need four shelves' worth of air; one shelf needs one. Both of
+   these read the same rule, so the inches the solver reserves and the
+   number the drawing builds can never disagree.
+   ══════════════════════════════════════════════════════════════════════ */
+export function modMinH(m, o){
+  const d = MODULES[m]; if(!d) return 6;
+  if(!d.minPer || !d.opt) return d.minH ?? 6;
+  const lo = d.opt.min ?? 1, hi = d.opt.max ?? 10;
+  const n = clamp(Math.round(+(o?.[d.opt.key] ?? d.opt.def ?? lo)) || lo, lo, hi);
+  return Math.max(d.minH ?? 6, n * d.minPer);
+}
+/* how many units the inches it ended up with can actually carry */
+export function unitsThatFit(m, o, H){
+  const d = MODULES[m]; if(!d?.minPer || !d.opt) return null;
+  const lo = d.opt.min ?? 1, hi = d.opt.max ?? 10;
+  const want = clamp(Math.round(+(o?.[d.opt.key] ?? d.opt.def ?? lo)) || lo, lo, hi);
+  return Math.max(lo, Math.min(want, Math.floor((H || 0) / d.minPer)));
+}
+
 function resolveHeights(stack, total){
   const mods = stack.map(s=>({...s, def:MODULES[s.m]}));
   let used = 0; const fillers = [];
@@ -1987,7 +2017,7 @@ function resolveHeights(stack, total){
         ? s.o.sizes : defaultDrawerSizes(s.o?.n);
       s.H = drawerBankHeight(sz); used += s.H;
     }
-    else if(s.h != null){ s.H = clamp(s.h, s.def.minH, s.def.maxH); used += s.H; }
+    else if(s.h != null){ s.H = clamp(s.h, modMinH(s.m, s.o), s.def.maxH); used += s.H; }
     else if(s.def.fill){ fillers.push(s); }
     else { s.H = s.def.defH; used += s.H; }
   }
@@ -2004,15 +2034,44 @@ function resolveHeights(stack, total){
      brought back in proportion until they fit, so what is drawn is
      always what the tower can hold. */
   if(used > total + 0.01){
+    /* IT CANNOT TAKE A PIECE BELOW WHAT IT CAN BE BUILT AT.
+       This used to scale every set height by one ratio, which is how a
+       38" minimum rod came out of the solver at 29.7" and the drawing
+       stopped agreeing with the panel that was driving it. Each piece
+       gives up the slack it has over its own minimum, in proportion,
+       and nothing gives up more than that. */
+    let over = used - total;
     const shrinkable = mods.filter(s => !s.def.sizes && s.H != null);
-    const fixedPart = mods.reduce((a, s) => a + ((s.def.sizes || s.H == null) ? (s.H || 0) : 0), 0);
-    const pool = shrinkable.reduce((a, s) => a + s.H, 0);
-    const room = Math.max(0, total - fixedPart);
-    if(pool > 0){
-      const k = room / pool;
-      shrinkable.forEach(s => { s.H = Math.max(0, s.H * k); s.squeezed = true; });
-      used = mods.reduce((a, s) => a + (s.H || 0), 0);
+    for(let pass = 0; pass < 4 && over > 0.01; pass++){
+      const pool = shrinkable.filter(s => s.H - modMinH(s.m, s.o) > 0.01);
+      const slack = pool.reduce((a, s) => a + (s.H - modMinH(s.m, s.o)), 0);
+      if(slack <= 0.01) break;
+      const k = Math.min(1, over / slack);
+      for(const s of pool){
+        const t = (s.H - modMinH(s.m, s.o)) * k;
+        s.H -= t; over -= t; s.squeezed = true;
+      }
     }
+    /* Still over: more has been asked for than the tower can hold at any
+       size. Cut the unit counts, which lowers what the pieces need, and
+       try the same honest shrink once more before giving up. */
+    if(over > 0.01){
+      for(const s of shrinkable){
+        const fit = unitsThatFit(s.m, s.o, Math.max(0, s.H - over));
+        if(fit != null && fit !== +(s.o?.[s.def.opt.key] ?? s.def.opt.def))
+          s.o = { ...(s.o || {}), [s.def.opt.key]:fit };
+      }
+      const pool = shrinkable.filter(s => s.H - modMinH(s.m, s.o) > 0.01);
+      const slack = pool.reduce((a, s) => a + (s.H - modMinH(s.m, s.o)), 0);
+      if(slack > 0.01){
+        const k = Math.min(1, over / slack);
+        for(const s of pool){
+          const t = (s.H - modMinH(s.m, s.o)) * k;
+          s.H -= t; over -= t; s.squeezed = true;
+        }
+      }
+    }
+    used = mods.reduce((a, s) => a + (s.H || 0), 0);
   }
   const left = Math.max(0, total - used);
   if(fillers.length){
@@ -2025,8 +2084,9 @@ function resolveHeights(stack, total){
        own minimum so buildDesign can say so. */
     const share = left / fillers.length;
     fillers.forEach(s => {
-      s.H = Math.max(0, Math.min(s.def.maxH, Math.min(s.def.minH, share)));
-      s.short = s.def.minH - s.H;
+      const need = modMinH(s.m, s.o);
+      s.H = Math.max(0, Math.min(s.def.maxH, Math.min(need, share)));
+      s.short = need - s.H;
     });
     /* anything still spare after every filler hit its minimum is shared out */
     const usedByFillers = fillers.reduce((a,s) => a + s.H, 0);
@@ -2034,8 +2094,20 @@ function resolveHeights(stack, total){
     if(spare > 0.01){
       const room = fillers.filter(s => s.H < s.def.maxH - 0.01);
       const bonus = spare / (room.length || 1);
-      room.forEach(s => { s.H = Math.min(s.def.maxH, s.H + bonus); s.short = Math.max(0, s.def.minH - s.H); });
+      room.forEach(s => { s.H = Math.min(s.def.maxH, s.H + bonus);
+        s.short = Math.max(0, modMinH(s.m, s.o) - s.H); });
     }
+  }
+  /* THE DRAWING NEVER SHOWS MORE THAN THE TOWER CAN HOLD.
+     Whatever height a unit-counted piece ends up with, the count is cut
+     to what those inches carry before it is built, and nFit is carried
+     out on the band so the panel shows the same number as the drawing. */
+  for(const s of mods){
+    const fit = unitsThatFit(s.m, s.o, s.H);
+    if(fit == null) continue;
+    const key = s.def.opt.key;
+    s.nFit = fit;
+    if(fit !== +(s.o?.[key] ?? s.def.opt.def)) s.o = { ...(s.o || {}), [key]:fit };
   }
   return mods;
 }
@@ -2445,7 +2517,7 @@ export function buildDesign(cfg, cat){
                         let by = myFloor;
                         return mods.map((m, mi) => {
                           const band = { label: MODULES[m.m]?.label || m.m,
-                                         m: m.m, si: mi,
+                                         m: m.m, si: mi, nFit: m.nFit ?? null,
                                          y0: by, y1: by + m.H };
                           by += m.H;
                           return band;

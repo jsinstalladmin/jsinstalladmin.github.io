@@ -2466,3 +2466,13 @@ body[data-step="order"] .pfoot{display:block}
    you are building on stays whole. */
 .bstage.palopen .v2d{padding-left:304px}
 @media(max-width:1060px){ .bstage.palopen .v2d{padding-left:10px} }
+
+/* The wall line moved to the foot of the wall's block, so its rule goes
+   over it rather than under it. */
+.wallline.foot{border-bottom:0;border-top:1px solid var(--line);
+  padding:.6em 0 0;margin:.9em 0 0}
+
+/* With nothing open the whole-closet options ARE the panel, so the rule
+   that separates them from the tower above them has nothing to separate
+   them from: it read as an empty band under the wall tabs. */
+#stack > .optblk:first-child{margin-top:0;padding-top:0;border-top:0}
