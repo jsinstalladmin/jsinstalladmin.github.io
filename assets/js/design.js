@@ -1215,7 +1215,7 @@ export const MODULES = {
   SHELF_ONE: {
     label:'One shelf', hint:'A single shelf. Put it where you want it and drag it to set the height.',
     spec:'3/4" shelf, full width and depth · placed at any height',
-    icon:'M2 14h20M4 14v3M20 14v3',
+    icon:'M2 13h20v3H2zM5 16v3M19 16v3',
     defH:0.75, minH:0.75, maxH:0.75, addon:true,
     choice:{ key:'fixed', label:'How it is held', def:0, options:[
       { v:0, label:'Adjustable', note:'On pins, moves later' },
@@ -1231,7 +1231,7 @@ export const MODULES = {
   ROD_ONE: {
     label:'One rod', hint:'A single hanging rod. Drag it to the height you want to hang at.',
     spec:'1-1/16" oval rod on end supports · placed at any height',
-    icon:'M3 10h18M6 10v3M18 10v3',
+    icon:'M2 6h20M9 6v2M9 8 6 19h6L9 8M17 6v2M17 8 14 19h6L17 8',
     defH:1.6, minH:1.6, maxH:1.6, addon:true,
     build(c){
       const {w,d,G,parts,styled} = c;
@@ -1245,7 +1245,7 @@ export const MODULES = {
     nopic:true,
     label:'Valet rod', hint:'A rod that pulls straight out to hang tomorrow on.',
     spec:'Pull-out valet rod, 12" extension · 3" of tower',
-    icon:'M4 10h16M8 10v3M16 10v3M12 10v8',
+    icon:'M3 5v14M3 8h13M16 8v4M9 8v2M9 10 6 20h6L9 10',
     defH:3, minH:3, maxH:6, fixed:true,
     build(c){
       const {w,d,y,h,G,parts} = c;

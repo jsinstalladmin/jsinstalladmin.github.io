@@ -391,11 +391,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
          cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS,
-         modMinH, unitsThatFit } from './design.js?v=a3c1cf93';
+         modMinH, unitsThatFit } from './design.js?v=c64f3bcf';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=a3c1cf93';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=c64f3bcf';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=a3c1cf93';
+         clothMaterials, clearCaches } from './materials.js?v=c64f3bcf';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -1013,7 +1013,21 @@ ctl.minDistance=40; ctl.maxDistance=900; ctl.autoRotateSpeed=0.8;
 const { key }=setupLighting(scene,renderer);
 const shared=loadSharedMaps();
 const root=new THREE.Group(), shell=new THREE.Group(), picks=new THREE.Group();
-scene.add(root,shell,picks);
+/* THE PIECE YOU HAVE OPEN, MARKED ON THE 3D.
+   Selecting a shelf changed a panel on the far side of the screen and
+   nothing at all on the drawing, so there was no way to tell which of
+   six shelves was open. This group holds the outline round the piece
+   and the two bars you pull to move it. It is drawn over the top of the
+   cabinetry rather than inside it, so it is never buried by a panel. */
+const hilite=new THREE.Group(); hilite.renderOrder=20;
+scene.add(root,shell,picks,hilite);
+const HI_COLOR = 0xC2410C;
+const HI_LINE = new THREE.LineBasicMaterial({ color:HI_COLOR, depthTest:false,
+  transparent:true, opacity:0.95 });
+const HI_FILL = new THREE.MeshBasicMaterial({ color:HI_COLOR, depthTest:false,
+  transparent:true, opacity:0.16 });
+const HI_GRAB = new THREE.MeshBasicMaterial({ color:HI_COLOR, depthTest:false,
+  transparent:true, opacity:0.92 });
 const HW=hardwareMaterial(), CLOTH=clothMaterials();
 const GLASS=new THREE.MeshPhysicalMaterial({color:0xE8F0F2,transmission:.9,thickness:.4,
   roughness:.06,metalness:0,ior:1.5,transparent:true,opacity:.42});
@@ -1280,6 +1294,10 @@ addEventListener('wheel', e => { if(e.target === canvas) stir(); }, { passive:tr
       for(const m of DOORMESH) m.visible = frontVis;
       needsFrame = true;
     }
+    /* the mark is on a piece of cabinetry, so when that run is taken out
+       of the way the mark goes with it rather than hanging in the air */
+    const hv = !S.sel || !RUNMESH[S.sel.wall]?.length || RUNMESH[S.sel.wall][0].visible;
+    if(hilite.visible !== hv){ hilite.visible = hv; needsFrame = true; }
   }
   /* ══════════════════════════════════════════════════════════════════
      THE SIZES, WRITTEN ON THE 3D
@@ -2005,6 +2023,7 @@ function drawCloset(res){
       if(rl){ rl.push(outline); rl.push(wash); }
     }
   }
+  paintHilite(res);
   /* The shadow map is 2560 square and every rebuild asked for a fresh one.
      Dragging a tower along a wall rebuilds the geometry on every frame, so
      that was six and a half million shadow texels per frame, for a shadow
@@ -2013,6 +2032,106 @@ function drawCloset(res){
   fitShadowCamera(key, root); shadowDirty = true;
   if(ao?.setSceneClipBox){ const bb=new THREE.Box3().setFromObject(root); if(!bb.isEmpty()) ao.setSceneClipBox(bb); }
 }
+/* ══════════════════════════════════════════════════════════════════════
+   THE COMPONENT YOU HAVE OPEN, MARKED ON THE DRAWING AND PULLED BY HAND
+
+   Opening a shelf changed a panel on the far side of the screen and
+   nothing at all on the picture, so with six shelves in a tower there
+   was no way to tell which one was open, and the only way to move it
+   was a slider that on a packed tower had an inch of travel and on a
+   fill piece was greyed out altogether.
+
+   So the piece is outlined on the 3D, washed so it reads at a glance,
+   and given two bars: one on its top edge and one on its bottom. Pull a
+   bar and the piece grows or shrinks against its neighbour, in the
+   drawing, under your hand. A placed thing, a valet rod or a single
+   shelf, gets one bar and slides up and down the tower.
+   ══════════════════════════════════════════════════════════════════════ */
+let HI = null;          // what is outlined, and the numbers the drag needs
+
+function paintHilite(res){
+  hilite.clear(); HI = null;
+  if(!S.sel) return;
+  const open = S.carc ? 'carc' : (S.add != null ? 'add' : (S.part != null ? 'band' : null));
+  if(!open) return;
+  const pick = picks.children.find(o => o.userData.wall === S.sel.wall && o.userData.i === S.sel.i);
+  const bay = res.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i);
+  if(!pick || !bay) return;
+
+  /* how wide and how deep the mark is: the tower's own pick box, which
+     is already turned the right way round on a side wall */
+  const gp = pick.geometry.parameters;
+  const sx = gp.width, sz = gp.depth;
+
+  let y0, y1;
+  if(open === 'band'){
+    const bd = bay.bands?.[S.part]; if(!bd) return;
+    y0 = bd.y0; y1 = bd.y1;
+  } else {
+    /* a placed thing or a carcass piece is marked by what is drawn of it */
+    const mine = root.children.filter(m => {
+      const u = m.userData;
+      return u?.part && u.wall === S.sel.wall && u.i === S.sel.i &&
+        (open === 'carc' ? u.carc === S.carc : u.add === S.add);
+    });
+    if(!mine.length) return;
+    const bb = new THREE.Box3();
+    for(const m of mine) bb.expandByObject(m);
+    y0 = bb.min.y; y1 = bb.max.y;
+    if(y1 - y0 < 1.2){ const mid = (y0 + y1) / 2; y0 = mid - 0.6; y1 = mid + 0.6; }
+  }
+  const h = Math.max(0.8, y1 - y0);
+
+  const put = (mesh, y) => {
+    mesh.position.set(pick.position.x, y, pick.position.z);
+    hilite.add(mesh);
+  };
+  /* the wash and the outline over the whole band */
+  const fill = new THREE.Mesh(new THREE.BoxGeometry(sx * 1.002, h, sz * 1.002), HI_FILL);
+  put(fill, (y0 + y1) / 2);
+  const edge = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(sx * 1.01, h, sz * 1.01), 1), HI_LINE);
+  put(edge, (y0 + y1) / 2);
+  fill.renderOrder = 21; edge.renderOrder = 22;
+
+  /* THE BARS SIT ON THE FRONT OF THE TOWER, where a hand can reach them
+     without being inside the cabinet. */
+  const half = (bay.depth || 24) / 2;
+  const front = { x:0, z:0 };
+  if(bay.wall === 'back')  front.z =  half;
+  if(bay.wall === 'left')  front.x =  half;
+  if(bay.wall === 'right') front.x = -half;
+  const barW = bay.wall === 'back' ? sx * 0.96 : 1.6;
+  const barD = bay.wall === 'back' ? 1.6 : sx * 0.96;
+
+  const bar = (y, kind) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(barW, 1.1, barD), HI_GRAB);
+    m.position.set(pick.position.x + front.x, y, pick.position.z + front.z);
+    m.renderOrder = 23;
+    m.userData = { grab:kind };
+    hilite.add(m);
+  };
+  /* THE BAR GOES ON THE THING, NOT ON THE MIDDLE OF ITS SHADOW.
+     A rod's drawing is the rod plus three feet of garment hanging under
+     it, so the middle of what is drawn is a foot and a half below the
+     rod itself. Pulling that bar set the rod to where the bar was and
+     the rod jumped down the tower. A placed thing is marked at its own
+     height; a carcass piece at its top face, which is the face that
+     moves. */
+  let bary = (y0 + y1) / 2;
+  if(open === 'add'){
+    const a = S.runs[S.sel.wall]?.bays?.[S.sel.i]?.adds?.[S.add];
+    if(a && Number.isFinite(+a.y)) bary = +a.y;
+  } else if(open === 'carc'){
+    bary = S.carc === 'kick' ? y1 : y0;
+  }
+  if(open === 'band'){ bar(y1, 'top'); bar(y0, 'bottom'); }
+  else bar(bary, 'move');
+
+  HI = { open, wall:S.sel.wall, i:S.sel.i, si:S.part, add:S.add, carc:S.carc,
+         y0, y1, x:pick.position.x + front.x, z:pick.position.z + front.z };
+}
+
 const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
 const ndcFrom=(e)=>{ const r=canvas.getBoundingClientRect();
   ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); return ndc; };
@@ -2055,9 +2174,102 @@ function runAxisScreen(wall){
   return { x:vx/len, y:vy/len, pxPerInch: len * canvas.clientWidth / 2 };
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   PULLING A PIECE UP AND DOWN, IN THE 3D
+
+   The pointer is turned into inches by firing it at a vertical plane
+   standing through the bar and facing the camera. That is a real point
+   in the room rather than a pixel count scaled by a guess, so the bar
+   stays under the finger whatever angle the camera is at and however
+   far away it is.
+   ══════════════════════════════════════════════════════════════════════ */
+let H3 = null, H3_JUST = false;
+const _plane = new THREE.Plane(), _hitPt = new THREE.Vector3(), _pn = new THREE.Vector3();
+
+function planeThrough(x, y, z){
+  _pn.set(cam.position.x - x, 0, cam.position.z - z);
+  if(_pn.lengthSq() < 1e-6) _pn.set(0, 0, 1);
+  _pn.normalize();
+  _plane.setFromNormalAndCoplanarPoint(_pn, new THREE.Vector3(x, y, z));
+}
+function planeY(e){
+  ray.setFromCamera(ndcFrom(e), cam);
+  return ray.ray.intersectPlane(_plane, _hitPt) ? _hitPt.y : null;
+}
+
+const dragHi = onFrame(() => {
+  if(!H3 || H3.y == null) return;
+  const bay = S.runs[H3.wall]?.bays?.[H3.i]; if(!bay) return;
+  const floorY = baseHeight(S.mounting, placedFittings());
+  const top = (cur?.bays?.find(x => x.wall === H3.wall && x.bay === H3.i)?.h ?? 80) + floorY;
+
+  if(H3.open === 'add'){
+    const a = bay.adds?.[H3.add]; if(!a) return;
+    a.y = Math.round(Math.max(floorY + 1, Math.min(top - 1.5, H3.y)) * 4) / 4;
+  }
+  else if(H3.open === 'carc'){
+    if(H3.carc === 'kick') bay.kick = Math.round(Math.max(0, Math.min(12, H3.y)) * 4) / 4;
+    else bay.cabTop = Math.round(Math.max(floorY + 24,
+      Math.min(Math.min(S.cabTop, S.room.h - 2), H3.y)) * 4) / 4;
+  }
+  else {
+    /* A BAND IS MOVED BY ITS DIVIDER, not by a number in a box. The bar
+       on the top edge is the line between this piece and the one above
+       it; the bar on the bottom is the line between it and the one
+       below. Pull either and the two pieces either side of that line
+       share the inches out between them, each down to its own minimum,
+       and nothing anywhere else in the tower moves at all. */
+    const n = H3.kind === 'top' ? H3.si : H3.si - 1;   // divider index
+    const below = bay.stack[n], above = bay.stack[n + 1];
+    if(!below || !above) return;
+    if(MODULES[below.m]?.sizes || MODULES[above.m]?.sizes) return;
+    const pair = H3.hBelow + H3.hAbove;
+    const want = H3.y - H3.base;                       // inches of the lower one
+    const nb = Math.max(H3.minB, Math.min(pair - H3.minA, Math.round(want * 4) / 4));
+    setBandH(below, nb);
+    setBandH(above, pair - nb);
+  }
+  rebuild(false);
+});
+
 canvas.addEventListener('pointerdown', e=>{
   canvas._dx = e.clientX; canvas._dy = e.clientY;
   ray.setFromCamera(ndcFrom(e), cam);
+  /* the bars first: they sit proud of the cabinetry and they are small,
+     so anything behind them would win a plain depth test */
+  const grab = hilite.visible
+    ? ray.intersectObjects(hilite.children.filter(o => o.userData?.grab), false)[0]
+    : null;
+  if(grab && HI){
+    const bay = S.runs[HI.wall]?.bays?.[HI.i];
+    H3 = { ...HI, kind:grab.object.userData.grab, y:null };
+    if(HI.open === 'band' && bay){
+      const n = H3.kind === 'top' ? HI.si : HI.si - 1;
+      const below = bay.stack[n], above = bay.stack[n + 1];
+      if(!below || !above){ H3 = null; }
+      else {
+        /* pin every floating height, so only the two either side of this
+           line move while the line moves */
+        const bands = cur?.bays?.find(x => x.wall === HI.wall && x.bay === HI.i)?.bands || [];
+        bay.stack.forEach((st, j) => {
+          if(st.h == null && !MODULES[st.m].sizes && bands[j])
+            setBandH(st, bands[j].y1 - bands[j].y0);
+        });
+        H3.hBelow = bands[n] ? bands[n].y1 - bands[n].y0 : (below.h ?? 24);
+        H3.hAbove = bands[n+1] ? bands[n+1].y1 - bands[n+1].y0 : (above.h ?? 24);
+        H3.base   = bands[n] ? bands[n].y0 : 0;
+        H3.minB   = minNeed(below);
+        H3.minA   = minNeed(above);
+      }
+    }
+    if(H3){
+      planeThrough(HI.x, grab.object.position.y, HI.z);
+      DRAGGING = true; ctl.enabled = false;
+      canvas.setPointerCapture?.(e.pointerId);
+      canvas.style.cursor = 'ns-resize';
+      return;
+    }
+  }
   const hit = ray.intersectObjects(picks.children, false)[0];
   if(!hit) return;
   const { wall, i } = hit.object.userData;
@@ -2086,9 +2298,19 @@ const dragSectionTo = onFrame(pt => {
   rebuild(false);
 });
 canvas.addEventListener('pointermove', e=>{
+  if(H3){ const y = planeY(e); if(y != null){ H3.y = y; dragHi(); } return; }
   if(!SDRAG) return;
   dragSectionTo({ x:e.clientX, y:e.clientY });
 });
+
+const endHiDrag = () => {
+  if(!H3) return;
+  H3 = null; H3_JUST = true; DRAGGING = false; ctl.enabled = true;
+  canvas.style.cursor = 'grab';
+  rebuild(true); paintAll();
+};
+canvas.addEventListener('pointerup', endHiDrag);
+canvas.addEventListener('pointercancel', endHiDrag);
 
 /* ---- the running measurement -------------------------------------------
    While a tower is being moved, the one number that matters is how far it
@@ -2132,6 +2354,8 @@ const endSectionDrag = () => {
 canvas.addEventListener('pointerup', endSectionDrag);
 canvas.addEventListener('pointercancel', endSectionDrag);
 canvas.addEventListener('pointerup',e=>{
+  /* a press on a grab bar is not a press on the cabinetry behind it */
+  if(H3_JUST){ H3_JUST = false; return; }
   if(Math.hypot(e.clientX-canvas._dx, e.clientY-canvas._dy)>5) return;   // that was a drag
   if(SDRAG?.moved) return;                                               // that was a reorder
   const r=canvas.getBoundingClientRect();
@@ -2488,6 +2712,7 @@ function rebuild(reframe){
   if(AUDIT){
     window.__cur = cur;
     window.__scene = scene; window.__cam = cam; window.__renderer = renderer;
+    scene.userData.cam = cam;   /* __cam is overwritten by a camera-move helper below */
     /* ?audit=1 also exposes the documentation shot, so the pictures of a
        layout used on the site can be rendered from the engine itself rather
        than drawn by somebody who then has to remember the twelve inch
@@ -3007,6 +3232,12 @@ function paintBays(){
    The node itself is reused rather than rebuilt, so the single click handler
    bound to #stack survives the move. */
 function dockStack(){
+  /* OPENING A COMPONENT HAS TO SHOW ON THE DRAWING.
+     Pressing a row in the list only repainted the panel, so the mark on
+     the 3D still sat on whatever was open before it. Every path that
+     changes what is open comes through here, so this is where the mark
+     is put back on the right piece. */
+  if(cur) { paintHilite(cur); needsFrame = true; }
   const box = $('#stack'); if(!box) return;
   /* WITH NOTHING SELECTED IT STILL BELONGS ABOVE THE WALL LINE.
      The panel only docked into the open wall's block, so with nothing
@@ -3644,13 +3875,14 @@ function paintStack(){
       <span class="prowl"><b>Height</b><i>Fixed at this size</i></span>
       <span class="prowc end"><b class="hval">${inches(now)}</b></span></div>`;
     return `<div class="prow">
-      <span class="prowl"><b>Height</b><i>${fills ? 'Takes what the rest of the tower leaves'
+      <span class="prowl"><b>Height</b><i>${fills
+        ? 'Takes what the rest of the tower leaves &middot; move the slider to set it yourself'
         : `Set by you &middot; ${inches(lo)} to ${inches(hi)}`}</i></span>
       <span class="prowc">
         ${canFill ? `<label class="hfill"><input type="checkbox" data-hfill="${si}" ${fills?'checked':''}>
           <span>Fill</span></label>` : ''}
         <input type="range" data-hset="${si}" min="${lo}" max="${hi.toFixed(2)}" step="0.25"
-               value="${Math.min(hi, Math.max(lo, now)).toFixed(2)}" ${fills?'disabled':''}
+               value="${Math.min(hi, Math.max(lo, now)).toFixed(2)}"
                aria-label="${d.label} height in inches">
         <b class="hval" data-hval="${si}">${inches(now)}</b>
       </span>
@@ -5694,7 +5926,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=a3c1cf93');
+  if(!DRAW) DRAW = await import('./drawing.js?v=c64f3bcf');
   return DRAW;
 }
 
@@ -6258,7 +6490,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=a3c1cf93');
+    const { downloadPdf } = await import('./drawing.js?v=c64f3bcf');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -6281,7 +6513,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=a3c1cf93');
+    const { downloadPdf } = await import('./drawing.js?v=c64f3bcf');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

@@ -5,7 +5,7 @@
      normal / roughness / AO -> leave default NoColorSpace (vectors + scalars)
    ============================================================ */
 import * as THREE from 'three';
-import { SWATCH_TILE_IN } from './render.js?v=a3c1cf93';
+import { SWATCH_TILE_IN } from './render.js?v=c64f3bcf';
 
 let SHEET = null, COLS = 8, ROWS = 7, TILE = 160;
 const sliced = new Map();     // finish name -> CanvasTexture (sliced ONCE, not cloned)
