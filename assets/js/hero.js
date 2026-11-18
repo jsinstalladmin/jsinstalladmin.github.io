@@ -37,9 +37,20 @@ if (video && cap && hero) {
      that bridge it. There used to be a daylight and an evening version of
      all this, two videos and two sets of words for the same cabinetry. One
      version, and it is the bright one. */
+  /* THE FIRST CARD IS THE PAGE'S H1, AND IT WAS A MOOD.
+     "An empty room is the cheapest it will ever be" reads well and tells
+     a search engine nothing: no service, no place, no product. It is the
+     one heading Google weighs hardest on this site, so it names what is
+     sold and where, and the two things somebody can do about it are
+     under it rather than four screens further down. The other four
+     cards keep their voice, because by then the visitor is already in. */
+  const CTA = '<div class="hero-acts">' +
+    '<a class="btn btn-fill" href="contact.html">Book a free measure</a>' +
+    '<a class="btn btn-ghost-light" href="design/">Design yours in 3D</a></div>';
   const CAPS = [
-    ['An empty room is <em>the cheapest it will ever be</em>.',
-     'Nothing is cut until we have the real numbers: wall length, ceiling height, baseboard depth and how far out of square the corners run.'],
+    ['Custom closets in Boca Raton, <em>measured, built and installed</em> by one crew',
+     'JS Installations &amp; Closets builds walk-in closets, reach-in closets, pantries, garage storage and laundry rooms to the measurements of your room, in 79 colors, across South Florida and up the East Coast. The measure is free, the price is fixed before anything is cut, and most closets go in inside a day.',
+     CTA],
     ['Then <em>the structure</em> goes in.',
      'Vertical panels every 24 to 36 inches on a rail screwed into the studs. The back wall runs corner to corner; the side wall stops twelve inches short of it and a top piece, a bottom piece and their own toe kick bridge the gap.'],
     ['Hanging gets <em>assigned</em>, not guessed.',
@@ -56,10 +67,13 @@ if (video && cap && hero) {
   /* ---- captions ---- */
   const render = i => {
     const n = CAPS.length;
-    const [h, p] = CAPS[Math.max(0, Math.min(n - 1, i))];
+    const [h, p, extra] = CAPS[Math.max(0, Math.min(n - 1, i))];
     if (cap.dataset.i == i) return;
     cap.dataset.i = i;
-    cap.innerHTML = `<h1>${h}</h1><p>${p}</p>`;
+    /* the caption layer is pointer-events:none so a drag over it still
+       turns the hero, so the one card that HAS buttons turns them back on */
+    cap.classList.toggle('has-cta', !!extra);
+    cap.innerHTML = `<h1>${h}</h1><p>${p}</p>${extra || ''}`;
   };
   const setCaps = prog => render(Math.floor(prog * CAPS.length * 0.999));
   render(0);

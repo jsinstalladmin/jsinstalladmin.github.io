@@ -391,11 +391,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
          cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS,
-         modMinH, unitsThatFit } from './design.js?v=c64f3bcf';
+         modMinH, unitsThatFit } from './design.js?v=231c6c77';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=c64f3bcf';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=231c6c77';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=c64f3bcf';
+         clothMaterials, clearCaches } from './materials.js?v=231c6c77';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -533,6 +533,8 @@ const S = {
   pick:null,
   /* which placed attachment inside the selected tower is open */
   add:null,
+  /* which single shelf of a bank is open, 0-based, or null for the bank */
+  sub:null,
   /* 'kick' or 'top' when a carcass piece of the selected tower is open */
   carc:null,
   /* [{k, wall, at}] where at is inches along that wall from its left end */
@@ -1020,7 +1022,10 @@ const root=new THREE.Group(), shell=new THREE.Group(), picks=new THREE.Group();
    and the two bars you pull to move it. It is drawn over the top of the
    cabinetry rather than inside it, so it is never buried by a panel. */
 const hilite=new THREE.Group(); hilite.renderOrder=20;
-scene.add(root,shell,picks,hilite);
+/* WHAT THE POINTER IS OVER, as opposed to what is open. Lighter, with no
+   bars on it, and it never survives the pointer leaving. */
+const hovmk=new THREE.Group(); hovmk.renderOrder=18;
+scene.add(root,shell,picks,hilite,hovmk);
 const HI_COLOR = 0xC2410C;
 const HI_LINE = new THREE.LineBasicMaterial({ color:HI_COLOR, depthTest:false,
   transparent:true, opacity:0.95 });
@@ -1028,6 +1033,10 @@ const HI_FILL = new THREE.MeshBasicMaterial({ color:HI_COLOR, depthTest:false,
   transparent:true, opacity:0.16 });
 const HI_GRAB = new THREE.MeshBasicMaterial({ color:HI_COLOR, depthTest:false,
   transparent:true, opacity:0.92 });
+const HV_FILL = new THREE.MeshBasicMaterial({ color:HI_COLOR, depthTest:false,
+  transparent:true, opacity:0.10 });
+const HV_LINE = new THREE.LineBasicMaterial({ color:HI_COLOR, depthTest:false,
+  transparent:true, opacity:0.55 });
 const HW=hardwareMaterial(), CLOTH=clothMaterials();
 const GLASS=new THREE.MeshPhysicalMaterial({color:0xE8F0F2,transmission:.9,thickness:.4,
   roughness:.06,metalness:0,ior:1.5,transparent:true,opacity:.42});
@@ -1638,7 +1647,34 @@ function drawRoom(){
   mkWall(W, H, X0 + W/2, H/2, 0,    0,  1, 'back');
   mkWall(D, H, X0,       H/2, D/2,  1,  0, 'left');
   mkWall(D, H, X0 + W,   H/2, D/2, -1,  0, 'right');
-  mkWall(W, H, X0 + W/2, H/2, D,    0, -1, 'front');
+
+  /* ══════════════════════════════════════════════════════════════════
+     THE DOORWAY IS A HOLE IN THE WALL, NOT A DOOR IN FRONT OF ONE
+
+     The near wall was one solid slab with the leaves standing in front
+     of it. From outside, that wall is culled out of the way so you can
+     look in, and the door read as open. From inside the room looking
+     back at it there was nothing to cull, so the opening you had just
+     walked through was a painted wall with a door hanging on it.
+
+     The opening is cut out of the wall now: a jamb either side and a
+     header over the top, and nothing where the doorway is. From inside
+     you look straight out through it, which is what a doorway is.
+     ══════════════════════════════════════════════════════════════════ */
+  const dw = (S.door && S.door !== 'none')
+    ? Math.min(W - 2, Math.max(0, +S.doorW || defaultDoorW(S.door, 0))) : 0;
+  if(dw >= 12){
+    const dh = Math.min(DOOR_H + 2, H - 2);          // the opening, head height
+    const side = (W - dw) / 2;                       // the wall either side of it
+    if(side > 0.5){
+      mkWall(side, H, X0 + side / 2,     H/2, D, 0, -1, 'front');
+      mkWall(side, H, X0 + W - side / 2, H/2, D, 0, -1, 'front');
+    }
+    if(H - dh > 0.5)
+      mkWall(dw, H - dh, X0 + W/2, dh + (H - dh)/2, D, 0, -1, 'front');
+  } else {
+    mkWall(W, H, X0 + W/2, H/2, D,    0, -1, 'front');
+  }
 
   /* No ceiling. It only ever existed to close the box, and it blocked the
      plan view, which is the one angle where you can read the whole layout at
@@ -1713,7 +1749,55 @@ function drawRoom(){
   baseRun(W, covered('back'),  (a, b) => baseboard(b - a, X0 + (a + b) / 2, BASE_T / 2, 0, 'back'));
   baseRun(D, covered('left'),  (a, b) => baseboard(b - a, X0 + BASE_T / 2, (a + b) / 2, Math.PI / 2, 'left'));
   baseRun(D, covered('right'), (a, b) => baseboard(b - a, X0 + W - BASE_T / 2, (a + b) / 2, Math.PI / 2, 'right'));
-  baseboard(W, X0 + W/2, D - BASE_T/2, 0, 'front'); // the near wall, never built on
+  /* the near wall is never built on, but it does have a doorway in it
+     now, and baseboard does not run across a doorway */
+  {
+    const dw2 = (S.door && S.door !== 'none')
+      ? Math.min(W - 2, Math.max(0, +S.doorW || defaultDoorW(S.door, 0))) : 0;
+    if(dw2 >= 12 && (W - dw2) / 2 > 0.5){
+      const side = (W - dw2) / 2;
+      baseboard(side, X0 + side / 2,     D - BASE_T/2, 0, 'front');
+      baseboard(side, X0 + W - side / 2, D - BASE_T/2, 0, 'front');
+    } else if(dw2 < 12){
+      baseboard(W, X0 + W/2, D - BASE_T/2, 0, 'front');
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       A HOLE IN A GREY WALL AGAINST A GREY BACKGROUND IS NOT A DOORWAY
+
+       Cutting the opening was only half of it. The scene's background is
+       the same warm grey as the paint, so from inside the room the hole
+       and the wall were the same colour and the doorway still read as
+       solid. A doorway reads because of two things: the casing round it,
+       and the fact that whatever is past it is darker than the room you
+       are standing in. Both are drawn, and both belong to the near wall,
+       so from outside, where that wall is taken away to let you look in,
+       they go with it.
+       ══════════════════════════════════════════════════════════════ */
+    if(dw2 >= 12){
+      const dh2 = Math.min(DOOR_H + 2, H - 2);
+      const fw = WALLS.find(x => x.tag === 'front');
+      const add = m => { shell.add(m); if(fw) fw.base.push(m); };
+      /* the landing beyond it, darker than the lit room */
+      const beyond = new THREE.Mesh(new THREE.BoxGeometry(dw2 + 6, dh2 + 6, 1),
+        new THREE.MeshStandardMaterial({ color:0x4A443E, roughness:.92, metalness:0,
+                                         envMapIntensity:.25 }));
+      beyond.position.set(X0 + W/2, dh2/2, D + 7);
+      add(beyond);
+      /* the casing: two legs and a head, on the room side of the opening */
+      const CT = 0.9, CW = 2.6;
+      const leg = (cx) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(CW, dh2 + CW, CT), bmat);
+        m.position.set(cx, (dh2 + CW) / 2, D - CT / 2 - 0.1);
+        m.castShadow = false; m.receiveShadow = true; add(m);
+      };
+      leg(X0 + (W - dw2) / 2 - CW / 2);
+      leg(X0 + (W + dw2) / 2 + CW / 2);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(dw2 + CW * 2, CW, CT), bmat);
+      head.position.set(X0 + W/2, dh2 + CW / 2, D - CT / 2 - 0.1);
+      head.receiveShadow = true; add(head);
+    }
+  }
 
   /* ══════════════════════════════════════════════════════════════════
      THE DOOR THEY CHOSE, IN THE ROOM, OPENING THE WAY IT OPENS
@@ -1903,7 +1987,7 @@ function drawCloset(res){
     /* A prop is in the room, not in the closet. It is drawn, it is never
        selectable, and it is not part of anything the workshop cuts. */
     if(!g.prop && g.wall && g.bay != null)
-      m.userData = { wall:g.wall, i:g.bay, si:g.si, add:g.add, carc:g.carc, mod:g.mod, part:true };
+      m.userData = { wall:g.wall, i:g.bay, si:g.si, sub:g.sub, add:g.add, carc:g.carc, mod:g.mod, part:true };
     /* ══════════════════════════════════════════════════════════════
        EVERYTHING ON A WALL LEAVES WITH THAT WALL. EVERYTHING.
 
@@ -2024,6 +2108,8 @@ function drawCloset(res){
     }
   }
   paintHilite(res);
+  /* the meshes it pointed at have just been thrown away */
+  if(hovmk.children.length){ hovmk.clear(); HOVKEY = null; }
   /* The shadow map is 2560 square and every rebuild asked for a fresh one.
      Dragging a tower along a wall rebuilds the geometry on every frame, so
      that was six and a half million shadow texels per frame, for a shadow
@@ -2052,7 +2138,9 @@ let HI = null;          // what is outlined, and the numbers the drag needs
 function paintHilite(res){
   hilite.clear(); HI = null;
   if(!S.sel) return;
-  const open = S.carc ? 'carc' : (S.add != null ? 'add' : (S.part != null ? 'band' : null));
+  const open = S.carc ? 'carc'
+    : (S.add != null ? 'add'
+    : (S.part != null ? (S.sub != null ? 'sub' : 'band') : null));
   if(!open) return;
   const pick = picks.children.find(o => o.userData.wall === S.sel.wall && o.userData.i === S.sel.i);
   const bay = res.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i);
@@ -2067,6 +2155,21 @@ function paintHilite(res){
   if(open === 'band'){
     const bd = bay.bands?.[S.part]; if(!bd) return;
     y0 = bd.y0; y1 = bd.y1;
+  } else if(open === 'sub'){
+    /* ONE SHELF OUT OF A BANK OF FIVE.
+       A bank was one object: you could set how many shelves were in it
+       and nothing else. Every shelf in it is now its own thing, so the
+       mark goes round the one you pressed and the bar on it moves that
+       one. */
+    const mine = root.children.filter(m => {
+      const u = m.userData;
+      return u?.part && u.wall === S.sel.wall && u.i === S.sel.i &&
+             u.si === S.part && u.sub === S.sub && u.add == null && !u.carc;
+    });
+    if(!mine.length) return;
+    const bb = new THREE.Box3();
+    for(const m of mine) bb.expandByObject(m);
+    y0 = bb.min.y - 0.6; y1 = bb.max.y + 0.6;
   } else {
     /* a placed thing or a carcass piece is marked by what is drawn of it */
     const mine = root.children.filter(m => {
@@ -2124,11 +2227,13 @@ function paintHilite(res){
     if(a && Number.isFinite(+a.y)) bary = +a.y;
   } else if(open === 'carc'){
     bary = S.carc === 'kick' ? y1 : y0;
+  } else if(open === 'sub'){
+    bary = bay.bands?.[S.part]?.ys?.[S.sub] ?? (y0 + y1) / 2;
   }
   if(open === 'band'){ bar(y1, 'top'); bar(y0, 'bottom'); }
   else bar(bary, 'move');
 
-  HI = { open, wall:S.sel.wall, i:S.sel.i, si:S.part, add:S.add, carc:S.carc,
+  HI = { open, wall:S.sel.wall, i:S.sel.i, si:S.part, sub:S.sub, add:S.add, carc:S.carc,
          y0, y1, x:pick.position.x + front.x, z:pick.position.z + front.z };
 }
 
@@ -2136,14 +2241,88 @@ const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
 const ndcFrom=(e)=>{ const r=canvas.getBoundingClientRect();
   ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); return ndc; };
 
-/* nothing told you a tower could be clicked. Cursor changes over one. */
-canvas.addEventListener('pointermove', e=>{
-  if(e.buttons) return;                               // orbiting, not hovering
+/* ══════════════════════════════════════════════════════════════════════
+   WHAT YOU ARE ABOUT TO PRESS, LIT UP BEFORE YOU PRESS IT
+
+   Nothing on the drawing said it could be pressed, so the only way to
+   find out what a click would do was to click and see where you ended
+   up. Now the thing under the pointer lights up first.
+
+   WHICH thing depends on what you are doing. With the components open
+   you are working inside a tower, so every single shelf, rod, drawer
+   bank and basket run lights on its own and you can take hold of the
+   one you meant. Otherwise you are working on towers, so the whole
+   tower lights.
+   ══════════════════════════════════════════════════════════════════════ */
+let HOVKEY = null;
+
+function hoverTarget(e){
   ray.setFromCamera(ndcFrom(e), cam);
-  const overPart = ray.intersectObjects(root.children,false)
-                      .some(h => h.object.userData && h.object.userData.part);
-  canvas.style.cursor = overPart ? 'pointer'
-    : (ray.intersectObjects(picks.children,false).length ? 'ew-resize' : 'grab');
+  /* the real cabinetry first: a shelf is a more specific answer than the
+     tower it sits in, same order the click uses */
+  const ph = ray.intersectObjects(root.children, false)
+                .find(h => h.object.visible && h.object.userData && h.object.userData.part);
+  if(ph){
+    const u = ph.object.userData;
+    /* with the components open, every piece answers for itself */
+    if(S.lib && !u.carc)
+      return { wall:u.wall, i:u.i, si:u.si, add:u.add, sub:u.sub, kind:'part' };
+    return { wall:u.wall, i:u.i, kind:'bay' };
+  }
+  const bh = ray.intersectObjects(picks.children, false)
+                .find(h => h.object.visible);
+  if(bh) return { wall:bh.object.userData.wall, i:bh.object.userData.i, kind:'bay' };
+  return null;
+}
+
+function paintHover(t){
+  hovmk.clear();
+  if(!t || !cur) return;
+  const pick = picks.children.find(o => o.userData.wall === t.wall && o.userData.i === t.i);
+  const bay  = cur.bays?.find(x => x.wall === t.wall && x.bay === t.i);
+  if(!pick || !bay) return;
+  const gp = pick.geometry.parameters;
+  let y0, y1;
+  if(t.kind === 'part' && (t.si != null || t.add != null)){
+    const mine = root.children.filter(m => {
+      const u = m.userData;
+      if(!u?.part || u.wall !== t.wall || u.i !== t.i) return false;
+      if(t.add != null) return u.add === t.add;
+      if(t.sub != null) return u.si === t.si && u.sub === t.sub;
+      return u.si === t.si && u.add == null && !u.carc;
+    });
+    if(!mine.length) return;
+    const bb = new THREE.Box3();
+    for(const m of mine) bb.expandByObject(m);
+    y0 = bb.min.y; y1 = bb.max.y;
+    if(y1 - y0 < 1.2){ const mid = (y0 + y1) / 2; y0 = mid - 0.9; y1 = mid + 0.9; }
+  } else {
+    y0 = pick.position.y - gp.height / 2;
+    y1 = pick.position.y + gp.height / 2;
+  }
+  const h = Math.max(0.9, y1 - y0);
+  const put = m => { m.position.set(pick.position.x, (y0 + y1) / 2, pick.position.z);
+                     hovmk.add(m); };
+  const fill = new THREE.Mesh(new THREE.BoxGeometry(gp.width * 1.002, h, gp.depth * 1.002), HV_FILL);
+  fill.renderOrder = 18; put(fill);
+  const edge = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(gp.width * 1.01, h, gp.depth * 1.01), 1), HV_LINE);
+  edge.renderOrder = 19; put(edge);
+}
+
+canvas.addEventListener('pointermove', e=>{
+  if(e.buttons || DRAGGING || H3 || SDRAG){ if(HOVKEY){ HOVKEY = null; paintHover(null); needsFrame = true; } return; }
+  const t = hoverTarget(e);
+  canvas.style.cursor = t ? (t.kind === 'part' ? 'pointer' : 'pointer') : 'grab';
+  const key = t ? [t.kind, t.wall, t.i, t.si, t.add, t.sub].join('|') : null;
+  if(key === HOVKEY) return;
+  HOVKEY = key;
+  paintHover(t);
+  needsFrame = true;
+});
+canvas.addEventListener('pointerleave', () => {
+  if(!HOVKEY) return;
+  HOVKEY = null; paintHover(null); needsFrame = true;
 });
 /* ══════════════════════════════════════════════════════════════════════
    DRAG A SECTION ALONG ITS WALL, IN THE DRAWING
@@ -2203,7 +2382,20 @@ const dragHi = onFrame(() => {
   const floorY = baseHeight(S.mounting, placedFittings());
   const top = (cur?.bays?.find(x => x.wall === H3.wall && x.bay === H3.i)?.h ?? 80) + floorY;
 
-  if(H3.open === 'add'){
+  if(H3.open === 'sub'){
+    const st = bay.stack[H3.si]; if(!st) return;
+    const bd = cur?.bays?.find(x => x.wall === H3.wall && x.bay === H3.i)?.bands?.[H3.si];
+    if(!bd) return;
+    /* the first drag writes the list, because up to then the spacing was
+       whatever the engine worked out rather than anything anybody chose */
+    const base = Array.isArray(st.o?.ys) && st.o.ys.length === (bd.ys || []).length
+      ? st.o.ys.slice()
+      : (bd.ys || []).map(v => v - bd.y0);
+    base[H3.sub] = Math.round(
+      Math.max(1, Math.min(bd.y1 - bd.y0 - 1, H3.y - bd.y0)) * 4) / 4;
+    st.o = { ...(st.o || {}), ys:base };
+  }
+  else if(H3.open === 'add'){
     const a = bay.adds?.[H3.add]; if(!a) return;
     a.y = Math.round(Math.max(floorY + 1, Math.min(top - 1.5, H3.y)) * 4) / 4;
   }
@@ -2381,7 +2573,15 @@ canvas.addEventListener('pointerup',e=>{
       /* a placed thing: press it in the 3D and its own panel opens */
       S.add = (same && S.add === u.add) ? null : u.add; S.part = null; S.carc = null;
     } else {
-      S.part = (u.si != null && u.si >= 0 && !(same && S.part === u.si)) ? u.si : null;
+      const was = S.part, wasSub = S.sub;
+      S.part = (u.si != null && u.si >= 0 && !(same && S.part === u.si && S.sub == null)) ? u.si : null;
+      /* EVERY SHELF IN A BANK ANSWERS FOR ITSELF.
+         Pressing the third shelf of five used to open the bank, because
+         the bank was the smallest thing the drawing knew about. Press it
+         again and it steps back out to the whole bank, then to the
+         tower, the same way everything else here steps out. */
+      S.sub = (S.part != null && u.sub != null &&
+               !(same && was === u.si && wasSub === u.sub)) ? u.sub : null;
       S.add = null; S.carc = null;
     }
     S.lib = false;
@@ -2661,7 +2861,26 @@ for(const ev of ['pointerdown','wheel','touchstart'])
 (function hookSteps(){
   const orig = window.gotoStep;
   if(typeof orig !== 'function') return;
-  window.gotoStep = function(n){ orig(n); flyTo(n); };
+  /* ══════════════════════════════════════════════════════════════════
+     THE CAMERA DOES NOT MOVE BECAUSE YOU CHANGED SOMETHING
+
+     Every edit in the builder ends by calling gotoStep('2') to make sure
+     the right tab is open, and gotoStep flew the camera. So adding a
+     tower, swapping one, dropping in a component or pressing a basket
+     on a side wall all swung the view somewhere else and back, and
+     pressing a tower on another wall turned the room around to face it.
+     You cannot watch a thing change if the picture moves every time you
+     touch it.
+
+     The fly belongs to CHANGING STEP, which is a deliberate press on a
+     tab, not to arriving at the step you are already on. */
+  let atStep = null;
+  window.gotoStep = function(n){
+    const moved = String(n) !== String(atStep);
+    atStep = String(n);
+    orig(n);
+    if(moved) flyTo(n);
+  };
 })();
 
 /* ───────── render pass ───────── */
@@ -2774,15 +2993,23 @@ function rebuild(reframe){
   if(!DRAGGING) drawRoom();
   drawCloset(cur);
   if(!DRAGGING) resize();
-  if(reframe){ resize(); frame(); }
+  /* `reframe` used to mean "and throw the camera back to the wide room
+     shot", which is the other half of the jump: the view snapped away
+     and then the step fly dragged it back. It now means "the geometry
+     changed enough to re-measure the canvas", and nothing moves. The
+     two places that genuinely want the camera somewhere else, arriving
+     from the gate and the Reset button, call frame() themselves. */
+  if(reframe) resize();
   if(DRAGGING) paintWhileDragging(); else paintAll();
   built = true;
 }
 function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paintStack(); paintLTools(); paintLPal(); paintPrice(); paintQuote(); paintOrder(); paintFinTabs(); markSteps(); paintFlat();
-  /* steps 3 and 5 look at one tower, so changing which one is selected has
-     to move the camera too, not just the panel */
-  const st = document.body.dataset.step;
-  if((st === '2' || st === '4') && cur?.bays?.length) flyTo(st, 520);
+  /* AND THIS WAS THE REST OF IT. Every repaint of the panel flew the
+     camera onto whatever tower happened to be selected, so pressing a
+     tower on the left wall while you were looking at the back wall
+     turned the whole room round to face it, and pressing a basket took
+     the view somewhere else entirely. Nothing about repainting a panel
+     is a reason to move the picture. The camera is the customer's. */
 }
 /* The two things that move while you drag. When the drag started ON the
    strip, the strip is deliberately left alone: repainting it would destroy
@@ -3596,7 +3823,8 @@ const optionBlocks = () => {
       <span class="opick wide">${PULLS.map(p2 => `<button type="button"
         class="${p2.id === pull.id ? 'on' : ''}" data-pullset="${p2.id}"
         title="${p2.note.replace(/"/g,'&quot;')}" aria-pressed="${p2.id === pull.id}">
-        <span class="pz p-${p2.kind}"></span></button>`).join('')}</span></div>
+        <span class="pz p-${p2.kind}"></span>
+        <i class="plen">${p2.len ? p2.len + '&quot;' : 'None'}</i></button>`).join('')}</span></div>
     <div class="orow"><span class="olab">Handle finish</span>
       <span class="opick">${PULL_FINISHES.map(f2 => `<button type="button"
         class="${f2.id === pf.id ? 'on' : ''}" data-pfset="${f2.id}"
@@ -3628,7 +3856,7 @@ function paintStack(){
      different tower and the panel goes back to being that tower, rather
      than showing the shelf you opened in the last one. */
   const selKey = S.sel ? S.sel.wall + '|' + S.sel.i : null;
-  if(PICK_FOR !== selKey){ S.part = null; S.add = null; S.carc = null; S.lib = false; S.pick = null; PICK_FOR = selKey; }
+  if(PICK_FOR !== selKey){ S.part = null; S.sub = null; S.add = null; S.carc = null; S.lib = false; S.pick = null; PICK_FOR = selKey; }
   const run = S.sel && S.runs[S.sel.wall];
   if(!run?.bays[S.sel?.i]){
     /* If the chosen wall exists but has nothing on it yet, STAY on it. This
@@ -3978,6 +4206,42 @@ function paintStack(){
     }).join('');
   };
 
+  /* ══════════════════════════════════════════════════════════════════
+     ONE SHELF OUT OF THE BANK, OPENED
+
+     "Five shelves" is a number on a stepper, and a number on a stepper
+     cannot be the fourth one from the bottom. Pressing a shelf opens
+     that shelf: how high off the floor it is, a bar on it in the drawing
+     to pull, and the way to take that one out. Take one of five out and
+     the tower has four and the parts list says four, because the count
+     IS the number of shelves standing in it.
+     ══════════════════════════════════════════════════════════════════ */
+  const oneShelfRow = (st, si, d) => {
+    const bd = live(si);
+    const ys = bd?.ys || [];
+    const n  = ys.length;
+    const k  = Math.min(S.sub, n - 1);
+    const now = ys[k];
+    if(now == null) return heightRow(st, si, d);
+    const lo = (bd.y0 ?? 0) + 1, hi = (bd.y1 ?? 0) - 1;
+    return `<div class="prow">
+        <span class="prowl"><b>Shelf ${k + 1} of ${n}</b>
+          <i>Off the floor &middot; or pull the bar on the drawing</i></span>
+        <span class="prowc">
+          <input type="range" data-subset="${si}" min="${lo.toFixed(2)}" max="${hi.toFixed(2)}"
+                 step="0.25" value="${Math.min(hi, Math.max(lo, now)).toFixed(2)}"
+                 aria-label="Shelf ${k + 1} height off the floor">
+          <b class="hval">${inches(now)}</b>
+        </span>
+      </div>
+      <p class="note">Every shelf in this piece is its own shelf. Take this one out and the
+        tower has ${n - 1}, and so does the parts list.</p>
+      <div class="compacts">
+        <button type="button" class="btn btn-ghost btn-sm" data-rmsub="${si}">Take this shelf out</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-subback="1">All ${n} shelves</button>
+      </div>`;
+  };
+
   const partPanel = si => {
     const st = bay.stack[si], d = MODULES[st.m];
     const b = live(si);
@@ -3989,8 +4253,8 @@ function paintStack(){
         <span class="phdtx"><b>${d.label} options</b>
           <i>${b ? inches(b.y1 - b.y0) + ' tall, ' + inches(b.y0) + ' off the floor' : ''}</i></span>
       </div>
-      ${heightRow(st, si, d)}
-      ${d.opt ? countRow(st, si, d, 'opt') : ''}
+      ${S.sub != null ? oneShelfRow(st, si, d) : heightRow(st, si, d)}
+      ${S.sub != null ? '' : (d.opt ? countRow(st, si, d, 'opt') : '')}
       ${d.choice ? choiceRow(st, si, d) : ''}
       ${d.opt2 ? countRow(st, si, d, 'opt2') : ''}
       ${d.sizes ? drawerRows(st) : ''}
@@ -4166,7 +4430,7 @@ function paintStack(){
   };
 
   const mode = S.lib ? 'lib' : S.carc ? 'carc:' + S.carc : S.add != null ? 'add:' + S.add
-    : (S.part != null && bay.stack[S.part]) ? 'part:' + S.part : 'tower';
+    : (S.part != null && bay.stack[S.part]) ? 'part:' + S.part + ':' + S.sub : 'tower';
   /* ══════════════════════════════════════════════════════════════════
      PRESS A TOWER AND THE TOWER LIST IS WHAT YOU GET
 
@@ -4934,8 +5198,20 @@ $('#stack').addEventListener('input', e => {
     DRAGGING = true; rebuild(false);
     return;
   }
-  const i = e.target.closest('[data-hset]'); if(!i) return;
+  const i = e.target.closest('[data-hset],[data-subset]'); if(!i) return;
   const bay = S.runs[S.sel?.wall]?.bays[S.sel?.i]; if(!bay) return;
+  if(i.dataset.subset !== undefined){
+    const si2 = +i.dataset.subset, st2 = bay.stack[si2]; if(!st2) return;
+    const bd = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands?.[si2];
+    if(!bd) return;
+    const base = (Array.isArray(st2.o?.ys) && st2.o.ys.length === (bd.ys||[]).length)
+      ? st2.o.ys.slice() : (bd.ys || []).map(v => v - bd.y0);
+    base[Math.min(S.sub ?? 0, base.length - 1)] =
+      Math.round(Math.max(1, Math.min(bd.y1 - bd.y0 - 1, +i.value - bd.y0)) * 4) / 4;
+    st2.o = { ...(st2.o || {}), ys:base };
+    DRAGGING = true; rebuild(false);
+    return;
+  }
   const si = +i.dataset.hset, st = bay.stack[si]; if(!st) return;
   setBandH(st, +i.value);
   squeeze(bay.stack, si, bayUsable());
@@ -4945,7 +5221,7 @@ $('#stack').addEventListener('input', e => {
   rebuild(false);
 });
 $('#stack').addEventListener('change', e => {
-  if(!e.target.closest('[data-hset],[data-fillw],[data-addset],[data-carcset]')) return;
+  if(!e.target.closest('[data-hset],[data-subset],[data-fillw],[data-addset],[data-carcset]')) return;
   DRAGGING = false; rebuild(true); paintStack();
 });
 
@@ -5117,7 +5393,7 @@ $('#stack').onclick=e=>{
      Press a row in the list, or a shelf in the drawing, and the whole
      panel becomes that component. */
   else if(t.dataset.part !== undefined){
-    S.part = +t.dataset.part; S.add = null; S.lib = false;
+    S.part = +t.dataset.part; S.sub = null; S.add = null; S.lib = false;
     paintStack(); return;
   }
   /* ── one PLACED thing, opened ─────────────────────────────────────── */
@@ -5182,6 +5458,22 @@ $('#stack').onclick=e=>{
     }
     S.part = null; S.add = null; S.carc = null;
   }
+  /* take one shelf out of a bank: the count goes down and so does the
+     list of heights, so the four that are left stay where they were */
+  else if(t.dataset.rmsub !== undefined){
+    const si = +t.dataset.rmsub;
+    const st = bay.stack[si]; if(!st) return;
+    const d0 = MODULES[st.m], key = d0?.opt?.key;
+    const bd = cur?.bays?.find(x => x.wall === S.sel.wall && x.bay === S.sel.i)?.bands?.[si];
+    const ys = (Array.isArray(st.o?.ys) && bd && st.o.ys.length === (bd.ys||[]).length)
+      ? st.o.ys.slice() : (bd?.ys || []).map(v => v - bd.y0);
+    const n = ys.length;
+    if(!key || n <= (d0.opt.min ?? 1)) return;
+    ys.splice(Math.min(S.sub, n - 1), 1);
+    st.o = { ...(st.o || {}), [key]:n - 1, ys };
+    S.sub = null;
+  }
+  else if(t.dataset.subback !== undefined){ S.sub = null; }
   else if(t.dataset.optpart !== undefined){
     const si = +t.dataset.si;
     const st = bay.stack[si]; if(!st) return;
@@ -5451,7 +5743,7 @@ function lpalWall(){
 /* Put the panel back to nothing open: the closet and the room, drawn
    from in front, with the wall measured. */
 function clearSel(){
-  S.sel = null; S.part = null; S.add = null; S.carc = null; S.lib = false; S.pick = null;
+  S.sel = null; S.part = null; S.sub = null; S.add = null; S.carc = null; S.lib = false; S.pick = null;
   PICK_FOR = null;
   rebuild(true);
   /* rebuild leaves the camera where the last selection put it, which on
@@ -5926,7 +6218,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=c64f3bcf');
+  if(!DRAW) DRAW = await import('./drawing.js?v=231c6c77');
   return DRAW;
 }
 
@@ -6490,7 +6782,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=c64f3bcf');
+    const { downloadPdf } = await import('./drawing.js?v=231c6c77');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -6513,7 +6805,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=c64f3bcf');
+    const { downloadPdf } = await import('./drawing.js?v=231c6c77');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

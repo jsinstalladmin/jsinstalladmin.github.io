@@ -376,11 +376,17 @@ body[data-hero="dark"]  .hero-veil{background:
   linear-gradient(100deg,rgba(8,7,6,.56) 0%,rgba(8,7,6,.26) 38%,rgba(8,7,6,0) 66%),
   linear-gradient(180deg,rgba(8,7,6,.56) 0%,rgba(8,7,6,.10) 32%,rgba(8,7,6,.2) 62%,rgba(8,7,6,.76) 100%)}
 .hero-cap{position:absolute;left:0;right:0;bottom:clamp(88px,13vh,150px);color:var(--paper);pointer-events:none}
-.hero-cap .box{max-width:min(600px,86vw);background:rgba(16,12,9,.28);
+/* The new film opens on a white room in full daylight, and white text on
+   a 28% film over that is barely text. */
+.hero-cap .box{max-width:min(600px,86vw);background:rgba(16,12,9,.46);
   backdrop-filter:blur(16px) saturate(1.25);border:1px solid rgba(248,245,240,.14);
   border-radius:var(--r-lg);padding:clamp(22px,2.7vw,34px);box-shadow:0 30px 80px rgba(0,0,0,.34)}
-.hero-cap h1{font-size:clamp(1.9rem,3.9vw,3.2rem);color:var(--paper);margin-bottom:.32em;max-width:18ch}
-.hero-cap p{font-size:1.01rem;color:rgba(248,245,240,.84);margin:0;max-width:46ch}
+/* THE FIRST CARD CARRIES THE PAGE'S H1 AND IT IS A LONGER SENTENCE NOW,
+   because it has to name the service and the place. 18ch was cut for a
+   six word line and broke this one into a column. */
+.hero-cap h1{font-size:clamp(1.65rem,3.3vw,2.7rem);color:var(--paper);margin-bottom:.34em;max-width:24ch}
+.hero-cap.has-cta p{max-width:52ch;font-size:.97rem;line-height:1.6}
+.hero-cap p{font-size:1.01rem;color:rgba(248,245,240,.92);margin:0;max-width:46ch}
 
 /* ── the claim, in brass ──
    The headline was a block of white on a pale film, which gives the eye no

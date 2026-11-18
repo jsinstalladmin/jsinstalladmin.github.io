@@ -2476,3 +2476,10 @@ body[data-step="order"] .pfoot{display:block}
    that separates them from the tower above them has nothing to separate
    them from: it read as an empty band under the wall tabs. */
 #stack > .optblk:first-child{margin-top:0;padding-top:0;border-top:0}
+
+/* FOUR BARS AND NOTHING TO TELL THEM APART.
+   The handle picker drew the pull and left you to guess whether the one
+   you were pressing was the 4", the 6" or the 12". It says. */
+.opick .plen{display:block;font-style:normal;font-size:.58rem;line-height:1;
+  letter-spacing:.04em;color:var(--muted);margin-top:3px;text-align:center}
+.opick button.on .plen{color:var(--ink)}

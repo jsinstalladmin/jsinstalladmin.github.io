@@ -812,22 +812,41 @@ export const MODULES = {
         : [[y, h]];
       const total = spans.reduce((a,[,sh]) => a + sh, 0);
       let left = n;
+      /* where each shelf sits, bottom to top, in this piece's own inches */
+      const pos = [];
       spans.forEach(([sy, sh], si) => {
         /* the last span takes whatever is still unplaced, so the count the
            customer picked is the count that gets built and priced */
         const k = (si === spans.length - 1) ? left
                 : Math.max(1, Math.min(left - (spans.length - 1 - si), Math.round(n * sh / total)));
         left -= k;
-        for(let i = 1; i <= k; i++){
-          const sY = sy + (sh/(k+1))*i;
-          G.push({k:'shelf', p:[0, sY, 0], s:[w, SPEC.panel, d], m:'carcass'});
-          if(c.styled) foldedOn(G, 0, sY, w - 1, d, si * 3 + i);
-          /* a divider stands ON the shelf, so it is drawn above it */
-          for(let j = 1; j <= divs; j++)
-            G.push({k:'divider', p:[-w/2 + (w/(divs+1))*j, sY + 5 + SPEC.panel/2, 0],
-                    s:[SPEC.panel, 10, d - 1], m:'carcass'});
-        }
+        for(let i = 1; i <= k; i++) pos.push(sy + (sh/(k+1))*i);
       });
+      /* ══════════════════════════════════════════════════════════════
+         A SHELF THAT HAS BEEN MOVED STAYS WHERE IT WAS PUT
+
+         Evenly spaced is only the starting point. `ys` is this piece's
+         own list of heights, written the moment somebody drags one of
+         them, and from then on it is what gets built. Anything the list
+         does not cover falls back to the even spacing, so adding a shelf
+         to a bank that has been rearranged still lands somewhere sane.
+         ══════════════════════════════════════════════════════════════ */
+      const ys = Array.isArray(o.ys) ? o.ys : null;
+      for(let i = 0; i < pos.length; i++){
+        if(ys && Number.isFinite(+ys[i])) pos[i] = clamp(+ys[i], y + 1, y + h - 1);
+      }
+      pos.sort((a, b) => a - b);
+      pos.forEach((sY, i) => {
+        G.push({k:'shelf', p:[0, sY, 0], s:[w, SPEC.panel, d], m:'carcass', sub:i});
+        if(c.styled) foldedOn(G, 0, sY, w - 1, d, i + 1);
+        /* a divider stands ON the shelf, so it is drawn above it */
+        for(let j = 1; j <= divs; j++)
+          G.push({k:'divider', p:[-w/2 + (w/(divs+1))*j, sY + 5 + SPEC.panel/2, 0],
+                  s:[SPEC.panel, 10, d - 1], m:'carcass', sub:i});
+      });
+      /* the heights this piece ended up with, so the panel and the drag
+         can write against real numbers rather than guess the spacing */
+      c.shelfYs = pos.slice();
     }
   },
   DRAWERS: {
@@ -2449,12 +2468,17 @@ export function buildDesign(cfg, cat){
         if(s.short > 0.5) warnings.push(
           `Tower ${bi+1} on the ${run.wall} wall: ${MODULES[s.m].label.toLowerCase()} needs ${MODULES[s.m].minH}" and only ${s.H.toFixed(0)}" is left after everything else in that section. Take something out, make the tower taller, or pick a part that fits.`);
         const mark = parts.length;
-        MODULES[s.m].build({ w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull, capped,
-                              styled: cfg.styled !== false,
-                              midAt: (mods.length === 1 ? soloMid : null),
-                              boxStyle: cfg.boxStyle || DEFAULT_BOX_STYLE,
-                              basketFinish: BASKET_FINISH[cfg.pullFinish] || 'Chrome',
-                              warn: m => warnings.push(m) });
+        /* a real object, not an inline literal, because a piece can write
+           back to it: a shelf bank reports the heights it actually built
+           its shelves at, which is what the panel edits and the drag moves */
+        const ctx = { w:inner, d:depth, y:0, h:s.H, G:sub, parts, o:s.o||{}, pull, capped,
+                      styled: cfg.styled !== false,
+                      midAt: (mods.length === 1 ? soloMid : null),
+                      boxStyle: cfg.boxStyle || DEFAULT_BOX_STYLE,
+                      basketFinish: BASKET_FINISH[cfg.pullFinish] || 'Chrome',
+                      warn: m => warnings.push(m) };
+        MODULES[s.m].build(ctx);
+        s.shelfYs = ctx.shelfYs || null;
         for(let i=mark;i<parts.length;i++) parts[i].grp = s.m;
         /* STAMP WHAT THIS PIECE BELONGS TO.
 
@@ -2518,6 +2542,9 @@ export function buildDesign(cfg, cat){
                         return mods.map((m, mi) => {
                           const band = { label: MODULES[m.m]?.label || m.m,
                                          m: m.m, si: mi, nFit: m.nFit ?? null,
+                                         /* where each shelf in it really is,
+                                            off the floor of the room */
+                                         ys: m.shelfYs ? m.shelfYs.map(v => by + v) : null,
                                          y0: by, y1: by + m.H };
                           by += m.H;
                           return band;
