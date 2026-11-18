@@ -41,14 +41,19 @@ if (video && cap && hero) {
      "An empty room is the cheapest it will ever be" reads well and tells
      a search engine nothing: no service, no place, no product. It is the
      one heading Google weighs hardest on this site, so it names what is
-     sold and where, and the two things somebody can do about it are
-     under it rather than four screens further down. The other four
-     cards keep their voice, because by then the visitor is already in. */
+     sold, and the two things somebody can do about it are under it
+     rather than four screens further down. The other four cards keep
+     their voice, because by then the visitor is already in.
+
+     NO TOWN IN THE HEADLINE. It read "Custom closets in Boca Raton",
+     which pins a company working five states to one suburb, and the
+     line underneath already lists where the crews go. The heading says
+     what he builds; the paragraph says where. */
   const CTA = '<div class="hero-acts">' +
     '<a class="btn btn-fill" href="contact.html">Book a free measure</a>' +
     '<a class="btn btn-ghost-light" href="design/">Design yours in 3D</a></div>';
   const CAPS = [
-    ['Custom closets in Boca Raton, <em>measured, built and installed</em> by one crew',
+    ['Custom closets <em>measured, built and installed</em> by one crew',
      'JS Installations &amp; Closets builds walk-in closets, reach-in closets, pantries, garage storage and laundry rooms to the measurements of your room, in 79 colors, across South Florida and up the East Coast. The measure is free, the price is fixed before anything is cut, and most closets go in inside a day.',
      CTA],
     ['Then <em>the structure</em> goes in.',
