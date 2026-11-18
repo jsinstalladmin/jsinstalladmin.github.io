@@ -391,11 +391,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
          cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS,
-         modMinH, unitsThatFit } from './design.js?v=231c6c77';
+         modMinH, unitsThatFit } from './design.js?v=6df20891';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=231c6c77';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=6df20891';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=231c6c77';
+         clothMaterials, clearCaches } from './materials.js?v=6df20891';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -3015,7 +3015,32 @@ function paintAll(){ paintSteps(); paintPlan(); paintDoors(); paintBays(); paint
    strip, the strip is deliberately left alone: repainting it would destroy
    the very button the pointer is captured on and the drag would die on the
    first frame. That one moves its own element instead. */
-function paintWhileDragging(){ if(!TDRAG) paintBays(); paintPrice(); }
+/* ══════════════════════════════════════════════════════════════════════
+   DO NOT MOVE THE THING THE FINGER IS HOLDING
+
+   paintBays() parks #stack back in its own wrapper before it wipes the
+   wall block, which means every repaint RE-PARENTS the panel. Doing
+   that while a slider inside it is mid-drag hands the browser a
+   different element than the one the pointer was captured on, the drag
+   is dropped on the spot, and the thumb stops following the mouse and
+   sticks. A slider fires an input event on every pixel, so this was
+   happening sixty times a second: the height slider could not be
+   dragged at all, it could only be nudged.
+
+   TDRAG already guarded this for a tower being dragged on the strip,
+   for exactly the same reason. PDRAG is the same guard for a control
+   inside the panel.
+   ══════════════════════════════════════════════════════════════════════ */
+let PDRAG = false;
+function paintWhileDragging(){ if(!TDRAG && !PDRAG) paintBays(); paintPrice(); }
+
+/* AND ONE REBUILD PER FRAME, NOT ONE PER PIXEL.
+   A full buildDesign and a full drawCloset on every input event is more
+   work than the frame has, so the events queue up behind it and the
+   slider lags a long way behind the pointer. The value and the figure
+   beside it are written immediately, which is what the hand is
+   watching; the room catches up at frame rate. */
+const panelFrame = onFrame(() => rebuild(false));
 
 /* One update per displayed frame, not one per pointer event. A trackpad
    fires far more moves than the screen can show, and every extra one was a
@@ -5172,7 +5197,7 @@ $('#stack').addEventListener('input', e => {
     if(cs.dataset.carcset === 'kick') bay.kick = v; else bay.cabTop = v;
     const out = $(`[data-carcval="${cs.dataset.carcset}"]`);
     if(out) out.textContent = (+v.toFixed(2)).toString() + '"';
-    DRAGGING = true; rebuild(false);
+    DRAGGING = PDRAG = true; panelFrame();
     return;
   }
   const as = e.target.closest('[data-addset]');
@@ -5182,7 +5207,7 @@ $('#stack').addEventListener('input', e => {
     a.y = Math.round(+as.value * 4) / 4;
     const out = $(`[data-addval="${ai}"]`);
     if(out) out.textContent = (+a.y.toFixed(2)).toString() + '"';
-    DRAGGING = true; rebuild(false);
+    DRAGGING = PDRAG = true; panelFrame();
     return;
   }
   const fw = e.target.closest('[data-fillw]');
@@ -5195,7 +5220,7 @@ $('#stack').addEventListener('input', e => {
     if(bay.w > free) bay.w = clampBay(free, true);
     const out = fw.parentElement?.querySelector('.hval');
     if(out) out.textContent = bay.w.toFixed(1) + '"';
-    DRAGGING = true; rebuild(false);
+    DRAGGING = PDRAG = true; panelFrame();
     return;
   }
   const i = e.target.closest('[data-hset],[data-subset]'); if(!i) return;
@@ -5209,7 +5234,9 @@ $('#stack').addEventListener('input', e => {
     base[Math.min(S.sub ?? 0, base.length - 1)] =
       Math.round(Math.max(1, Math.min(bd.y1 - bd.y0 - 1, +i.value - bd.y0)) * 4) / 4;
     st2.o = { ...(st2.o || {}), ys:base };
-    DRAGGING = true; rebuild(false);
+    const sv = i.parentElement?.querySelector('.hval');
+    if(sv) sv.textContent = (+(+i.value).toFixed(2)).toString() + '"';
+    DRAGGING = PDRAG = true; panelFrame();
     return;
   }
   const si = +i.dataset.hset, st = bay.stack[si]; if(!st) return;
@@ -5217,13 +5244,38 @@ $('#stack').addEventListener('input', e => {
   squeeze(bay.stack, si, bayUsable());
   const out = $(`[data-hval="${si}"]`);
   if(out) out.textContent = (+st.h.toFixed(2)).toString() + '"';
-  DRAGGING = true;                 // keeps paintAll off the panel mid-drag
-  rebuild(false);
+  DRAGGING = PDRAG = true;         // keeps paintAll AND paintBays off it
+  panelFrame();
 });
+/* ══════════════════════════════════════════════════════════════════════
+   LETTING GO OF A SLIDER MUST NOT LAND TWICE
+
+   Settling the drag repaints the panel, which re-parents #stack, which
+   blurs the slider that is still focused inside it. A focused range
+   whose value has changed fires `change` ON BLUR as well as on release,
+   so the repaint fired a second settle from inside the first one and
+   the DOM was being rebuilt underneath itself: "the node to be removed
+   is no longer a child of this node". One settle, and the control lets
+   go of the focus before anything moves.
+   ══════════════════════════════════════════════════════════════════════ */
+let SETTLING = false;
+function settlePanel(){
+  if(SETTLING) return;
+  SETTLING = true;
+  DRAGGING = PDRAG = false;
+  try { document.activeElement?.blur?.(); } catch(_){}
+  try { rebuild(true); paintStack(); }
+  finally { SETTLING = false; }
+}
 $('#stack').addEventListener('change', e => {
   if(!e.target.closest('[data-hset],[data-subset],[data-fillw],[data-addset],[data-carcset]')) return;
-  DRAGGING = false; rebuild(true); paintStack();
+  settlePanel();
 });
+/* A slider let go of outside its own box, over the 3D or off the edge of
+   the window, never fires its change event in some browsers, so the
+   guard stayed on and the panel stopped repainting for good. */
+for(const ev of ['pointerup','pointercancel'])
+  window.addEventListener(ev, () => { if(PDRAG) settlePanel(); });
 
 paintMix();
 $('#mix')?.addEventListener('change', e => {
@@ -6218,7 +6270,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=231c6c77');
+  if(!DRAW) DRAW = await import('./drawing.js?v=6df20891');
   return DRAW;
 }
 
@@ -6782,7 +6834,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=231c6c77');
+    const { downloadPdf } = await import('./drawing.js?v=6df20891');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -6805,7 +6857,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=231c6c77');
+    const { downloadPdf } = await import('./drawing.js?v=6df20891');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

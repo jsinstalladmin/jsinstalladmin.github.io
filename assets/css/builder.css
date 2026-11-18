@@ -2071,8 +2071,23 @@ body[data-step="order"] .pfoot{display:block}
 .prow .prowc.end{margin-left:auto}
 .prow .prowc input[type=range]{flex:1 1 110px;min-width:90px;accent-color:var(--ink)}
 .prow .prowc input[type=range]:disabled{opacity:.4}
-.prow .hval{font-size:.82rem;font-weight:500;color:var(--ink);min-width:52px;text-align:right;
-  font-variant-numeric:tabular-nums}
+/* ══════════════════════════════════════════════════════════════════════
+   THE SLIDER MUST NOT CHANGE SIZE WHILE IT IS BEING DRAGGED
+
+   This is why the height slider stuck. The figure beside it is in the
+   same flex row and it only had a MINIMUM width, so dragging 44" up to
+   81.75" made the readout two characters wider, the row took that width
+   off the slider, and the slider's right-hand edge moved in under the
+   pointer. The pointer was then past the end of a shorter track, so the
+   value pinned at the maximum and every further move did nothing: the
+   thumb stopped following the mouse and sat there.
+
+   A fixed width that fits the widest reading it can ever show, and the
+   track is the same length from the first pixel of the drag to the last.
+   ══════════════════════════════════════════════════════════════════════ */
+.prow .hval{font-size:.82rem;font-weight:500;color:var(--ink);
+  flex:0 0 58px;width:58px;text-align:right;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
 .prow .hfill{display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--ink-2);cursor:pointer}
 .prow .hfill input{accent-color:var(--ink)}
 
