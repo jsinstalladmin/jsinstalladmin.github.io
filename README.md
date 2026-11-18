@@ -15,9 +15,9 @@ The company website and admin dashboard.
 
 | | |
 |---|---|
-| Live site | https://jsinstalladmin.github.io |
-| Admin | https://jsinstalladmin.github.io/admin/ |
-| Closet builder | https://jsinstalladmin.github.io/design/ |
+| Live site | https://jsclosets.com |
+| Admin | https://jsclosets.com/admin/ |
+| Closet builder | https://jsclosets.com/design/ |
 
 ## What this is
 
