@@ -176,8 +176,14 @@ function officeMail(c: Record<string, any>, d: Record<string, any> | null) {
   if (d?.corner) room.push(['The corner', clip(d.corner, 160)]);
   if (d?.backs)  room.push(['Backs', clip(d.backs, 80)]);
   if (d?.door)   room.push(['Doors', clip(d.door, 60)]);
-  if (d?.finish) room.push(['Finish', d.finish === d.frontFinish ? clip(d.finish, 80)
-                           : `${clip(d.finish, 60)} carcass &middot; ${clip(d.frontFinish, 60)} fronts`]);
+  /* The decor name AND the manufacturer's SKU. Board is ordered by SKU, and
+     with fifteen Karisma decors whose trade names are things like "Kiss Curl"
+     and "First Class", the name on its own is not safe to order from. */
+  const sku = (v: unknown) => v ? ` <span style="color:${MUT};font-size:.8rem">${clip(v, 60)}</span>` : '';
+  if (d?.finish) room.push(['Finish',
+    d.finish === d.frontFinish
+      ? clip(d.finish, 80) + sku(d.finishSku)
+      : `${clip(d.finish, 60)}${sku(d.finishSku)} carcass<br>${clip(d.frontFinish, 60)}${sku(d.frontFinishSku)} fronts`]);
   if (d?.pull)   room.push(['Hardware', `${clip(d.pull, 60)} in ${clip(d.pullFinish, 40)}`]);
 
   const sections = (d?.bays || []).map((b: any, i: number) => {
@@ -203,10 +209,16 @@ function officeMail(c: Record<string, any>, d: Record<string, any> | null) {
 
   const flags = (d?.warnings || []).map((w: any) => clip(w, 400));
 
+  /* Every line says what it is made from. The table used to be item and
+     quantity only, so a sheet with two decors on it could not be ordered
+     from without going back to the drawing to work out which line was which. */
   const order = (d?.order || []).slice(0, 80).map((o: any) =>
     `<tr>
        <td style="padding:5px 10px 5px 0;border-bottom:1px solid ${LINE};font-size:.84rem">${clip(o.item, 90)}
          ${o.detail ? `<br><span style="color:${MUT};font-size:.76rem">${clip(o.detail, 120)}</span>` : ''}</td>
+       <td style="padding:5px 10px 5px 0;border-bottom:1px solid ${LINE};font-size:.78rem;color:${MUT}">${
+         o.finish && o.finish !== 'n/a' ? clip(o.finish, 60) : ''}${
+         o.finish_sku ? `<br><span style="font-size:.72rem;opacity:.8">${clip(o.finish_sku, 60)}</span>` : ''}</td>
        <td style="padding:5px 0;border-bottom:1px solid ${LINE};font-size:.84rem;text-align:right;white-space:nowrap">${clip(o.qty, 8)}</td>
      </tr>`).join('');
   const parts = (d?.order || []).reduce((a: number, o: any) => a + (Number(o.qty) || 0), 0);
@@ -226,6 +238,8 @@ function officeMail(c: Record<string, any>, d: Record<string, any> | null) {
       `<table style="border-collapse:collapse;width:100%">
          <tr><th style="text-align:left;padding:0 10px 6px 0;font-size:.7rem;letter-spacing:.1em;
                         text-transform:uppercase;color:${MUT};border-bottom:1px solid ${LINE}">Part</th>
+             <th style="text-align:left;padding:0 10px 6px 0;font-size:.7rem;letter-spacing:.1em;
+                        text-transform:uppercase;color:${MUT};border-bottom:1px solid ${LINE}">Board</th>
              <th style="text-align:right;padding:0 0 6px;font-size:.7rem;letter-spacing:.1em;
                         text-transform:uppercase;color:${MUT};border-bottom:1px solid ${LINE}">Qty</th></tr>
          ${order}</table>` : ''}

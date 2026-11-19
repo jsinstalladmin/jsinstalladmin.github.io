@@ -391,11 +391,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
          cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS,
-         modMinH, unitsThatFit } from './design.js?v=b6f10788';
+         modMinH, unitsThatFit, finishLabel } from './design.js?v=9ba9ca0a';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=b6f10788';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=9ba9ca0a';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=b6f10788';
+         clothMaterials, clearCaches } from './materials.js?v=9ba9ca0a';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -4689,7 +4689,10 @@ function designRef(){
 }
 function paintOrder(){
   $('#order').innerHTML=`<table><thead><tr><th>Item</th><th>Qty</th><th>Sq ft</th><th>Color</th></tr></thead><tbody>`+
-    cur.order.map(o=>`<tr><td>${o.item}</td><td class="num">${o.qty}</td><td class="num">${o.sq_ft||'&ndash;'}</td><td class="fin">${o.finish}</td></tr>`).join('')+
+    cur.order.map(o=>`<tr><td>${o.item}</td><td class="num">${o.qty}</td><td class="num">${o.sq_ft||'&ndash;'}</td><td class="fin">${o.finish}${
+      /* the SKU under the decor name, because the office orders board by SKU
+         and the trade name alone is not enough to put on a purchase order */
+      o.finish_sku ? `<em class="sku">${o.finish_sku}</em>` : ''}</td></tr>`).join('')+
     `</tbody></table>`;
   $('#orderCount').textContent=`${cur.order.length} line items`;
 }
@@ -6276,7 +6279,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=b6f10788');
+  if(!DRAW) DRAW = await import('./drawing.js?v=9ba9ca0a');
   return DRAW;
 }
 
@@ -6731,7 +6734,7 @@ function snapshot(keepCamera){
 
 function quotePackage(){
   return {
-    summary:`${TYPES[S.type].label} · ${S.room.w}"×${S.room.d}"×${S.room.h}" · ${cur.bays.length} tower${cur.bays.length===1?'':'s'} · ${cur.finish.n}`,
+    summary:`${TYPES[S.type].label} · ${S.room.w}"×${S.room.d}"×${S.room.h}" · ${cur.bays.length} tower${cur.bays.length===1?'':'s'} · ${finishLabel(cur.finish)}`,
     price:Math.round(cur.price.price), type:S.type,   // office only, never shown
     typeLabel: S.type==='reach-in'?'Reach-In Closets':S.type==='walk-in'?'Walk-In Closets':S.type==='pantry'?'Pantries':S.type==='garage'?'Garage Storage':'Laundry Rooms',
     room:S.room, mounting:S.mounting,
@@ -6746,7 +6749,11 @@ function quotePackage(){
                         : S.base.handling==='remove' ? 'Baseboard taken off behind the run'
                         : `Run stands ${S.base.t}" in front of the baseboard`,
                 standsOffWall: baseGap() },
-    finish:cur.finish.n, frontFinish:cur.frontFinish.n,
+    /* The decor's trade name AND the manufacturer's SKU. The office orders
+       board by SKU. A placeholder finish says so in the name itself, so a
+       "colour to be specified" cannot be read off a drawing as a decision. */
+    finish:finishLabel(cur.finish), frontFinish:finishLabel(cur.frontFinish),
+    finishSku:cur.finish.sku || '', frontFinishSku:cur.frontFinish.sku || '',
     pull:cur.pull.name, pullFinish:cur.pullFinish.name,
     bays:cur.bays.map(b=>({wall:b.wall,width:+b.w.toFixed(1),topShelf:b.top!==false,
       stack:b.stack.map(s=>({module:MODULES[s.m].label, height:s.h, options:s.o||{}}))})),
@@ -6840,7 +6847,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=b6f10788');
+    const { downloadPdf } = await import('./drawing.js?v=9ba9ca0a');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -6863,7 +6870,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=b6f10788');
+    const { downloadPdf } = await import('./drawing.js?v=9ba9ca0a');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,

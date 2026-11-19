@@ -249,6 +249,9 @@
 .ordertab td{padding:.52em .7em;border-bottom:1px solid var(--line-2);vertical-align:top}
 .ordertab td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ordertab td.fin{color:var(--muted);font-size:.7rem}
+/* the manufacturer's SKU sits under the decor name, quieter than it */
+.ordertab td.fin .sku{display:block;font-style:normal;font-size:.62rem;
+  letter-spacing:.01em;opacity:.72;margin-top:1px;font-variant-numeric:tabular-nums}
 /* ── what the design wants you to know ──
    These used to sit on the price card, above the number, and every one the
    design picked up pushed the card taller — on a busy closet the price was

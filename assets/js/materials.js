@@ -5,7 +5,7 @@
      normal / roughness / AO -> leave default NoColorSpace (vectors + scalars)
    ============================================================ */
 import * as THREE from 'three';
-import { SWATCH_TILE_IN } from './render.js?v=b6f10788';
+import { SWATCH_TILE_IN } from './render.js?v=9ba9ca0a';
 
 let SHEET = null, COLS = 8, ROWS = 7, TILE = 160;
 const sliced = new Map();     // finish name -> CanvasTexture (sliced ONCE, not cloned)
@@ -72,7 +72,11 @@ export function finishMaterial(f, shared, kind='carcass'){
   const key = f.n+'|'+kind;
   if(matCache.has(key)) return matCache.get(key);
   const { lum, hex } = swatchStats(f);
-  const gloss = f.lv >= 5;
+  /* Level 5 is the manufacturer's gloss band, but it holds BOTH finishes of
+     the same decor: Lummia HG115 is High Gloss and PM115 is Polar Matte, the
+     same white in two sheens. Keying gloss off the level alone drew them
+     identically, so the matte one is flagged in the catalogue and says so. */
+  const gloss = f.lv >= 5 && !f.matte;
 
   const m = new THREE.MeshStandardMaterial({
     color: albedoFor(f) ? 0xffffff : new THREE.Color(hex),

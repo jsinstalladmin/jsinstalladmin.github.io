@@ -2303,14 +2303,16 @@
   },
   {
    "n": "Non Stock Color",
-   "x": 0,
-   "y": 6,
+   "x": -1,
+   "y": -1,
    "lv": 2,
    "sq": 2.75,
    "eb": 0.35,
    "lead": "5-8",
    "sku": ".75 Non Stock Color",
-   "fam": "White"
+   "fam": "White",
+   "col": "#C4C0B9",
+   "spec": 1
   },
   {
    "n": "River Rock L538",
@@ -2640,7 +2642,8 @@
    "eb": 0.5,
    "lead": "5-8",
    "sku": ".75 Tafisa Lummia PM115 Carte blanche",
-   "fam": "White"
+   "fam": "White",
+   "matte": 1
   },
   {
    "n": "Black L203",
@@ -2700,7 +2703,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L582K Fashionista 2S",
    "fam": "Brown",
-   "col": "#6B4D34"
+   "col": "#6B4D34",
+   "prov": 1
   },
   {
    "n": "First Class L583 (K)",
@@ -2712,7 +2716,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L583K First Class 2S",
    "fam": "Brown",
-   "col": "#6B4D34"
+   "col": "#4E382A",
+   "prov": 1
   },
   {
    "n": "Fog Gray L201",
@@ -2736,7 +2741,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L830K Force of Nature 2S",
    "fam": "Grey",
-   "col": "#9B9994"
+   "col": "#8E8C85",
+   "prov": 1
   },
   {
    "n": "Free Spirit L580 (K)",
@@ -2748,7 +2754,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L580K Free Spirit 2S",
    "fam": "Beige",
-   "col": "#D6C7AE"
+   "col": "#D6C7AE",
+   "prov": 1
   },
   {
    "n": "Ivory L204",
@@ -2772,7 +2779,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L592 Kiss Curl (K)",
    "fam": "Brown",
-   "col": "#6B4D34"
+   "col": "#7E5B3D",
+   "prov": 1
   },
   {
    "n": "Latitude West L532A",
@@ -2796,7 +2804,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L590 Love at First Sight (K)",
    "fam": "Beige",
-   "col": "#D6C7AE"
+   "col": "#C3B197",
+   "prov": 1
   },
   {
    "n": "Mastermind L593 (K)",
@@ -2808,7 +2817,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L593 Mastermind (K)",
    "fam": "Grey",
-   "col": "#9B9994"
+   "col": "#6D6C68",
+   "prov": 1
   },
   {
    "n": "Moonlight L761",
@@ -2844,7 +2854,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L586 Natural Affinity (K)",
    "fam": "Grey",
-   "col": "#9B9994"
+   "col": "#A6A29A",
+   "prov": 1
   },
   {
    "n": "Rhapsody L585 (k)",
@@ -2856,7 +2867,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L585K Rhapsody 2S",
    "fam": "Brown",
-   "col": "#6B4D34"
+   "col": "#5B4231",
+   "prov": 1
   },
   {
    "n": "Rock Solid L831 (k)",
@@ -2868,7 +2880,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L831K Rock Solid 2S",
    "fam": "Grey",
-   "col": "#9B9994"
+   "col": "#7B7D7B",
+   "prov": 1
   },
   {
    "n": "Salt of the Earth L589 (K)",
@@ -2880,7 +2893,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L589 Salt of the Earth (K)",
    "fam": "Silver",
-   "col": "#BEC1C3"
+   "col": "#BEC1C3",
+   "prov": 1
   },
   {
    "n": "Sheer Beauty L581 (K)",
@@ -2892,7 +2906,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L581K Sheer Beauty 2S",
    "fam": "Beige",
-   "col": "#D6C7AE"
+   "col": "#E4D9C5",
+   "prov": 1
   },
   {
    "n": "Sugar Rush L587 (K)",
@@ -2904,7 +2919,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L587 Sugar Rush (K)",
    "fam": "Brown",
-   "col": "#6B4D34"
+   "col": "#8B6845",
+   "prov": 1
   },
   {
    "n": "The Chameleon L584 (k)",
@@ -2916,7 +2932,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L584K Chameleon 2S",
    "fam": "Silver",
-   "col": "#BEC1C3"
+   "col": "#A7ACB0",
+   "prov": 1
   },
   {
    "n": "Urban Vibe L832 (k)",
@@ -2928,7 +2945,8 @@
    "lead": "2",
    "sku": ".75 Tafisa L832K Urban Vibe 2S",
    "fam": "Silver",
-   "col": "#BEC1C3"
+   "col": "#D0D3D4",
+   "prov": 1
   },
   {
    "n": "White Chocolate L492 (1 week lead time)",
@@ -2964,7 +2982,8 @@
    "lead": "5-8",
    "sku": ".75 Custom Color (Non Stock)",
    "fam": "White",
-   "col": "#D9D4CC"
+   "col": "#D9D4CC",
+   "spec": 1
   },
   {
    "n": "Natural Birch Ply 1_1/2\"",

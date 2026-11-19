@@ -2899,6 +2899,15 @@ export function hardwareFor(parts, hw){
                              sku: hw.skus?.[item]?.sku || '' }));
 }
 
+/* A finish name that cannot be mistaken for a decision already made.
+   "Non Stock Color" and "Custom Color Non-Stock" are not colours, they are
+   placeholders meaning the customer will name one. Rendered flat they look
+   like an off-white, and an off-white on a drawing is something a workshop
+   will happily build. Every place the finish is written out says so. */
+export function finishLabel(f){
+  return f?.spec ? `${f.n} (colour still to be specified)` : (f?.n || '');
+}
+
 function orderList(parts, cat, F, DF, pull, pullFin){
   const group = new Map();
   for(const p of parts){
@@ -2911,11 +2920,17 @@ function orderList(parts, cat, F, DF, pull, pullFin){
       : p.code==='GLASS_LITE' ? `Glass lite ${p.w?.toFixed(1)}" × ${p.h?.toFixed(1)}"`
       : p.code==='GLIDE' ? 'Drawer glides, pair'
       : (def?.n || p.code);
-    const finish = (p.code==='DRAWER'||p.code==='DOOR') ? DF.n
+    /* Which finish this part is actually made from, as an OBJECT, so the
+       row can carry the manufacturer's SKU and not only the decor's trade
+       name. Joseph orders board by SKU; "Fashionista L582 (K)" is enough to
+       recognise and not enough to order. */
+    const fin = (p.code==='DRAWER'||p.code==='DOOR') ? DF
       : (p.code==='PULL'||p.code==='BASKET'||p.code==='HAMPER_BASKET'||p.code==='HAMPER'||
-         p.code==='HANGROD'||p.code==='GLASS_LITE'||p.code==='GLIDE') ? 'n/a' : F.n;
+         p.code==='HANGROD'||p.code==='GLASS_LITE'||p.code==='GLIDE') ? null : F;
+    const finish = fin ? finishLabel(fin) : 'n/a';
+    const finish_sku = fin?.sku || '';
     const key = name+'|'+finish;
-    const g = group.get(key) || { item:name, finish, code:p.code, qty:0, sqft:0, edge_ft:0, notes:new Set() };
+    const g = group.get(key) || { item:name, finish, finish_sku, code:p.code, qty:0, sqft:0, edge_ft:0, notes:new Set() };
     g.qty += p.qty || 1;
     g.sqft += p.sqft || 0;
     g.edge_ft += p.edge || 0;
@@ -2923,7 +2938,7 @@ function orderList(parts, cat, F, DF, pull, pullFin){
     group.set(key,g);
   }
   return [...group.values()].map(g=>({
-    item:g.item, finish:g.finish, qty:Math.round(g.qty),
+    item:g.item, finish:g.finish, finish_sku:g.finish_sku, qty:Math.round(g.qty),
     sq_ft:+g.sqft.toFixed(2), edgeband_ft:+g.edge_ft.toFixed(2),
     /* The table on the page shows the first three, because a cell with nine
        notes in it is unreadable on a phone. The drawing that goes to the
