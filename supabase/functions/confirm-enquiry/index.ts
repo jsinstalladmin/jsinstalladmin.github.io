@@ -19,19 +19,32 @@
    goes near the markup. The worst a stranger calling this endpoint can do is
    cause one closet-enquiry confirmation to be sent to an address they typed.
 
-   TO TURN IT ON
+   THIS IS LIVE. IT IS NOT WAITING TO BE SWITCHED ON.
+   Resend is configured on this project and both emails have been tested.
+   The commands below CHANGE a setting; they are not a setup checklist, and
+   the `if (!KEY)` guard further down is a guard, not a statement about the
+   current state. Reading either one as "mail is off" has already wasted
+   somebody's afternoon. The only thing that says what is set is
+   `supabase secrets list`, which prints names and never values.
+
      supabase secrets set RESEND_API_KEY=re_xxx
-     supabase secrets set OFFICE_TO=jsinstalladmin@gmail.com
-     supabase secrets set MAIL_FROM="JS Closets <hello@yourdomain.com>"
+     supabase secrets set OFFICE_TO=jsinstallationsclosets@gmail.com
+     supabase secrets set MAIL_FROM="JS Closets <hello@jsclosets.com>"
+     supabase secrets set SITE_URL=https://jsclosets.com
      supabase functions deploy confirm-enquiry
-   Without RESEND_API_KEY it answers 200 and does nothing, so the form is
-   never held up by it.
+
+   SITE_URL is the one that goes unnoticed when it is missing, because
+   nothing fails: the letterhead and the links fall back to the old
+   github.io address and the mail merely looks wrong.
+
+   Without RESEND_API_KEY this answers 200 and does nothing, so a missing
+   key can never hold up the form or lose an enquiry.
 
    NOTE ON SENDING TO CUSTOMERS
-   Until a domain is verified in Resend, their shared sender will only
-   deliver to the Resend account's own address. The OFFICE copy therefore
-   works today; the CUSTOMER copy starts working the day the domain is
-   verified. Both are attempted and the result says which went.
+   Until the domain is verified in Resend, their shared sender will only
+   deliver to the Resend account's own address. If the office copy arrives
+   and the customer copy does not, that is this and not a fault. Both are
+   attempted every time and the result says which went.
    ========================================================================= */
 
 const CORS = {
