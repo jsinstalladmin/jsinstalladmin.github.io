@@ -5,7 +5,7 @@
      normal / roughness / AO -> leave default NoColorSpace (vectors + scalars)
    ============================================================ */
 import * as THREE from 'three';
-import { SWATCH_TILE_IN } from './render.js?v=08fc9bad';
+import { SWATCH_TILE_IN } from './render.js?v=b6f10788';
 
 let SHEET = null, COLS = 8, ROWS = 7, TILE = 160;
 const sliced = new Map();     // finish name -> CanvasTexture (sliced ONCE, not cloned)
@@ -36,9 +36,29 @@ function albedoFor(f){
 }
 
 /* average luminance of a swatch -> per-finish sheen character, and a fallback colour */
+/* ══════════════════════════════════════════════════════════════════════
+   NO SPRITE TILE IS NOT NO COLOUR
+
+   Twenty-nine of the seventy-nine finishes have no crop on the sample
+   sheet: White, Black L203, Moonlight, Latitude West, Fog Gray, Brushed
+   Aluminum, Celadon Green, Chocolate Pear and the whole K-series. For
+   every one of them this returned the same hardcoded beige, so picking
+   black drew beige, picking white drew beige, and picking any of them
+   drew the identical beige as the one before it. From the customer's
+   side the colour picker simply stopped working past a certain row.
+
+   Every one of those finishes carries its own hex in the catalogue, in
+   `col`, and has all along. It is used. The sheen comes off its real
+   luminance too, so a black front is no longer lit like a cream one.
+   ══════════════════════════════════════════════════════════════════════ */
 function swatchStats(f){
   const t = albedoFor(f);
-  if(!t) return { lum:0.72, hex:0xC9BBA8 };
+  if(!t){
+    const raw = String(f.col || '').trim().replace(/^#/, '');
+    const hex = /^[0-9a-fA-F]{6}$/.test(raw) ? parseInt(raw, 16) : 0xC9BBA8;
+    const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
+    return { lum:(0.2126*r + 0.7152*g + 0.0722*b) / 255, hex };
+  }
   const c = t.image, g = c.getContext('2d');
   const d = g.getImageData(0,0,c.width,c.height).data;
   let r=0,gr=0,b=0,n=0;

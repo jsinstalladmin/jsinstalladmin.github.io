@@ -6,10 +6,18 @@
    one to touch first. This walks them through it: six short steps, each one
    pointing at the thing it is talking about.
 
-   It runs ONCE. After that the only way back in is the ? in the scene
-   toolbar, because a tour that reappears is an interruption.
+   It runs ONCE PER KIND OF CLOSET. A walk-in, a reach-in, a pantry, a
+   garage and a laundry are five different rooms with five different
+   problems, and somebody who walked through it on a reach-in in March is
+   a first-timer again when they come back to lay out a garage. Each type
+   gets its own first run; after that the only way back in is the ? in
+   the scene toolbar, because a tour that reappears on the same room is
+   an interruption.
    ============================================================ */
-const KEY = 'js_tour_v1';
+const KEY_BASE = 'js_tour_v2';
+/* the builder writes the chosen type onto the body as the gate closes, so
+   this is known by the time the tour is allowed to start */
+const keyFor = () => KEY_BASE + ':' + (document.body.dataset.closet || 'any');
 
 const STEPS = [
   { sel: '.steptabs',
@@ -36,8 +44,12 @@ export function mountTour(){
   const host = document.querySelector('#c3d');
   if(!host) return;
 
-  let seen = false;
-  try { seen = localStorage.getItem(KEY) === '1'; } catch(e){ seen = true; }
+  /* NOT read here any more: at mount time the gate has not been answered,
+     so there is no closet type yet and every visit would read the same
+     key. It is read at the moment the tour would start. */
+  const seenNow = () => {
+    try { return localStorage.getItem(keyFor()) === '1'; } catch(e){ return true; }
+  };
 
   const el = document.createElement('div');
   el.className = 'tour';
@@ -157,7 +169,7 @@ export function mountTour(){
   function close(){
     el.hidden = true;
     el.querySelectorAll('.tourhalo').forEach(x => x.remove());
-    try { localStorage.setItem(KEY, '1'); } catch(e){}
+    try { localStorage.setItem(keyFor(), '1'); } catch(e){}
   }
 
   back.onclick = () => show(i - 1);
@@ -183,8 +195,7 @@ export function mountTour(){
      which closet they wanted, over a panel of five steps they could not
      see. It starts when the gate closes, and straight away when there is
      no gate, which is how anybody arriving on a ?plan= link gets here. */
-  if(seen) return;
-  const begin = () => setTimeout(() => show(0), 900);
+  const begin = () => setTimeout(() => { if(!seenNow()) show(0); }, 900);
   /* The builder says when the gate is out of the way, and says it straight
      away when it never opened one. Checking gate.hidden here would be a
      race: this module runs before the builder has finished deciding. */

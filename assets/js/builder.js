@@ -391,11 +391,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
          cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS,
-         modMinH, unitsThatFit } from './design.js?v=08fc9bad';
+         modMinH, unitsThatFit } from './design.js?v=b6f10788';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=08fc9bad';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=b6f10788';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=08fc9bad';
+         clothMaterials, clearCaches } from './materials.js?v=b6f10788';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -6203,6 +6203,12 @@ function openGate(){
 
   const shut = () => {
     gate.hidden = true;
+    /* WHICH KIND OF CLOSET THEY CHOSE, ON THE BODY.
+       The walkthrough runs once per kind of room rather than once per
+       browser, because somebody who saw it on a reach-in in March is a
+       first-timer again when they come back to lay out a garage. It
+       reads this. */
+    document.body.dataset.closet = picked || S.type || 'any';
     /* the tour waits behind the gate: it used to pop over step one and
        talk about five steps nobody could see yet */
     window.dispatchEvent(new Event('js:gate-closed'));
@@ -6270,7 +6276,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=08fc9bad');
+  if(!DRAW) DRAW = await import('./drawing.js?v=b6f10788');
   return DRAW;
 }
 
@@ -6834,7 +6840,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=08fc9bad');
+    const { downloadPdf } = await import('./drawing.js?v=b6f10788');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -6857,7 +6863,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=08fc9bad');
+    const { downloadPdf } = await import('./drawing.js?v=b6f10788');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -6918,7 +6924,8 @@ rebuild(true); resize();
 if(!qPre && !qPlan && !Object.values(S.runs).some(r => r?.bays?.length)) openGate();
 /* and when there is no gate, say so, so the tour does not sit waiting for
    a door that is never going to open */
-else window.dispatchEvent(new Event('js:gate-closed'));
+else { document.body.dataset.closet = S.type || 'any';
+       window.dispatchEvent(new Event('js:gate-closed')); }
 
 const sheet = new Image();
 sheet.crossOrigin = 'anonymous';

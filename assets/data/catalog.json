@@ -4,7 +4,7 @@
   "tile": 160,
   "cols": 8,
   "rows": 7,
-  "note": "costs are supplier cost; client price = cost x markup. Box/glide/basket add-ons come from the manufacturer sheets and are applied as max(price + add, min) * (1 + pct), the same shape as the parts formula."
+  "note": "costs are supplier cost; client price = cost x markup. Box/glide/basket add-ons come from the manufacturer sheets and are applied as max(price + add, min) * (1 + pct), the same shape as the parts formula. The 5\" box rows are priced at the 7½\" of the same width and depth until the supplier's own 5\" price arrives; they carry prov:1 so they can be found and corrected in one pass."
  },
  "parts": {
   "VP_FLOOR": {
@@ -385,6 +385,238 @@
   }
  },
  "boxes": [
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 16,
+   "p": 35.5,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 20,
+   "p": 38.75,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 30,
+   "p": 55,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 16,
+   "p": 41,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 20,
+   "p": 44.25,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 24,
+   "p": 47.5,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 16,
+   "p": 46.5,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 20,
+   "p": 49.75,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 24,
+   "p": 53,
+   "c": "5/8\" HRM Mel Side Mount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 18.75,
+   "d": 16,
+   "p": 30,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 16,
+   "p": 35.5,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 20,
+   "p": 38.75,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 24,
+   "p": 42,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 16,
+   "p": 41,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 20,
+   "p": 44.25,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 24,
+   "p": 47.5,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 16,
+   "p": 46.5,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 20,
+   "p": 49.75,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 24,
+   "p": 53,
+   "c": "5/8\" HRM Mel UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 18.75,
+   "d": 16,
+   "p": 43,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 16,
+   "p": 50,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 20,
+   "p": 55,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 24.75,
+   "d": 24,
+   "p": 60,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 16,
+   "p": 58,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 20,
+   "p": 62,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 30.75,
+   "d": 24,
+   "p": 67,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 16,
+   "p": 65,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 20,
+   "p": 70,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
+  {
+   "h": 5,
+   "w": 36.75,
+   "d": 24,
+   "p": 74,
+   "c": "5/8\" Solid Birch Dovetail UnderMount",
+   "prov": 1
+  },
   {
    "h": 7.5,
    "w": 24.75,

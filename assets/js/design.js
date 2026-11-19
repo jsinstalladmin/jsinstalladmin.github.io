@@ -261,7 +261,7 @@ const BASKET_FINISH = { nickel:'Satin Nickel', black:'Matte Black', brass:'Chrom
    installation day. */
 export const DRAWER_BOX = {
   w: [18.75, 24.75, 30.75, 36, 36.75],
-  h: [7.5, 8.75, 10, 15, 18.75, 25],
+  h: [5, 7.5, 8.75, 10, 15, 18.75, 25],
   d: [16, 20, 24, 30, 31]
 };
 /* The front overlays the box and covers the gap over the glide, so a front is
@@ -280,23 +280,21 @@ export const DRAWER_REVEAL = 1.0;
    box still draws, still prices and still orders correctly. It just is not
    put in front of anyone new.
 
-   A 5" box belongs at the small end of this -- a socks and jewellery drawer
-   is the one closet drawer size missing. It is NOT here because the supplier
-   list in assets/data/catalog.json has no box under 7½", and inventing a
-   price for one would put a SKU on an order sheet that the supplier cannot
-   fill. The moment that price is known, a 5 goes in the array below and a 5
-   goes into DRAWER_BOX.h, and nothing else has to change. */
+   The 5" box is in, at the small end: a socks, ties and jewellery drawer,
+   which is the one closet size that was missing. Joseph asked for it. Its
+   rows in assets/data/catalog.json are the 7½" of the same width and depth
+   carried across and flagged prov:1, because the supplier sheet we were
+   given has nothing under 7½". That never under-states a drawer, and the
+   moment the real 5" price arrives it is one pass over the flagged rows. */
 /* 10" IS THE TALLEST DRAWER HE SELLS.
    The supplier stocks 7½, 8¾, 10, 15, 18¾ and 25, but a closet bank is
    built from the small three: a 15" box is a dresser drawer and a 25" is
    most of a bank in one. Joseph asked for everything over 10 taken off.
 
-   A 5" belongs at the bottom of this list -- socks and jewellery -- and is
-   not here because his supplier list has nothing under 7½" and a price
-   for it would be invented. Add the 5 here and in DRAWER_BOX.h the moment
-   that SKU and its price arrive, and nothing else has to change. */
+   The 5" is at the bottom of it: socks, ties and jewellery trays. Four box
+   heights offered, 5 through 10. */
 export const DRAWER_MAX = 10;
-export const DRAWER_OFFERED = [7.5, 8.75, 10];
+export const DRAWER_OFFERED = [5, 7.5, 8.75, 10];
 
 export const DRAWER_SIZES = DRAWER_BOX.h.map(h => ({
   h,                                   // the box, as he stocks it
@@ -853,7 +851,9 @@ export const MODULES = {
     label:'Drawers', hint:'Soft-close undermount glides. Three box sizes.',
     spec:'Boxes 7½\"–10\" tall · bank 10\"–48\"',
     icon:'M2 3h20v6H2zM2 12h20v6H2zM2 21h20v6H2z',
-    defH:34, minH:8.5, maxH:48,
+    /* a single 5" box is a 6" bank, so an 8.5" floor refused the smallest
+       drawer he sells everywhere it would actually have fitted */
+    defH:34, minH:6, maxH:48,
     /* `sizes` is the bank, bottom to top, in real box heights. It used to be a
        count: four drawers in a 34" bank gave 8.5" fronts and a box that
        happened to fit, but five in the same bank gave 6.8" fronts and the
@@ -1731,8 +1731,18 @@ export const TOWER_PRESETS = [
     stack:[m('SHELVES',null,{n:6})] },
   { id:'shelves-8',    label:'8 shelves',        group:'Shelving',
     stack:[m('SHELVES',null,{n:8})] },
-  { id:'cubbies',      label:'Cubbies',          group:'Shelving',
-    stack:[m('CUBBIES',null,{n:4})] },
+  /* ══════════════════════════════════════════════════════════════
+     CUBBIES AT THE BOTTOM, SHELVES OVER THEM
+
+     This was one band of cubbies filling the whole tower floor to top
+     shelf. That is not a closet tower, it is a wall of pigeonholes, and
+     because the single band took every inch there was nothing above it:
+     no shelf, and no room to add anything, so the library refused every
+     piece with "0 inches free". Cubbies are a bottom piece with
+     something over them. Three shelves over them here, and both are
+     still free to be changed, moved or taken out afterwards. */
+  { id:'cubbies',      label:'Cubbies, shelves', group:'Shelving',
+    stack:[m('CUBBIES',34,{n:3}), m('SHELVES',null,{n:3})] },
 
   { id:'drawers-4',    label:'4 drawers, hang',  group:'Drawers',
     stack:[d(7.5,7.5,7.5,7.5), m('HANG')] },
