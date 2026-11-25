@@ -1,5 +1,5 @@
-import { regionFor } from './enquiry.js?v=9ba9ca0a';
-import { SUPA_REST, SUPA_KEY } from './supa-config.js?v=9ba9ca0a';
+import { regionFor } from './enquiry.js?v=05ab9cf0';
+import { SUPA_REST, SUPA_KEY } from './supa-config.js?v=05ab9cf0';
 
 const f    = document.getElementById('leadform');
 const msg  = document.getElementById('formmsg');
@@ -199,6 +199,7 @@ f?.addEventListener('submit', async ev => {
   if(okFiled || mail?.office?.ok){
     msg.textContent = '';
     try{ localStorage.removeItem('js_quote'); }catch(e){}
+    countWithGoogleAds();
     showSent(pkg);
     f.reset();
   } else {
@@ -227,4 +228,16 @@ async function sendMail(pkg){
     });
     return r.ok ? await r.json().catch(()=>({})) : null;
   }catch(e){ return null; }
+}
+
+/* -- Google Ads: count a lead only when one was actually received ------
+   The tag itself sits in the <head> of every public page. This fires the
+   conversion at the one moment that matters, after the enquiry was filed
+   or Joseph's copy was sent, so a click on a button that then failed is
+   never counted. If an ad blocker stops the tag, nothing here breaks. */
+function countWithGoogleAds(){
+  try{
+    if(typeof window.gtag === 'function')
+      window.gtag('event', 'conversion', { send_to: 'AW-18591816378/mLJ1CICghr4dELq1oqFF' });
+  }catch(e){}
 }

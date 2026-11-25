@@ -391,11 +391,11 @@ import { SPEC, MODULES, MODULE_IDS, PULLS, PULL_FINISHES,
          DRAWER_SIZES, defaultDrawerSizes, drawerBankHeight,
          baseHeight, canOffer, DOOR_INSIDE, DOOR_INSIDE_DEF, resolvePull, hardwareFor,
          cabTopRange, clampCabTop, TOWER_PRESETS, TOWER_GROUPS,
-         modMinH, unitsThatFit, finishLabel } from './design.js?v=9ba9ca0a';
+         modMinH, unitsThatFit, finishLabel } from './design.js?v=05ab9cf0';
 import { makeRenderer, setupLighting, fitShadowCamera, loadSharedMaps,
-         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=9ba9ca0a';
+         panelGeo, garmentGeo, makeComposer, pixelRatioFor } from './render.js?v=05ab9cf0';
 import { initSheet, finishMaterial, scaledMaterial, hardwareMaterial,
-         clothMaterials, clearCaches } from './materials.js?v=9ba9ca0a';
+         clothMaterials, clearCaches } from './materials.js?v=05ab9cf0';
 
 /* The catalogue fetch is kicked off by an inline script in the page <head>,
    long before this module graph has finished downloading, so by the time we
@@ -6279,7 +6279,7 @@ let FLATWALL = null;      // which wall the elevation is showing
 let DRAW = null;          // the drawing module, fetched the first time it is wanted
 
 async function flatModule(){
-  if(!DRAW) DRAW = await import('./drawing.js?v=9ba9ca0a');
+  if(!DRAW) DRAW = await import('./drawing.js?v=05ab9cf0');
   return DRAW;
 }
 
@@ -6847,7 +6847,7 @@ $('#sendGo')?.addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Drawing it up…';
   const q = quotePackage();
   try{
-    const { downloadPdf } = await import('./drawing.js?v=9ba9ca0a');
+    const { downloadPdf } = await import('./drawing.js?v=05ab9cf0');
     const shot = snapshot();
     await downloadPdf(cur, {
       ref: `${designRef()} · ${new Date().toLocaleDateString()}`,
@@ -6870,7 +6870,7 @@ $('#dlDrawing')?.addEventListener('click', async ()=>{
   const b = $('#dlDrawing'), was = b.textContent;
   b.disabled = true; b.textContent = 'Drawing it up…';
   try{
-    const { downloadPdf } = await import('./drawing.js?v=9ba9ca0a');
+    const { downloadPdf } = await import('./drawing.js?v=05ab9cf0');
     const q = quotePackage();
     const shot = snapshot();
     await downloadPdf(cur, { ref:`${designRef()} · ${new Date().toLocaleDateString()}`,
